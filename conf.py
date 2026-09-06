@@ -1,5 +1,7 @@
 """Sphinx configuration for the RAPID public documentation site."""
 
+import os
+
 project = "RAPID"
 author = "RAPID team"
 copyright = "2026, California Institute of Technology"
@@ -28,9 +30,8 @@ myst_heading_anchors = 3
 
 # ABlog. blog_path points at a generated subpath so ABlog's own archive
 # index does not collide with the hand-written log/index.md that
-# introduces the section. Atom feeds (one per category) are emitted only
-# once blog_baseurl is set; it stays empty until the site's public origin
-# is decided.
+# introduces the section. Atom feeds (one per category) are emitted under
+# blog_baseurl, the site origin set below.
 # A post declares itself with front matter (blogpost, date, author,
 # category). There is no default author: every post names its own.
 blog_path = "log/archive"
@@ -39,7 +40,13 @@ blog_feed_archives = True
 blog_feed_fulltext = True
 blog_authors = {"lead": ("Ben Rusholme", None)}
 post_auto_image = 0
-blog_baseurl = ""
+# The site origin. Read the Docs exports the canonical URL of the version
+# being built (so previews and versions get their own); the production URL
+# is the fallback for local builds.
+blog_baseurl = os.environ.get(
+    "READTHEDOCS_CANONICAL_URL", "https://roman-rapid.readthedocs.io/en/latest/"
+)
+html_baseurl = blog_baseurl
 
 # pydata-sphinx-theme. Navbar links come from the Home toctree; no navbar_*
 # overrides needed.
@@ -66,11 +73,9 @@ html_sidebars = {
     ],
 }
 
-# sphinx-llms-txt: llms.txt and llms-full.txt at the site root. Links are
-# site-relative so they hold under any hosting prefix (Read the Docs
-# serves under /<lang>/<version>/). Once html_baseurl is set, prepend
-# {base_url} to the template for absolute links.
-llms_txt_uri_template = "_sources/{docname}{suffix}{sourcelink_suffix}"
+# sphinx-llms-txt: llms.txt and llms-full.txt at the site root, with
+# absolute links under the site origin (html_baseurl).
+llms_txt_uri_template = "{base_url}_sources/{docname}{suffix}{sourcelink_suffix}"
 
 # linkcheck
 linkcheck_timeout = 30
