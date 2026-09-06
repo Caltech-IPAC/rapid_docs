@@ -22,6 +22,13 @@ scripts/check-public-safety.sh
 scripts/acceptance.sh _build/html
 ```
 
+## Hosting
+
+Read the Docs project `roman-rapid`: https://roman-rapid.readthedocs.io/.
+Every push to `main` builds `latest` through the repository's webhook;
+pull requests get preview builds. The project is owned by a RAPID role
+account, with individual maintainers added on top.
+
 ## Maintaining
 
 - Sections hold pages only when they have content; no placeholders.
