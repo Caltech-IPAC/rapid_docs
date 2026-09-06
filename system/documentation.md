@@ -139,7 +139,8 @@ obligations are met, and the project's own posture is stated on it:
 
 Markdown sources through the Sphinx documentation generator with the
 MyST parser and the ABlog extension, built and hosted on Read the Docs
-under a project of its own, pull-request previews enabled. Versions are
+under a project of its own (`roman-rapid.readthedocs.io`), owned by a
+project role account, pull-request previews enabled. Versions are
 pinned exactly, transitive dependencies included, and reviewed at each
 upgrade. The site build fails on warnings; the pull-request check also
 fails on a broken link and on a public-safety violation; a page that
@@ -160,6 +161,3 @@ preserved in the System section.
 - **Prose license.** The policy requires none for documentation text;
   whether the site declares one is undecided. Until it is, the site
   repository's license covers its configuration and scripts only.
-- **Site origin.** The Read the Docs project name and the public
-  hostname. Feeds carry absolute URLs, so they are enabled once the
-  origin is fixed.
