@@ -14,6 +14,9 @@ built for other purposes. Its mandate is to support time-domain
 science, not produce official science results. Its outputs are public,
 for the entire time-domain astronomy community.
 
+RAPID project infrastructure team acknowledges NASA support under award
+80NSSC24M0020 (program NNH22ZDA001N-ROMAN).
+
 This site is the public reference for RAPID. Reference pages are
 updated in place: the System section states the design target the
 pipeline is built to, and the Products section, when it exists, states

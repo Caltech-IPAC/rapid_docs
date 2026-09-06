@@ -151,9 +151,6 @@ preserved in the System section.
 
 - **Alert registration route.** The Products alert page names the
   registration route once the live-alert interface defines it.
-- **Funding acknowledgement.** Two award numbers appear in the
-  project's published record; the Home and Project pages carry the set
-  the project confirms.
 - **Pipeline documentation tree.** Which of its pages are re-derived
   into Science and Products, and which are not carried, is decided
   page by page at the re-derivation; the tree's removal from the

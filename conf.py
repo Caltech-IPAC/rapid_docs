@@ -51,7 +51,14 @@ html_baseurl = blog_baseurl
 # pydata-sphinx-theme. Navbar links come from the Home toctree; no navbar_*
 # overrides needed.
 html_theme = "pydata_sphinx_theme"
+# Logo and favicon are the PNG renderings from the project's logo spec; the
+# vector sources stay out of this public repository (the mark is a licensed
+# stock asset).
+html_static_path = ["_static"]
+html_logo = "_static/RAPID_logo_1x.png"
+html_favicon = "_static/RAPID_icon_tile_256.png"
 html_theme_options = {
+    "logo": {"text": ""},
     "secondary_sidebar_items": ["page-toc", "sourcelink"],
     "footer_start": ["copyright"],
     "footer_end": [],
