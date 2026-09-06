@@ -127,7 +127,9 @@ obligations are met, and the project's own posture is stated on it:
 - The Products section is the description of the data, user guide, and
   calibration description, at the required comprehension bar.
 - The Project section states the licenses (permissive for software; the
-  public-domain dedication for data unless a restriction applies), the
+  public-domain dedication for data unless a restriction applies; CC BY
+  4.0 for the site's text, which the policy does not require but which
+  keeps attribution while allowing reuse), the
   persistent identifiers and citation guidance, and the release
   commitments; the code of conduct and contribution guidelines live in
   the pipeline repository as the policy requires, and the site points
@@ -155,6 +157,3 @@ preserved in the System section.
   into Science and Products, and which are not carried, is decided
   page by page at the re-derivation; the tree's removal from the
   pipeline repository is sequenced by the repositories design.
-- **Prose license.** The policy requires none for documentation text;
-  whether the site declares one is undecided. Until it is, the site
-  repository's license covers its configuration and scripts only.

@@ -41,8 +41,15 @@ account, with individual maintainers added on top.
   `requirements.txt` with `uv pip compile requirements.in -o
   requirements.txt --python-version 3.12 --generate-hashes`.
 
+## Contributing
+
+Pull requests are welcome; the checks above must pass. The pipeline
+repository's [CONTRIBUTING](https://github.com/Caltech-IPAC/rapid/blob/main/CONTRIBUTING.md)
+and [CODE_OF_CONDUCT](https://github.com/Caltech-IPAC/rapid/blob/main/CODE_OF_CONDUCT.md)
+apply here too.
+
 ## License
 
 The configuration, scripts, and templates in this repository are licensed
-under the BSD 3-Clause License (see `LICENSE`). The license for the
-documentation text itself has not yet been decided.
+under the BSD 3-Clause License (see `LICENSE`). The documentation text is
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
