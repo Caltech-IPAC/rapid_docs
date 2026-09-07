@@ -89,6 +89,17 @@ structure is derived from the classification:
    and guessable, so the public byte path serves catalog-issued
    signed requests only: promotion state is checked at issuance, and
    a never-promoted object is unreachable even by a guessed key.
+8. **Garbage collection deletes only allowlisted data classes, and
+   never the real substrate.** No data class is deletable by default;
+   a class becomes eligible only by explicit addition to the deletion
+   allowlist that garbage collection consults at every consumption
+   point. Independently of that list, every class on the real
+   substrate is refused — a mechanical check on the substrate axis,
+   not a reviewer's judgment, and not overridable by an operator
+   naming the class. Retention rules on other artifact classes
+   (diagnostics, staged inputs, build artifacts) are the per-class
+   lifecycle rules above,
+   not this allowlist.
 
 ## Naming
 

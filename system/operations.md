@@ -175,6 +175,25 @@ for acceptance**. Objects upload first and one short transaction
 arbitrates the winner — no transaction spans computation, upload,
 submission or publication.
 
+A database-effect work unit is settled by effect acceptance, not by
+job success: the disposition an effect stage records is one of a fixed
+outcome vocabulary — won (this attempt's effect is the one of record),
+terminally satisfied (the desired state already held before this
+attempt ran), or held by a live owner (another in-flight attempt holds
+the effect; this one yields) — carried as a stage-produced context
+fact rather than inferred from Batch exit status. A shared fail-closed
+guard evaluates this vocabulary centrally so an individual effect stage
+cannot forget to check it. Where an effect stage's readiness depends on
+a durable record existing versus that record's promotion being visible
+to consumers, the two are tracked as separate watermarks — one for
+record consumption, one for product acceptance — so a consumer never
+mistakes "the record exists" for "the record is authoritative."
+
+Timeout enforcement is centralized rather than left to individual call
+sites: a module-level default deadline applies to any operation whose
+caller does not supply one, with Batch's own attempt-duration ceiling
+acting as the outer hang-catcher beneath it.
+
 | Property | Rule |
 |-----|-------------------------------------------------------|
 | Transitions | Idempotent; the database keeps an append-only event history plus a queryable current-state summary per tracked unit |
@@ -213,21 +232,29 @@ case: reconciliation searches Batch for the sealed submission before
 any resubmission, and the attempt fence makes a duplicate physical
 execution harmless.
 
-Service health is progress on actionable work. The actionable set at
-a poll is the attempts past their applicable horizon — the grace
-horizon after terminal observation, the submission horizon for
-never-resolved children — which reconciliation should therefore
-classify. The reconciler is unhealthy after five consecutive polls in
-which the actionable set was non-empty and nothing was classified; a
-poll whose actionable set is empty is healthy silence, whatever
-volume is merely resting inside its horizons. This is a
-service-health check consumed by the supervisor — the response is
-exit and supervised restart — not an alarm; an alarm contract on
-restart frequency requires operating evidence of need. A health check
-must be quiet under nominal operation — its trigger rate is part of
-its correctness. The operative constants (horizons, poll interval,
-consecutive-poll threshold) are operational configuration, enumerated
-with the implementation. **[ADOPTED]**
+Service health is progress on actionable work, tracked per work
+stream — a task kind under an operational policy, such as one job
+type's gathering and handling. The actionable set at a poll is the
+attempts past their applicable horizon — the grace horizon after
+terminal observation, the submission horizon for never-resolved
+children — which reconciliation should therefore classify, evaluated
+independently for each stream. A stream is unhealthy after five
+consecutive polls in which its actionable set was non-empty and
+nothing was classified; a poll whose actionable set is empty is
+healthy silence, whatever volume is merely resting inside its
+horizons. A single persistently failing stream never prevents polling
+or progress of otherwise-independent ready work streams — graph
+dependencies still block their own downstream work correctly. Restart
+is reserved for shared faults: exit and supervised restart is the
+response only when the failure is process-level, not confined to one
+stream's actionable set; an unhealthy stream surfaces as an
+operator-visible problem through the problems path. This is a
+service-health check consumed by the supervisor, not an alarm; an alarm contract on restart frequency
+requires operating evidence of need. A health check must be quiet
+under nominal operation — its trigger rate is part of its correctness.
+The operative constants (horizons, poll interval, consecutive-poll
+threshold) are operational configuration, enumerated with the
+implementation. **[ADOPTED]**
 
 The log-group identity of an attempt is derived from its recorded
 execution binding: the job definition binds to exactly one queue and
@@ -567,6 +594,12 @@ as the acting agent in the audit trail — delegated authorization and
 audit attribution are distinct properties and both are required.
 **[ADOPTED]**
 
+A dispatched agent operates under its own enumerated tier, distinct
+from both the human operator tier and any service identity — granted
+the same broadly-available read surface and the operate tier's
+audited mutation functions one by one, never break-glass. Per-run
+credentials are time-boxed to the run.
+
 Operators work through a unified internal, authenticated query and
 dashboard surface over the authoritative workflow and problems database,
 with drill-through to logs, AWS Batch jobs, and produced artifacts —
@@ -598,9 +631,9 @@ redesigns the geometry.
 ## Operator surface
 
 `rapidctl` is the operator interface, executing over a dedicated
-constrained database role. Operators connect **directly** under that
-role: there is no administrative adapter service and no custom
-operations web application. Dropping the adapter tier removes a
+constrained database role. Operators connect through the pooler under
+that role with nothing in between: there is no administrative adapter
+service and no custom operations web application. Dropping the adapter tier removes a
 network hop, not any part of the mutation contract below. Its adoption
 trigger, should it return, is operators without a direct database
 network path, or team growth.
@@ -691,9 +724,10 @@ every team member holds every class; narrowing is evidence-triggered
 and is a grant-map change, never an API change. Service callers are
 enumerated, not tiered: an automated caller holds exactly the
 classes its versioned policy document authorizes, and the policy
-citation is part of the authorization. Agents inherit their
-dispatcher's grants; audit records dispatcher as authorization and
-agent as actor, both required. Guidance is by friction and
+citation is part of the authorization. Agents act under their
+dispatcher's authorization but hold their own enumerated tier's
+grants (above), not the dispatcher's; audit records dispatcher as
+authorization and agent as actor, both required. Guidance is by friction and
 visibility, not denial: dry-run first, a mandatory unvalidated
 reason on every mutation, immediate attribution on the dashboard,
 and advisory scale warnings that never refuse. **[ADOPTED]**
@@ -850,8 +884,6 @@ Deliberately unresolved, retained from the design source:
 - The log-retention model (workflow schema, state machines, and
   definition versioning now carry a draft iteration base above;
   reconciliation rules are adopted).
-- Whether autonomous operations agents warrant a dedicated
-  service-identity-class account.
 - Problems-taxonomy content beyond the seed vocabulary and grouping
   rule v1 — grown from operating evidence per the adopted scaffold;
   audit-retention implementation.

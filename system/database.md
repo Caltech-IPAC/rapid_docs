@@ -46,9 +46,9 @@ guarantee.
 | Controller | Pooler, transaction-pooled | Machine credential from the secrets store under its IAM role; SCRAM |
 | Association jobs | Pooler, session-pooled lane under an explicit connection budget | Machine credential, as above |
 | Publisher | Pooler, transaction-pooled; scoped to outbox and delivery state | Machine credential, as above |
-| Bulk loads and long analytic jobs | Session-pooled or direct, with an explicit connection budget | Machine credential, as above |
+| Bulk loads and long analytic jobs | Session-pooled, with an explicit connection budget | Machine credential, as above |
 | Operators (`rapidctl`) | Pooler; execute-only on the constrained procedures, no table writes | Personal login per operator; SCRAM |
-| People (interactive SQL) | Direct, over the private-network access path | Personal login per user; SCRAM; no shared human accounts |
+| People (interactive SQL) | Pooler, in session mode with a small per-user connection cap and an idle-transaction timeout, so an interactive session keeps full session semantics but cannot starve the pipeline pools | Personal login per user; SCRAM; no shared human accounts |
 | Schema migrations and administration | Direct; the only path allowed DDL | Admin credential under the credential-custody rules |
 
 Clients connect through **one stable endpoint** — a DNS alias, never
@@ -59,8 +59,9 @@ Rules:
 
 - **SCRAM only.** No md5, no trust, no password authentication over
   cleartext. The host-based access configuration admits only the
-  pooler, the private network's service hosts, and administrative
-  access — never a personal machine or public address.
+  pooler and on-host administration — the pooler is the one network
+  door; never a service host directly, a personal machine or a
+  public address.
 - **No IAM database authentication.** That is a managed-database
   feature; self-managed PostgreSQL authenticates with SCRAM. IAM
   governs who may read the credential, not the handshake itself.
@@ -114,8 +115,8 @@ session-scoped state through the pooled path (no `SET`-based session
 configuration, session advisory locks, `LISTEN`, WITH HOLD cursors, or
 cross-transaction temporary tables). Driver-level prepared statements
 are supported through the pooler's prepared-statement tracking and are
-permitted. Code that needs session semantics uses the session-pooled or
-direct path, with a stated reason.
+permitted. Code that needs session semantics uses the session-pooled
+path, with a stated reason.
 
 The database host is an r8a.4xlarge — 16 vCPU, 128 GiB,
 memory-optimized, non-burstable, x86-64-v3 — an empirical choice
@@ -143,8 +144,8 @@ rehearsal workload measures it.
 
 Bulk work is the deliberate exception: catalog loads and multi-hour
 crossmatching hold transactions far too long for a transaction pool and
-would pin its connections. They run on their own session-pooled or
-direct path with an explicit budget counted inside `max_connections`;
+would pin its connections. They run on their own session-pooled
+path with an explicit budget counted inside `max_connections`;
 their concurrency with prompt processing is a scheduling matter for the
 workload classes defined in the operations document.
 
@@ -212,6 +213,27 @@ The schema changes only through versioned migrations:
   retired and deleted; the migration stream is the sole DDL authority,
   its 006/007 baseline the audited re-derivation of that DDL.
 
+Writer legality is enforced in the schema, not assumed from caller
+discipline. A trigger binds every writer path, including
+`SECURITY DEFINER` routines, to the declared transition rules;
+constrained functions cover each application UPDATE path; the
+underlying table grant is revoked only after every writer goes through
+the constrained surface. What the trigger cannot enforce is which
+named logical writer performed a transition when one database role
+legitimately plays more than one — that stays a caller-supplied,
+code-disciplined fact. The trigger enforces what is provable from the
+data alone: whether a transition is legal, and whether completion
+binds deterministically to its cause.
+
+A migration that adds an enforcement clause is a claim about what the
+currently running system does, not only about what it should do, and
+that claim is checked before the clause ships: trace the running code
+path the clause would reject and confirm it cannot occur legitimately.
+An enforcement clause with an unverified claim ships gated behind a
+runtime toggle, default off, rather than either landing unconditionally
+or being dropped — the toggle's flip to enforcing is a separate,
+deliberate decision.
+
 ## Integrity and durability
 
 Uniqueness is declared, not swept. Key uniqueness in the source and
@@ -271,9 +293,10 @@ source, and acceptance and publication pause. Nothing diverges,
 because none of those paths can commit an effect without the database
 arbitrating it.
 
-Durability is continuous: scheduled base backups plus continuous WAL
-archiving to a versioned backup bucket, so committed-data loss
-exposure is the archive lag — minutes rather than hours. One
+Durability is continuous: pgBackRest takes scheduled base backups
+plus continuous WAL archiving to a versioned backup bucket, so
+committed-data loss exposure is the archive lag — minutes rather than
+hours. One
 interaction is recorded rather than assumed: a WAL availability valve
 that drops WAL past a queue cap to protect volume space would widen
 that exposure beyond the archive lag during a sustained archiver
@@ -319,9 +342,9 @@ diagnostics, clean start/stop/restart.
 - Measured pool sizes: the arithmetic above gives starting values; the
   full-scale rehearsal supplies the duty cycle and peak concurrency
   that confirm or replace them.
-- The bulk-path budget: how many direct/session connections bulk loads
+- The bulk-path budget: how many session-pooled connections bulk loads
   and crossmatching may hold, and whether they get their own pool.
 - The trigger for physically splitting pipeline and user serving, and
   which form (replica, serving copy, file-based export) the split takes.
-- Whether operator dashboards read through the pooler or directly;
-  affects the pool budget and the access-path table.
+- The operator dashboards' pool budget, once the dashboard fork in
+  the operations design settles.

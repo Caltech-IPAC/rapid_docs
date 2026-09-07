@@ -50,7 +50,7 @@ a college degree; the system pages assume a scientific programmer.
 | Documentation site and its repository | Every public statement about RAPID: reference pages (current-state) and posts (dated) | Public | The reference. Anything public and durable lives here or cites here |
 | Pipeline repository | Code, docstrings, a README that points to the site, the contribution files the software policy requires | Public | No documentation tree. Its issues are the pipeline discussion |
 | Infrastructure repository | Everything operational and private, with one operational tracker | Team | Never restates a design; cites the site's page. Its issues are the infrastructure discussion |
-| Design authority repository | Planning and research the team does not depend on | Lead | Holds nothing the team needs and nothing operational |
+| Planning repository | Planning and research the team does not depend on | Lead | Holds nothing the team needs and nothing operational |
 | Institutional project page | One paragraph and a link to the site | Public | Maintained by the institute; not a RAPID venue |
 | Team wiki | Roster with addresses, list memberships, onboarding, meeting notes | Team | Institutional records about people; never design or operations |
 | Announcement list and chat | Announcements and conversation | Public list, team chat | Ephemeral; anything durable is posted to the site and linked |

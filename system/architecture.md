@@ -85,6 +85,27 @@ Functions or second workflow authority, no per-stage service or
 function, no general workflow engine, no mutable latest-result row,
 and no hidden Batch retry lifecycle.
 
+## Deferred capabilities
+
+Each capability below is out of scope at the current deployment
+scale, not out of scope of the architecture: the baseline design
+names what keeps it reachable, and the trigger names the condition
+that would bring it in. A row whose prerequisite is another row is
+built after it.
+
+| Capability | Kept reachable by | Adoption trigger |
+|---|---|---|
+| Hot standby, then operator-gated failover | Continuous WAL archiving, a stable client endpoint, an immutable database AMI | A stated availability requirement with an RTO shorter than restore time |
+| Automatic failover | Builds on hot standby | Fencing and partition exercises proving no split brain |
+| Active-active controller and publisher | Row claims, leases and advisory locks are already concurrency-safe | A throughput or zero-gap-deployment requirement |
+| Administrative adapter service in front of `rapidctl` | The CLI already speaks only constrained procedures | Operators without a direct database network path, or team growth |
+| Association lanes | The full ordering mechanism (canonical order, persistent watermark) runs from day one | Measured association throughput exceeding one lane per set |
+| EventBridge/SQS acceleration | Reconciliation-first design already provides convergence; events would only change latency | A prompt-latency requirement the reconciliation interval cannot meet |
+| Regional DR with RTO/RPO targets | Bucket versioning and backup replication are extendable to a second region | A mission requirement naming regional loss |
+| S3 Object Lock on backups and releases | Immutability is already enforced by policy | A compliance or tamper-resistance requirement |
+| A read tier or analytic replicas | WAL archiving supports a replica without schema change | Analytic load measurably degrading the primary |
+| A tracing platform | Correlation identifiers already propagate end to end | Demonstrated diagnostic need |
+
 ## System shape
 
 | Component | Authoritative for | Owning document |
@@ -339,8 +360,8 @@ correctness, not scale.
 `rapidctl` is the interface, executing over a dedicated constrained
 database role that holds only procedure execution — no table-level
 write grants. There is no administrative adapter service and no custom
-web application: the known operators connect directly under the
-constrained role. Dropping the adapter tier removes a network hop, not
+web application: the known operators connect through the pooler
+under the constrained role, with nothing in between. Dropping the adapter tier removes a network hop, not
 any part of the mutation contract, which applies in full — every
 mutation requires actor, reason, idempotency key, expected current
 state, dry-run output and explicit confirmation, and the append-only

@@ -34,9 +34,13 @@ account, with individual maintainers added on top.
 - Sections hold pages only when they have content; no placeholders.
 - A post is a file under `log/` with `blogpost`, `date`, `author` and
   `category` front matter; posts are never revised after publication.
-- `system/` is the published copy of the design corpus. Until the
-  planning repository's decision register retires, edits to those
-  fifteen documents are made there and synced here; after that, here.
+- `system/` is the design corpus itself, edited here and nowhere else.
+  A design change is a pull request against these pages; each page or
+  section keeps its DRAFT or ADOPTED marker current. Open design
+  questions are issues in the repository they concern (the pipeline
+  repository for code, science and interfaces; the infrastructure
+  repository for hosting, fleet and CI); a page may list its open
+  points briefly, and the discussion lives in the issue.
 - Dependencies are pinned exactly in `requirements.in` and resolved to
   `requirements.txt` with `uv pip compile requirements.in -o
   requirements.txt --python-version 3.12 --generate-hashes`.

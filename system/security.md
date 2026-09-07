@@ -148,9 +148,17 @@ Deliberate absences are properties, not gaps: no worker role has a
 log-stream grant (the bounded safety stream is delivered by the host
 instance role), no worker role has Batch actions (a job cannot spawn
 jobs), and no role has delete on a science store — records and
-products are immutable and supersession appends. Object deletion is
-reachable only through the garbage-collection path's own identity,
-against a recorded plan.
+products are immutable and supersession appends. Deletion by any
+principal is reachable only through the garbage-collection path's own
+identity, against a recorded plan; class lifecycle expiry is the
+bucket's own rule, not a principal's capability.
+
+A dispatched operations agent is its own actor class, distinct from
+both a human operator and a service identity: it acts under a
+database tier of its own, holding the same broadly-available read
+surface plus the audited mutation functions granted to it one at a
+time rather than as a block. Credentials for that tier are issued
+per run and expire with it, never held as a resident login.
 
 Job configuration has three homes: per-invocation identifiers arrive
 in the container environment; operational configuration — bucket

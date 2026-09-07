@@ -136,6 +136,26 @@ A small low-cardinality metric set carries symptoms only:
 | Missing objects and checksum failures | A database reference to a missing object is a critical integrity failure |
 | Outbox age, retries and permanent failures | The only route to publication, so its stall is invisible elsewhere |
 
+Every non-terminal work-unit state other than `blocked` — the
+operator-wait state — carries a bound on dwell time,
+measured from the append-only event log rather than any mutable
+timestamp column, so that a state stamped without a transition cannot
+silently under-report. Exceeding the bound surfaces the unit as an
+operator-visible anomaly; it never transitions the unit — a bound
+cannot distinguish "accepted and running slowly" from "request never
+arrived", and those warrant different operator responses. A state that
+waits on a deliberate operator act carries no bound: dwell there is not
+evidence of a fault. Bounds are data, not migrations, so retuning is a
+configuration update.
+
+Attempts carry no per-state dwell bound: the attempt record has no
+transition log, so a clock-based bound cannot be evidenced the way the
+work-unit bound is. Instead, a standing anomaly count flags product-producing
+attempts whose outcome is success but whose product disposition is
+none,
+independent of age. A dwell bound for attempts is a future addition,
+gated on a reconciler-closure timestamp or an attempt-level event log.
+
 Identifiers belong in structured logs, never in metric dimensions.
 Correlation identifiers propagate end to end — admission, work,
 attempt, submission, Batch job, manifest, product, delivery — and that
@@ -366,9 +386,8 @@ definition, which binds to exactly one queue.
 
 The record schema is versioned; producers and consumers declare the
 versions they support. The tables ship as a versioned migration in
-the infrastructure repository's migration stream. Open parameters:
-the timestamp-disagreement tolerance and the error-category allowlist
-contents.
+the infrastructure repository's migration stream. Open parameter: the
+timestamp-disagreement tolerance.
 
 Diagnostics never drive pipeline control. A full
 OpenTelemetry/Prometheus/Grafana-class platform remains outside the
