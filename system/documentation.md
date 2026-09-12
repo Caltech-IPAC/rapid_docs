@@ -1,6 +1,6 @@
 # Documentation
 
-**Status: DRAFT** — the open points are listed at the end.
+**Status: DRAFT**, the open points are listed at the end.
 
 ## Purpose
 
@@ -33,7 +33,7 @@ never revised. No page mixes the two.
 
 | Audience | Comes for | Skill floor |
 |---|---|---|
-| Time-domain astronomer, light coding — the majority of the community list | What RAPID is and produces, how to obtain products, what to trust, how to cite | Reads prose; table tools and some Python |
+| Time-domain astronomer, light coding: the majority of the community list | What RAPID is and produces, how to obtain products, what to trust, how to cite | Reads prose; table tools and some Python |
 | Researcher, power user | Schemas with units, versions and provenance, published performance numbers, bulk access, release contents | Fluent Python and git |
 | Downstream integrator (alert broker) | Wire format, transport, access process, latency, change policy, a synthetic stream before the live one | Professional software engineer, no Roman context |
 | Institutional: NASA, the archive, the science operations center, peer infrastructure teams, reviewers | Charter, interfaces on both sides, licenses and persistent identifiers, citation, the data and software policy | Reads documents |
@@ -73,7 +73,7 @@ of a kind has the same shape.
 |---|---|---|---|
 | Home | The acronym expanded, the mission and infrastructure-team context, the four services, the funding acknowledgement; three links: find products, read the latest, cite RAPID | Everyone | Current-state |
 | Products | The delivered products first: what reaches the archive, tables and columns with units, file layout and naming, bulk access. Then forced photometry, cutouts, processing records, and the release list. Alerts are one page: a registered interface, the brokers that carry the stream for everyone else, the format for registrants. One getting-started page for the astronomer who does not code | Community, integrators | Current-state |
-| Science | The algorithms — tessellation, reference construction, differencing, candidate extraction, real/bogus classification, photometry — and the published performance numbers | Researchers, institutional | Current-state |
+| Science | The algorithms (tessellation, reference construction, differencing, candidate extraction, real/bogus classification, photometry) and the published performance numbers | Researchers, institutional | Current-state |
 | System | The design documents, architecture first, each carrying its status | Team, agents, institutional | Current-state |
 | Project | Team and contact; how the project is run; contributing; how to cite; the data and software policy; the glossary; where things live (this design) | Everyone | Current-state |
 | Log and blog | One blog, two categories with separate feeds. Blog: curated, external, occasional. Log: the team's blow-by-blow development record | Community (blog), team and followers (log) | Dated |
@@ -114,9 +114,9 @@ The site is public by construction, so its content is safe without
 review. The boundary is the deployment's instance, not its design: a
 design document states what runs where, when, and under which
 identity, and names the resources it designs; what never appears is
-the instance — account, instance, and network identifiers, addresses,
+the instance: account, instance, and network identifiers, addresses,
 alarm destinations, where a credential is kept, the state of what is
-deployed today, and its shortfalls — nor any opinion or criticism of
+deployed today, and its shortfalls; nor any opinion or criticism of
 existing work. People appear by name in two
 places only: the team page, by name, role, and affiliation, without
 addresses; and as the author of a post, including the log's listing of
