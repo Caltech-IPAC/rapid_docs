@@ -1,6 +1,6 @@
 # Operations
 
-**Status: ADOPTED** — the controller, convergence, association and
+**Status: ADOPTED**, the controller, convergence, association and
 alert-production sections are ADOPTED; paragraphs marked **[ADOPTED]**
 carry forward where the target does not touch them.
 
@@ -11,7 +11,7 @@ routine operations, the controller that automates it, the failure and
 problems paths, latency handling, and the roles and interfaces for
 humans. The target is an automated, hands-off system in which people
 select operating states, authorize releases, and triage grouped
-problems — not one that requires per-item attendance.
+problems, not one that requires per-item attendance.
 
 This document composes with the observability policy: attempt records,
 reconciliation classification, latency milestones, alarms, and retention
@@ -55,7 +55,7 @@ it does not approve individual references or reprocessing runs.
 
 The controller is the single automated operator of the pipeline. It
 owns admission, deriving ready work, submission, retry policy,
-reconciliation and result acceptance — and nothing else: it performs
+reconciliation and result acceptance, and nothing else: it performs
 no scientific computation and no external publication.
 
 One controller instance runs under a supervisor with automatic
@@ -64,8 +64,8 @@ instance count is a capacity dial, not an architectural property
 (architecture.md gives the active-active framing in full). Controller
 downtime delays acceptance and never causes recomputation or loss. The
 controller is a supervised long-running service under the same
-service-supervision requirement as reconciliation — clean
-start/stop/restart, bounded local diagnostics — not a scheduled
+service-supervision requirement as reconciliation (clean
+start/stop/restart, bounded local diagnostics), not a scheduled
 script. **[ADOPTED]**
 
 The publisher is a separate process under its own IAM and database
@@ -74,8 +74,8 @@ may share the controller's host; the outbox absorbs its downtime by
 design.
 
 Pipeline work divides along two distinct axes. The five
-**operational classes** — prompt processing, reference construction,
-historical backfill, release reprocessing, test — are the declared,
+**operational classes** (prompt processing, reference construction,
+historical backfill, release reprocessing, test) are the declared,
 normative set of kinds of work; the compute design's three **queue
 classes** (prompt, database, bulk) are the routing discriminator, and
 the mapping follows capacity and policy rather than stage names:
@@ -83,13 +83,13 @@ production difference and detection routes to the prompt queue;
 production association routes to the database queue under its hard
 concurrency cap; reference construction, backfill, reprocessing and
 export route to bulk;
-a test campaign declares its queue at campaign definition — bulk by
+a test campaign declares its queue at campaign definition: bulk by
 default, prompt only for an explicitly ruled latency rehearsal.
 Backfill, release reprocessing, and test are declared ahead of
-implementation — backfill belongs to the failure-path design as the
+implementation (backfill belongs to the failure-path design as the
 resume mechanism of the pending state, release reprocessing to the
-release machinery, test to the mission-mock harness (§ Mission mock
-and test campaigns) — and nothing may claim their names meanwhile.
+release machinery, test to the mission-mock harness, § Mission mock
+and test campaigns), and nothing may claim their names meanwhile.
 Test is a workload class, not a data class: continuous-validation
 injection runs as prompt-class work on validation-class data
 (§ Continuous validation), never as test. The
@@ -104,7 +104,7 @@ Gathering is a job-type-keyed registry: adding a job type is a
 registry entry, not a branch in a class conditional. Every job type
 declares its work-subject grain (exposure/SCA, date/SCA, date/field,
 field, or release-unit), and dedup identity and logical-job identity
-derive from that declared subject — never from the storage-path key.
+derive from that declared subject, never from the storage-path key.
 The storage-path key (exposure/SCA) is retained only for
 product-producing job types, because `product_prefix()` embeds it;
 database-effect job types declare empty product sets and mint no
@@ -113,11 +113,11 @@ concerns. **[ADOPTED]**
 
 Under continuous arrival the accumulator is the live submission
 mechanism: ready work flows into it and batches are cut by size or
-age. A batch is homogeneous in its validated route — one job type,
+age. A batch is homogeneous in its validated route: one job type,
 one queue, one definition per array submission. Cadence values are
 operational configuration in the parameter tree (adopted defaults:
-500 units, 60 s). The design bounds them: batch age — time since
-the oldest waiting unit entered the accumulator — is capped by the
+500 units, 60 s). The design bounds them: batch age (time since
+the oldest waiting unit entered the accumulator) is capped by the
 allocation this document makes from the latency budget (60 s within
 the one-hour working target), and batch size by the array-child
 ceiling. The smoke run's drip phase and its exit analysis supply the
@@ -139,7 +139,7 @@ custody, registers the input product, pins release, configuration and
 reference products, and creates difference work once its references
 exist.
 
-The admission source must be **durable and replayable** — the
+The admission source must be **durable and replayable**: the
 controller admits by polling it, and a source that cannot replay
 requires a durable buffer in front of admission. Admission is
 idempotent: a repeated observation returns its existing admission.
@@ -152,8 +152,8 @@ Controller state and AWS Batch job or queue state are transient
 execution views, reconstructible and reconcilable from the database,
 never independent authorities.
 
-The identity chain is four distinct records — work unit, attempt,
-submission, Batch execution — each answering one question, per the
+The identity chain is four distinct records (work unit, attempt,
+submission, Batch execution), each answering one question, per the
 architecture and compute designs. A work unit closes only from an
 accepted result or explicit retry-policy exhaustion, never from an
 intermediate physical failure. Work claiming is atomic and exclusive:
@@ -172,21 +172,21 @@ work-unit lock in the same order.
 
 Batch success means a durable result exists; **logical success waits
 for acceptance**. Objects upload first and one short transaction
-arbitrates the winner — no transaction spans computation, upload,
+arbitrates the winner: no transaction spans computation, upload,
 submission or publication.
 
 A database-effect work unit is settled by effect acceptance, not by
 job success: the disposition an effect stage records is one of a fixed
-outcome vocabulary — won (this attempt's effect is the one of record),
+outcome vocabulary: won (this attempt's effect is the one of record),
 terminally satisfied (the desired state already held before this
 attempt ran), or held by a live owner (another in-flight attempt holds
-the effect; this one yields) — carried as a stage-produced context
+the effect; this one yields), carried as a stage-produced context
 fact rather than inferred from Batch exit status. A shared fail-closed
 guard evaluates this vocabulary centrally so an individual effect stage
 cannot forget to check it. Where an effect stage's readiness depends on
 a durable record existing versus that record's promotion being visible
-to consumers, the two are tracked as separate watermarks — one for
-record consumption, one for product acceptance — so a consumer never
+to consumers, the two are tracked as separate watermarks: one for
+record consumption, one for product acceptance, so a consumer never
 mistakes "the record exists" for "the record is authoritative."
 
 Timeout enforcement is centralized rather than left to individual call
@@ -197,17 +197,17 @@ acting as the outer hang-catcher beneath it.
 | Property | Rule |
 |-----|-------------------------------------------------------|
 | Transitions | Idempotent; the database keeps an append-only event history plus a queryable current-state summary per tracked unit |
-| Tracked units | Release or specialist scope, reference builds, backfill and reprocessing batches, SCAs, processing stages, and individual candidates — nested with explicit parent–child links |
+| Tracked units | Release or specialist scope, reference builds, backfill and reprocessing batches, SCAs, processing stages, and individual candidates, nested with explicit parent–child links |
 | Retries | Every retry creates a new attempt record with its own immutable identity, never an update to a prior attempt (per the observability policy); attempts record inputs, software and configuration, resources, timestamps, outcome, and log identity |
 | Logs | The database stores a structured attempt summary plus a durable log reference and checksum, not the log payload; logs are separate artifacts with their own retention and security policy |
-| Retry policy | Versioned policy document mapping (error category × operational class) to a disposition — retry with a stated budget, or park-until-change; versions change independently of scientific releases; every attempt records the policy version that governed it **[ADOPTED]** |
+| Retry policy | Versioned policy document mapping (error category × operational class) to a disposition: retry with a stated budget, or park-until-change; versions change independently of scientific releases; every attempt records the policy version that governed it **[ADOPTED]** |
 | Workflow definitions | Versioned independently of scientific releases; in-flight units finish under the definition they started with unless an explicit, audited migration is ordered |
 
 ### Reconciliation
 
 **Scheduled reconciliation is the only convergence mechanism.** The
 controller polls Batch state, sweeps for uploaded result manifests and
-re-derives ready work on a short interval — tens of seconds, not
+re-derives ready work on a short interval: tens of seconds, not
 minutes, because that interval is part of the prompt latency budget
 and is set from it. There are no event rules, no queues and no redrive
 tooling.
@@ -233,17 +233,17 @@ any resubmission, and the attempt fence makes a duplicate physical
 execution harmless.
 
 Service health is progress on actionable work, tracked per work
-stream — a task kind under an operational policy, such as one job
-type's gathering and handling. The actionable set at a poll is the
-attempts past their applicable horizon — the grace horizon after
+stream (a task kind under an operational policy, such as one job
+type's gathering and handling). The actionable set at a poll is the
+attempts past their applicable horizon (the grace horizon after
 terminal observation, the submission horizon for never-resolved
-children — which reconciliation should therefore classify, evaluated
+children), which reconciliation should therefore classify, evaluated
 independently for each stream. A stream is unhealthy after five
 consecutive polls in which its actionable set was non-empty and
 nothing was classified; a poll whose actionable set is empty is
 healthy silence, whatever volume is merely resting inside its
 horizons. A single persistently failing stream never prevents polling
-or progress of otherwise-independent ready work streams — graph
+or progress of otherwise-independent ready work streams: graph
 dependencies still block their own downstream work correctly. Restart
 is reserved for shared faults: exit and supervised restart is the
 response only when the failure is process-level, not confined to one
@@ -251,7 +251,7 @@ stream's actionable set; an unhealthy stream surfaces as an
 operator-visible problem through the problems path. This is a
 service-health check consumed by the supervisor, not an alarm; an alarm contract on restart frequency
 requires operating evidence of need. A health check must be quiet
-under nominal operation — its trigger rate is part of its correctness.
+under nominal operation: its trigger rate is part of its correctness.
 The operative constants (horizons, poll interval, consecutive-poll
 threshold) are operational configuration, enumerated with the
 implementation. **[ADOPTED]**
@@ -264,17 +264,17 @@ drift. **[ADOPTED]**
 
 ### Post-DB science chain
 
-The post-DB science chain — catalog load, crossmatch, statistics,
-and the currency and dedup sweeps — comprises six bulk-queue job
+The post-DB science chain (catalog load, crossmatch, statistics,
+and the currency and dedup sweeps) comprises six bulk-queue job
 types under the payload contract. The two sweeps beyond the
-currently invoked set (source currency, merge dedup) are part of the
+invoked set (source currency, merge dedup) are part of the
 operational chain: they maintain integrity properties the schema
 does not enforce, and an unmaintained invariant is a defect under
 the cross-cutting rules. **[ADOPTED]**
 
 Work units are enumerated at submission: the gathering queries that
 discover ready work run in the submission layer, and each manifest
-names its declared inputs — catalog load per processing date and
+names its declared inputs: catalog load per processing date and
 SCA, crossmatch per processing date and field, statistics and the
 sweeps per field. Crossmatch readiness is durable state, not operator
 sequencing: its gathering predicate checks recorded catalog-load
@@ -286,8 +286,8 @@ individually reconcilable in attempt records. **[ADOPTED]**
 
 These job types produce database state, not stored products: each
 declares an empty product set, its terminal record is a pure
-disposition record that promotes nothing, and its effect — rows
-written, rows removed — is recorded in the attempt record's own
+disposition record that promotes nothing, and its effect (rows
+written, rows removed) is recorded in the attempt record's own
 fields. **[ADOPTED]**
 
 Row currency in the source and merge family is a derived property: a
@@ -311,8 +311,8 @@ converts. **[ADOPTED]**
 ### Association
 
 Association runs on the database queue under a hard concurrency cap,
-initially **one**. The cap is a dial — its adoption trigger is
-measured association throughput exceeding one lane per set — but the
+initially one. The cap is a dial (its adoption trigger is
+measured association throughput exceeding one lane per set), but the
 ordering mechanism it sits beside is not, and must not be dropped as
 unnecessary at one lane.
 
@@ -322,8 +322,8 @@ serial execution does not by itself prevent a later observation's
 association from running ahead of an earlier one still in retry.
 Ordering therefore keeps its full mechanism from day one. Association
 work is claimed in canonical `(observation_time, detection_id)` order
-behind a persistent watermark per `(association_set, lane)` — initially
-one lane per association set — advanced in the same transaction as the
+behind a persistent watermark per `(association_set, lane)` (initially
+one lane per association set), advanced in the same transaction as the
 accepted associations. At this scale that is one row per set and one
 ordered claim; concurrent lanes later multiply watermark rows, not the
 model.
@@ -331,7 +331,7 @@ model.
 Ordering is scoped within an association set. Reprocessing sets carry
 their own watermarks over historical times and never regress the live
 one, and reprocessing association always writes an isolated
-`association_set` and never mutates the live prompt set — correctness,
+`association_set` and never mutates the live prompt set: correctness,
 not scale, and therefore in force at any cap. The schema keeps what
 makes lanes possible later: every detection has one deterministic home
 partition, and association output is scoped to an immutable
@@ -362,10 +362,10 @@ effect: an alert-production job writes outbox rows, and the publisher
 alone contacts the broker. That single route is what makes emission
 auditable and replayable.
 
-Outbox rows commit atomically **within the alert-effect confirmation
-transaction**, which is itself gated on prior result acceptance. They
+Outbox rows commit atomically within the alert-effect confirmation
+transaction, which is itself gated on prior result acceptance. They
 do not commit in the acceptance transaction, because alert content
-does not exist at acceptance time — alert production is a downstream
+does not exist at acceptance time: alert production is a downstream
 stage. The binding invariants are unchanged by that placement: no
 alert effect is durable outside that transaction, the outbox is the
 only route to publication, and repeating the transaction is idempotent.
@@ -375,7 +375,7 @@ confirm an emission without the milestone recording it.
 
 Emission is once per logical unit per release. The emission watermark
 initializes at trigger deployment: promotions predating the deployed
-trigger never emit retroactively — emission is live-flow from the
+trigger never emit retroactively: emission is live-flow from the
 watermark forward. A pin-suppressed registration promotes nothing and
 emits nothing; a later pin release that promotes is the unit's first
 promotion and emits then. Whether a new release's reprocessing
@@ -385,8 +385,8 @@ authorized delivery policy.
 
 Delivery carries a deterministic idempotency key per alert and
 destination. An ambiguous broker acknowledgement is answered by
-**resending the identical packet with the identical alert
-identifier** — never by constructing a new one. Emitted alerts are
+resending the identical packet with the identical alert
+identifier, never by constructing a new one. Emitted alerts are
 immutable: a correction is a new linked event, never an edit or a
 re-issue. The stream contract is at-least-once, so consumers
 deduplicate on alert identity and producer idempotence is a
@@ -395,11 +395,11 @@ duplicate-rate reduction rather than a correctness dependency.
 
 Candidate scope is assembly and serialization only: producer
 construction, topic resolution, authorization, send, and flush are
-chip-level failures, never candidate-scoped — publication runs outside
+chip-level failures, never candidate-scoped: publication runs outside
 the per-candidate catch. Recording follows the database-effect
 job-type shape: empty declared product set, pure disposition record,
-alert-specific effect counts — candidates considered, alerts
-published, candidates dropped by reason, emissions suppressed.
+alert-specific effect counts (candidates considered, alerts
+published, candidates dropped by reason, emissions suppressed).
 Candidate-level failures (assembly, serialization) drop only the
 affected candidate, recorded as per-candidate dispositions; the
 attempt fails only on chip-level failure, and delivery failure raises
@@ -424,15 +424,15 @@ unit:
 
 | Scope | Behavior |
 |----|--------------------------------------------------------|
-| Invalid input SCA | Quarantined at validation without blocking unrelated SCAs; recorded internally and reported to the SOC outside the public alert stream; an unchanged invalid object is not re-retried — a new SOC version makes the logical SCA eligible again |
+| Invalid input SCA | Quarantined at validation without blocking unrelated SCAs; recorded internally and reported to the SOC outside the public alert stream; an unchanged invalid object is not re-retried: a new SOC version makes the logical SCA eligible again |
 | SCA-level success boundary | Difference-image construction and source extraction (provisionally extending through deterministic cuts and real–bogus classification) form one atomic success unit; aggregate health statistics are evaluated before promotion, and a seriously anomalous SCA is set aside rather than processed by relaxing thresholds; unrelated SCAs continue |
 | Individual candidate | Forced-photometry, cutout, and alert-assembly failures occur after the SCA boundary and drop only the affected candidate; other candidates from the same SCA publish normally |
 
 Retries are failure-aware and governed by the versioned retry policy.
 Policy version 1 is deliberately conservative: every
-application-failure category is park-until-change — no automatic
+application-failure category is park-until-change: no automatic
 retry; the unit waits until a relevant input, configuration, software,
-or operational condition changes, and is never tombstoned — while
+or operational condition changes, and is never tombstoned, while
 scheduler-visible failures carry the condition-gated scheduler retry
 rows, the sole automatic-retry surface under version 1. Bounded
 automatic retries for likely transient application failures remain
@@ -445,8 +445,8 @@ archive but never creates a retroactive live alert. **[ADOPTED]**
 Pending is likewise a state, not a failure. An incoming SCA advances
 through every stage whose prerequisites are available; if no applicable
 release reference exists, it stops at that boundary with its completed
-state retained. When reference construction — a separate asynchronous
-process — activates a reference, the affected observations resume
+state retained. When reference construction (a separate asynchronous
+process) activates a reference, the affected observations resume
 through backfill. Backfill preferably completes before new data are
 processed under a release for that scope; the acceptable wait is hours,
 not days, and if exceeded, prompt processing begins first, with each
@@ -474,7 +474,7 @@ real-time alarms: an individual failed SCA does not emit an alarm.
   automatic rules; operators may merge, split, or reclassify groups
   without modifying occurrence records.
 - The problems database is broader than the human work tracker. Only
-  selected grouped problems become issue-tracker items — automatically,
+  selected grouped problems become issue-tracker items: automatically,
   by severity, scope, persistence, and recurrence, or by manual
   promotion. Groups do not become tickets mechanically.
 - Operational alarms are reserved for aggregate conditions requiring
@@ -497,17 +497,17 @@ available from the SOC.
 
 | Element | Design |
 |-----|-------------------------------------------------------|
-| Measurement grain | One L2 SCA — the subject of one difference work unit; the 18 SCAs of an exposure are processed independently, with no wait for the full exposure |
+| Measurement grain | One L2 SCA, the subject of one difference work unit; the 18 SCAs of an exposure are processed independently, with no wait for the full exposure |
 | Clock start | The SOC makes one L2 SCA available in a form RAPID could process |
 | Clock end | Processing complete and the alert published; queueing and retries count |
-| Working target | One hour for ~95% of ordinary observations, excluding the Galactic plane — a development target, not a guarantee |
+| Working target | One hour for ~95% of ordinary observations, excluding the Galactic plane: a development target, not a guarantee |
 | Distribution | Strongly source-density dependent, with a long asymmetric tail; Galactic-plane observations take longer |
 | Measurement | Stage-level as well as end-to-end, at the named boundaries defined in the observability policy |
-| Live cutoff | A late result enters the live stream only while useful and not confusing — provisionally one day after L2 availability; later results go to the database and archive only |
+| Live cutoff | A late result enters the live stream only while useful and not confusing, provisionally one day after L2 availability; later results go to the database and archive only |
 
 **Starting per-hop allocations**, over the full
 availability→publication clock, reconciling to the one-hour working
-target — starting allocations to be replaced by mission-mock
+target: starting allocations to be replaced by mission-mock
 measurement (§ Mission mock and test campaigns), not tuning folklore:
 
 | Hop | Allocation (min) |
@@ -538,7 +538,7 @@ domain; this section covers only their operational execution.
 A supported release goes live only on explicit human authorization. The
 working mechanism is a version-controlled approval commit in the
 pipeline repository that changes a machine-readable release manifest
-pinning the complete execution chain — code, references, calibration
+pinning the complete execution chain: code, references, calibration
 baseline, configuration, models, schemas, runtime artifact, and
 infrastructure configuration. CI blocks the approval commit unless the
 manifest is complete and validation has passed against exactly that
@@ -547,18 +547,18 @@ never triggers promotion by itself. Permission to merge the approval
 commit is the release-authorization control; there is no separate formal
 release-authority role.
 
-Merging the approval commit triggers production promotion automatically
-— no separate operator deployment action. Promotion stops safely if the
+Merging the approval commit triggers production promotion automatically:
+no separate operator deployment action. Promotion stops safely if the
 manifest's pinned infrastructure artifact has not passed the separate
 deployment-compliance process. During migration overlap the established
 and new releases run concurrently (subject to the overlap-vs-pointer
-fork marked in the release document — neither topology is normative
+fork marked in the release document; neither topology is normative
 until the release-topology redesign lands), and RAPID automatically compares them
 on the same incoming SCAs (processing failures, latency, detection and
 alert populations, scientific-quality metrics).
 
-Rollback is automatic against health criteria — deployment, operational,
-and scientific-quality — that are defined and versioned before
+Rollback is automatic against health criteria (deployment, operational,
+and scientific-quality) that are defined and versioned before
 promotion. A rolled-back bundle is never edited or reactivated; the
 correction is a new immutable bundle with fresh validation and a new
 approval commit, and the failed bundle stays in the audit history.
@@ -569,8 +569,8 @@ the overlap through an ordinary version-controlled configuration commit.
 Emergency hotfixes follow the same path with an explicitly reduced,
 documented validation scope; omitted validation runs after deployment.
 
-Every release exposes its lifecycle state — at minimum validating,
-approved, live-parallel, primary, retired-hot, archive-only — with
+Every release exposes its lifecycle state (at minimum validating,
+approved, live-parallel, primary, retired-hot, archive-only) with
 planned and actual transition timestamps in machine-readable metadata.
 
 ## Roles and interfaces
@@ -579,30 +579,30 @@ The operational surface serves three populations: automated
 operations (the service identities), the development team, and agents
 operating on the team's behalf. All three read through the same query
 surfaces over the authoritative records, and all three perform
-operational control mutations — scoped retry, requeue, quarantine,
-problem resolution, operating-state changes — through the single
+operational control mutations (scoped retry, requeue, quarantine,
+problem resolution, operating-state changes) through the single
 documented mutation path, with break-glass remaining the sole
-documented exception. A service identity's own function — writing
+documented exception. A service identity's own function, writing
 attempt records, closure records, and products under its directly
-granted role — is not a control mutation and does not pass through
+granted role, is not a control mutation and does not pass through
 the API. No population has an undocumented side channel. Agents are
 first-class consumers: operational state is machine-queryable by
 design, the repositories' agent conventions files are their
 documentation surface, and an agent acts under the authorization of
 the person or service that dispatched it while remaining attributable
-as the acting agent in the audit trail — delegated authorization and
+as the acting agent in the audit trail: delegated authorization and
 audit attribution are distinct properties and both are required.
 **[ADOPTED]**
 
 A dispatched agent operates under its own enumerated tier, distinct
-from both the human operator tier and any service identity — granted
+from both the human operator tier and any service identity, granted
 the same broadly-available read surface and the operate tier's
 audited mutation functions one by one, never break-glass. Per-run
 credentials are time-boxed to the run.
 
 Operators work through a unified internal, authenticated query and
 dashboard surface over the authoritative workflow and problems database,
-with drill-through to logs, AWS Batch jobs, and produced artifacts —
+with drill-through to logs, AWS Batch jobs, and produced artifacts,
 never by reconstructing state across separate consoles. Public
 processing summaries are delivered separately, through catalog metadata
 and the public operational-metadata export, without exposing the
@@ -614,7 +614,7 @@ operational system.
 | Audit | Every operator action lands in the append-only audit history with actor, time, target scope, and reason |
 | Authorization | Read access is broadly available to the team; state-changing actions require role-based authorization |
 | Bulk safety | Bulk state-changing actions provide a dry-run preview of affected units, products, and estimated work |
-| One mutation path | Dashboard, CLI, and automation share one documented mutation path — one authorization, validation, and audit path |
+| One mutation path | Dashboard, CLI, and automation share one documented mutation path: one authorization, validation, and audit path |
 | Break-glass | Direct mutation of workflow tables is prohibited except through a documented break-glass procedure, followed by an explicit audit event and reconciliation restoring a complete authoritative history |
 
 Humans decide, rather than the system: the operating state (bootstrap
@@ -622,7 +622,7 @@ versus routine), release authorization and overlap extension, promotion
 of grouped problems to tracked work, validation waivers for individual
 regression metrics (explicit in the approval record, with rationale and
 scope; integrity, provenance, manifest-consistency, and public-schema
-gates are non-waivable), and specialist-geometry exceptions — when
+gates are non-waivable), and specialist-geometry exceptions: when
 arriving observations no longer match a configured specialist reference
 geometry, the pipeline raises an internal operational issue and
 continues with the current valid default where it can; it never silently
@@ -661,7 +661,7 @@ fork, not settled here.
 
 **The dashboard answers questions, not metrics.** A derivation layer
 sits between raw telemetry and display, converting measurements into
-operationally meaningful quantities; every gauge normalizes to 0–1 —
+operationally meaningful quantities; every gauge normalizes to 0–1:
 position in the range empty → full against a configured limit, never
 an observed maximum, and the panel names its denominator. The layout
 is a fixed set of question regions read as the operational story
@@ -670,28 +670,28 @@ is a fixed set of question regions read as the operational story
 
 | # | Question | Content |
 |---|---|---|
-| 0 | What is the system running? | Identity strip: operating state, release identity, image revision per queue, schema head, CI status, dashboard freshness — labels and binary lights only; cross-authority mismatch renders as a warning state |
+| 0 | What is the system running? | Identity strip: operating state, release identity, image revision per queue, schema head, CI status, dashboard freshness; labels and binary lights only; cross-authority mismatch renders as a warning state |
 | 8 | What is in flight? | Per-class in-flight strip: jobs and concurrency share per operational class; one native 0–1 progress row per active campaign with failure fraction and drain ETA; test-traffic presence; empty campaign rows disappear |
-| 9 | Are we recovering what we inject? | Recovery efficiency from continuous validation: recovery fraction by substrate, efficiency curve with 50%-completeness depth against baseline, efficiency trend, measurement freshness — the one region measuring scientific performance |
-| 1 | Are we receiving data? | Input staleness, generation and SCA completeness, validation pass — placeholder pending upstream-interface answers; denominators label themselves when self-referential fallbacks are in use |
-| 2 | Are alerts going out? | Publication fraction, dropped-candidate fraction, flow-through paired with region 1, live-window misses, archive-sink lag, promotion completeness — built from database and publication records, never by consuming the stream |
+| 9 | Are we recovering what we inject? | Recovery efficiency from continuous validation: recovery fraction by substrate, efficiency curve with 50%-completeness depth against baseline, efficiency trend, measurement freshness; the one region measuring scientific performance |
+| 1 | Are we receiving data? | Input staleness, generation and SCA completeness, validation pass; placeholder pending upstream-interface answers; denominators label themselves when self-referential fallbacks are in use |
+| 2 | Are alerts going out? | Publication fraction, dropped-candidate fraction, flow-through paired with region 1, live-window misses, archive-sink lag, promotion completeness; built from database and publication records, never by consuming the stream |
 | 3 | How long does processing take? | Target attainment (prompt class), latency pressure on fixed target-normalized axes with an explicit overflow bin, single-writer interval decomposition, Galactic-plane population displayed beside never merged |
-| 4 | Is anything silent? | Indeterminate attempts, detected silence, unresolved children, stalled generations, watcher liveness — the liveness panel gates the region: target-zero panels render stale the moment the reconciler misses cadence; recorded pending is excluded |
+| 4 | Is anything silent? | Indeterminate attempts, detected silence, unresolved children, stalled generations, watcher liveness; the liveness panel gates the region: target-zero panels render stale the moment the reconciler misses cadence; recorded pending is excluded |
 | 5 | Is there a pattern of errors? | Fractions never counts, split by versioned category and job type; trend vs trailing baseline; retry pressure; quarantine fraction by gate; top-cluster share; unclassified is a plotted category whose growth signals taxonomy drift |
-| 6 | How loaded are the resources? | Queue utilization with time-at-ceiling, bulk backlog vs bound, pooler lanes vs budgets, DB host, stream capacity, named hosts vs elastic fleet — elastic-empty is healthy idle; named-host absence is the alarm shape |
+| 6 | How loaded are the resources? | Queue utilization with time-at-ceiling, bulk backlog vs bound, pooler lanes vs budgets, DB host, stream capacity, named hosts vs elastic fleet; elastic-empty is healthy idle; named-host absence is the alarm shape |
 | 7 | Does a human need to act? | An ordered queue, not a gauge: alarms with owner and age vs response expectation, data-starved alarms displayed never hidden, problems awaiting triage, the humans-decide queue, unreconciled break-glass (hard target zero) |
 
-**Mixture rules.** Operational class is a mandatory split dimension —
+**Mixture rules.** Operational class is a mandatory split dimension:
 pooled aggregates across classes do not exist; regions 1–3 are the
 prompt story, campaign-shaped classes live in region 8, and every
 class feeds regions 4, 5, and 7. Test traffic is a declared class,
 excluded from every default view, flagged in region 0 and shown in
-region 8 — never invisible. Fractions never pool across data classes
+region 8, never invisible. Fractions never pool across data classes
 either (§ Continuous validation). **[ADOPTED]**
 
-**Two pages, split by story.** Page 1 — System: regions 0, 8, 9, 4,
+**Two pages, split by story.** Page 1, System: regions 0, 8, 9, 4,
 5, 6, 7; always open, self-sufficient for triage, its good state
-legible in seconds. Page 2 — Prompt processing: regions 1–3 in full
+legible in seconds. Page 2, Prompt processing: regions 1–3 in full
 plus prompt-filtered cuts of silence and errors. Campaign detail
 pages are later same-shaped additions that never touch page 1.
 **[ADOPTED]**
@@ -701,10 +701,10 @@ database, versioned through the migration stream; dashboard, CLI,
 and agents read the same views, so a number can never disagree
 between surfaces. Grafana renders them through the standing
 read-only posture (database views plus the cloud-provider datasource
-for region 6 quantities whose authority is cloud-side) — a display
+for region 6 quantities whose authority is cloud-side): a display
 over existing stores, not a new indexed platform; its removal
 condition is "the views answer the questions without it." The
-minimum surface displays; it does not mutate — mutations run through
+minimum surface displays; it does not mutate: mutations run through
 `rapidctl` with any rendering tier linking worklist context;
 embedding mutation actions into panels waits for operating
 history. **[ADOPTED]**
@@ -717,9 +717,9 @@ transaction. Table grants make the functions the only write path, so
 one-path is a checkable grant fact; dry-run is a function parameter,
 default on, with execute the explicit flag. Authorization is the
 triple (actor, action class, target scope); action classes group
-into three documented tiers — read (whole team, standing), operate
+into three documented tiers: read (whole team, standing), operate
 (scoped retry, requeue, quarantine, problem resolution), decide (one
-class per humans-decide item). The grant posture starts wide open —
+class per humans-decide item). The grant posture starts wide open:
 every team member holds every class; narrowing is evidence-triggered
 and is a grant-map change, never an API change. Service callers are
 enumerated, not tiered: an automated caller holds exactly the
@@ -732,15 +732,15 @@ visibility, not denial: dry-run first, a mandatory unvalidated
 reason on every mutation, immediate attribution on the dashboard,
 and advisory scale warnings that never refuse. **[ADOPTED]**
 
-**Break-glass.** For the mutation path's own failure modes only —
+**Break-glass.** For the mutation path's own failure modes only,
 never a faster path. Open loudly: assume the elevated role (assumed, never
-resident; the assumption audits) and declare a reason — a
+resident; the assumption audits) and declare a reason: a
 break-glass session is dashboard-visible from its first second.
 Touch narrowly, transactionally where possible. Close explicitly
-with an audit event recording reason, tables touched, and changes —
+with an audit event recording reason, tables touched, and changes:
 closing without it is not closing. Reconcile to done: the region 7
 row clears only when the closing event and a passing reconciliation
-both exist. No two-person requirement, ever — visibility is the
+both exist. No two-person requirement, ever: visibility is the
 control. The walked-through runbook lives in the operator docs.
 **[ADOPTED]**
 
@@ -748,7 +748,7 @@ control. The walked-through runbook lives in the operator docs.
 operating evidence; the scaffold lands first. Seed vocabulary:
 four categories (upstream data, infrastructure, science quality,
 other), two working severities (attention, urgent; info for
-auto-resolved history). The vocabulary is data, not schema —
+auto-resolved history). The vocabulary is data, not schema:
 reference tables extended through an audited mutation function, with
 the audit history satisfying the versioning requirement. Grouping
 rule v1 is one rule: (category, error category, job type) within a
@@ -767,8 +767,8 @@ the one query surface. Scoped retry's effect is the unit-level
 failed→ready compare-and-swap transition. Everything else this
 section touches is adopted elsewhere and consumed, not restated.
 
-Two state machines only. A **work unit** — (job type, declared input
-scope, operational class, definition version) — has six states:
+Two state machines only. A **work unit** (job type, declared input
+scope, operational class, definition version) has six states:
 blocked (always with a machine-readable reason; park-until-change
 folds in here), ready, submitted, complete, failed, quarantined.
 Failed → ready and quarantined → ready pass only through the audited
@@ -777,11 +777,11 @@ partial unique index enforces one non-superseded unit per (job type,
 input scope). Writers are exclusive per transition class:
 admission creates, the controller submits, accepts results and
 applies retry dispositions, reconciliation closes, and the mutation
-path does operator overrides. A **campaign** — one row per finite-class run,
-test campaigns the same shape under the test class — runs defined →
+path does operator overrides. A **campaign** (one row per finite-class run,
+test campaigns the same shape under the test class) runs defined →
 active ⇄ paused → complete | abandoned; progress is never stored,
 always derived from its units. Candidates get write-once disposition
-records, no state machine; batches have no table — manifest plus the
+records, no state machine; batches have no table: manifest plus the
 attempt record's batch identity are membership, statistics are
 derivation-layer aggregation. Intent schema: work_units, unit_events
 (append-only, same transaction as every transition), campaigns,
@@ -795,8 +795,8 @@ event row per unit.
 ## Continuous validation
 
 Draft iteration base except where marked. Simulation and source
-injection are permanent parts of the system — continuous validation
-from the start, with injection into both real and simulated data —
+injection are permanent parts of the system: continuous validation
+from the start, with injection into both real and simulated data,
 and must never leak into science data.
 
 Every input identity carries two values fixed at creation:
@@ -806,7 +806,7 @@ three are validation data. The pair is identity, not a flag: work
 units, attempts, products, alerts, and catalog rows inherit their
 data class from input identities through the provenance chain, and a
 mixed derivation takes the most restrictive class of any input.
-Injection never modifies — it creates a new immutable object under a
+Injection never modifies: it creates a new immutable object under a
 new identity citing its untouched parent and the versioned truth
 catalog. The science gate is non-waivable and joins the existing
 non-waivable list: promotion to community surfaces, mission-stream
@@ -817,7 +817,7 @@ classes. Storage-side, data class rides the key grammar as a
 mandatory component with prefix-scoped grants (storage design)
 **[ADOPTED]**. The catalog partitions on data class inside the
 database, with every science-facing view selecting the science
-partition by construction; cross-partition queries are explicit —
+partition by construction; cross-partition queries are explicit,
 default only in dashboard region 9, which is labeled as such. Truth
 catalogs are versioned, provenance-recorded inputs.
 
@@ -834,20 +834,20 @@ structural rehearsal mode. **[ADOPTED]**
 
 Mock inputs enter through the same validation/ingest writer as real
 inputs: the harness's one new component transforms mission-schedule
-rows into staged generations — exposure to per-SCA objects, wall
-time to MJD, manifest written last — under simulated-substrate
+rows into staged generations (exposure to per-SCA objects, wall
+time to MJD, manifest written last) under simulated-substrate
 identity fixed at creation. Nothing else writes input rows.
 **[ADOPTED]**
 
-Fidelity is four independent dials — scale, arrival cadence, sky
+Fidelity is four independent dials: scale, arrival cadence, sky
 distribution, data realism. The v1 posture: one selected observing
 day replayed at real arrival timestamps and real sky positions from
 the mission schedule, full SCA fan-out, staged-simulation data
 realism; longer spans by clock compression with the factor recorded
 as a campaign property, never a hidden distortion. The mock's
-purpose is the downstream — reference availability, database
+purpose is the downstream (reference availability, database
 contention, product volume, alert rates, and the dashboard's
-in-flight and recovery readouts — the submission layer is
+in-flight and recovery readouts); the submission layer is
 provisioned well past mission peak arrival. **[ADOPTED]**
 
 Mock runs read the live parameter tree and never retune it.
@@ -856,14 +856,14 @@ evidence, not built speculatively. **[ADOPTED]**
 
 The run record is the campaign row plus its attempt records, read
 through a campaign-scoped derivation view versioned in the migration
-stream: per-campaign outcome, latency, and — where truth catalogs
-apply — recovery quantities. Human-readable run reports are
+stream: per-campaign outcome, latency, and, where truth catalogs
+apply, recovery quantities. Human-readable run reports are
 generated from the view; narrative documents carry context, never
 the record. **[ADOPTED]**
 
 Test work needs no dedicated infrastructure: isolation is identity-
-and IAM-shaped — data-class prefixes and grants on the shared stack
-— not deployment-shaped. No test queue, no test bucket, no parallel
+and IAM-shaped (data-class prefixes and grants on the shared stack),
+not deployment-shaped. No test queue, no test bucket, no parallel
 stack. **[ADOPTED]**
 
 ## Open design points
@@ -885,9 +885,9 @@ Deliberately unresolved, retained from the design source:
   definition versioning now carry a draft iteration base above;
   reconciliation rules are adopted).
 - Problems-taxonomy content beyond the seed vocabulary and grouping
-  rule v1 — grown from operating evidence per the adopted scaffold;
+  rule v1 (grown from operating evidence per the adopted scaffold);
   audit-retention implementation.
-- Dashboard region 1's denominators and panel set — placeholder
+- Dashboard region 1's denominators and panel set: placeholder
   pending the upstream data-interface answers.
 - The release governance process and the manifest's file format and
   required evidence links; the manifest is a probable design, not a
