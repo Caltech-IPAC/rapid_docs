@@ -1,6 +1,6 @@
 # Storage
 
-**Status: ADOPTED** — except the open point listed at the end
+**Status: ADOPTED**, except the open point listed at the end
 (disaster-recovery posture), which is marked where it arises.
 
 ## Purpose
@@ -29,7 +29,7 @@ structure is derived from the classification:
 | Published products (images, catalogs, auxiliaries) | write-once | RAPID → MAST | permanent while RAPID-owned | community | job role |
 | Alert archive | append-only | RAPID | permanent | community | archive sink |
 | Records, provenance | write-once | RAPID | permanent | team | job role (attempt-scoped) · reconciler (terminal/reconstructed) |
-| Manifests (completeness markers) | write-once | RAPID | permanent — a manifest survives its data's expiry; lifecycle rules exempt manifest keys | pipeline | the producing authority of what each manifest describes |
+| Manifests (completeness markers) | write-once | RAPID | permanent; a manifest survives its data's expiry; lifecycle rules exempt manifest keys | pipeline | the producing authority of what each manifest describes |
 | Reference sets (per release) | write-once per version | RAPID | release-lifetime, then per release ruling | pipeline | reference builder |
 | Converted L2 representation | write-once | durable derived commitment (through at least the first supported release) | release-lifetime; long-term open with the release design | pipeline | conversion process |
 | Staged inputs | replaceable cache, immutable per generation | upstream | until generation retired | pipeline | staging process |
@@ -49,7 +49,7 @@ structure is derived from the classification:
    Object Lock, bucket-policy shape, writer isolation); carry
    prefix-enforceable differences (lifecycle, prefix-scoped writers)
    as prefixes. A split not forced by enforcement may be taken for
-   operational legibility — stated as such, never silently.
+   operational legibility, stated as such, never silently.
 2. **No storage name is an interface.** The catalog resolves science
    queries to locations; project-owned DNS fronts public
    byte-serving; configuration parameters bind the pipeline to its
@@ -57,7 +57,7 @@ structure is derived from the classification:
    permanent and every bucket is recreatable. Publication, not
    creation, is the one-way door.
 3. **Immutability is enforced, not promised.** Versioning alone does
-   not enforce it — a second PUT creates a new current version.
+   not enforce it: a second PUT creates a new current version.
    Write-once classes carry policy-enforced conditional creates and
    denial of both ordinary and version-specific deletes; append-only
    classes get writers with no delete or overwrite capability; CAS
@@ -65,7 +65,7 @@ structure is derived from the classification:
    under the same condition at completion. One mutability class per
    policy scope. Lifecycle expiry still operates (a service action,
    not a principal request). Bulk loads into create-once buckets
-   follow **enforce-after-load** — a server-side copy can satisfy
+   follow **enforce-after-load**: a server-side copy can satisfy
    the create-once condition per object, but bulk sync tooling
    cannot send conditional headers, so the bucket starts with
    enforcement off and the policy attaches once the load verifies
@@ -94,7 +94,7 @@ structure is derived from the classification:
    a class becomes eligible only by explicit addition to the deletion
    allowlist that garbage collection consults at every consumption
    point. Independently of that list, every class on the real
-   substrate is refused — a mechanical check on the substrate axis,
+   substrate is refused, a mechanical check on the substrate axis,
    not a reviewer's judgment, and not overridable by an operator
    naming the class. Retention rules on other artifact classes
    (diagnostics, staged inputs, build artifacts) are the per-class
@@ -103,18 +103,18 @@ structure is derived from the classification:
 
 ## Naming
 
-One uniform scheme: `roman-rapid-<purpose>` — a short lowercase
+One uniform scheme: `roman-rapid-<purpose>`, a short lowercase
 purpose noun; no environment markers, no account or region
 components, no personal names. Per-dataset input buckets append the
 dataset name, and the dataset noun follows the naming design's
 grammar `<survey>-<source>(-<qualifier>)*` (`gbtds-rimtimsim`, never
 a generic sims label; the live `gbtds-sim` predates the grammar and
-is retained); campaign detail — injection date, sim release,
-selection — lives in the generation manifest, not the name. Squat
+is retained); campaign detail (injection date, sim release,
+selection) lives in the generation manifest, not the name. Squat
 resistance is policy, not name machinery: names are held continuously
 once claimed; every service identity and VPC endpoint policy is to
 carry a bucket-owner condition so no RAPID principal can read or
-write a bucket the account does not own — an owed pre-cutover
+write a bucket the account does not own: an owed pre-cutover
 verification, not yet an enforced fact (§ Open points and
 deliverables). "Recreatable" means the same claimed string is
 recreated under continuous holding; a claimed name is never released
@@ -135,12 +135,12 @@ are registered in the naming design.
 | `roman-rapid-references` | Reference sets; each release's manifest in-prefix | off | tag-driven per release ruling; manifest keys exempted | reference builder · write-once per key |
 | `roman-rapid-l2` | Converted L2 representation in release prefixes; each release's manifest in-prefix | off | release-lifetime; long-term open; manifest keys exempted | conversion process · create-once |
 | `roman-rapid-inputs-<dataset>` | Staged inputs in immutable generation prefixes; generation manifest written last, in-prefix | off | expire retired generation prefixes; manifest keys exempted | staging process · create-once within generations, no deletes; a stated legibility split per dataset (the dataset is the swap/retire/cost unit) |
-| `roman-rapid-diagnostics` | Diagnostics bundles | off | tiers per the observability design, driven by the reconciler-stamped retention tag on classification-neutral keys | job role + reconciler · create-once, no deletes; reconciler retags (full-set rewrite, monotonic toward retention) — the conditional create arbitrates the race: the job's upload wins, the reconciler reconstructs only where absent |
+| `roman-rapid-diagnostics` | Diagnostics bundles | off | tiers per the observability design, driven by the reconciler-stamped retention tag on classification-neutral keys | job role + reconciler · create-once, no deletes; reconciler retags (full-set rewrite, monotonic toward retention); the conditional create arbitrates the race: the job's upload wins, the reconciler reconstructs only where absent |
 | `roman-rapid-meta` | Public operational metadata | on | current-only; noncurrent expire 30 d | ops publisher · replace-in-place permitted |
 | `roman-rapid-pointers` | CAS registers | on | none | controller · either-header conditional-write policy |
 | `roman-rapid-backups` | Database backups | off | ladder per the backup design | backup process · write-once |
 | `roman-rapid-build` | Build artifacts | off | expire 180 d | build identity · plain |
-| `roman-rapid-yum` | RPM repository | off | none — packages accumulate as permanent history | publisher identity · create-once packages + CAS repodata |
+| `roman-rapid-yum` | RPM repository | off | none, packages accumulate as permanent history | publisher identity · create-once packages + CAS repodata |
 | `roman-rapid-mirror` | Git mirror | on | noncurrent expire 90 d | mirror job · replace-in-place permitted |
 | `roman-rapid-logs` | Logs; S3 Inventory deliveries | off | expire 90 d | log-delivery + Inventory delivery principals · plain |
 
@@ -163,12 +163,12 @@ speculatively.
 
 | Logical writer | IAM principal |
 |---|---|
-| Transform workers (Batch) — products, attempt-class records, diagnostics, reference sets, converted L2, all under their attempt prefix | Batch job role (transform tier: no database, submission, publication, or external-effect access; alert production is not a Batch writer — accepted alert packets reach the outbox via the controller's acceptance path and leave only through the publisher) |
-| Reconciliation — closure and terminal records, reconstructed diagnostics, retention tags on all bundles | Controller role (reconciliation is one of its functions; diagnostics write adopted with this design, tag rewrite with the payload co-design) |
-| Controller — CAS pointers, pointer-level promotion manifests, submission manifests, public operational metadata | Controller role (science-product promotion manifests are the terminal records, job-written — catalog design) |
-| Delivery process — delivery manifests and state markers | No principal yet: no delivery exists before the public-path design, which owes the mapping; the grant wires at first cutover per the wiring rule |
-| Archive sink — alert archive | Archive sink role |
-| Staging process — input generations and their manifests | rapid-admin instance role (the staging host by team policy; grant attached from the bucket stack) |
+| Transform workers (Batch): products, attempt-class records, diagnostics, reference sets, converted L2, all under their attempt prefix | Batch job role (transform tier: no database, submission, publication, or external-effect access; alert production is not a Batch writer: accepted alert packets reach the outbox via the controller's acceptance path and leave only through the publisher) |
+| Reconciliation: closure and terminal records, reconstructed diagnostics, retention tags on all bundles | Controller role (reconciliation is one of its functions; diagnostics write adopted with this design, tag rewrite with the payload co-design) |
+| Controller: CAS pointers, pointer-level promotion manifests, submission manifests, public operational metadata | Controller role (science-product promotion manifests are the terminal records, job-written, catalog design) |
+| Delivery process: delivery manifests and state markers | No principal yet: no delivery exists before the public-path design, which owes the mapping; the grant wires at first cutover per the wiring rule |
+| Archive sink: alert archive | Archive sink role |
+| Staging process: input generations and their manifests | rapid-admin instance role (the staging host by team policy; grant attached from the bucket stack) |
 | Backup process | Database host instance role (the existing backup identity) |
 | Build identity | The CI build-project role |
 | Mirror job | The existing mirror identity, unchanged until its cutover step |
@@ -179,14 +179,14 @@ speculatively.
 Keys identify one immutable processing result forever; reprocessing
 writes new keys. Numeric components are fixed-width zero-padded. Key
 order serves stable identity, lifecycle scoping, MAST export, and
-operational diagnosis — request rates sit far below per-prefix
+operational diagnosis: request rates sit far below per-prefix
 scaling baselines, so performance imposes no ordering constraint
 beyond avoiding a monotonic head on a sustained high-rate prefix.
 Prefixes exist where policy or a consumer needs them and nowhere
 else. Objects carry their producing release as a tag where lifecycle
 or supersession may act on them; permanent-class objects carry
 SHA-256 checksums computed at upload. Staged input files keep their
-upstream names verbatim — exact identification, never renaming, is
+upstream names verbatim: exact identification, never renaming, is
 RAPID's obligation for material in upstream custody.
 Community-facing product file names follow the mission's CCSP PIT
 filename standard, under which `rapid` is the registered PIT short
@@ -195,13 +195,13 @@ name.
 **Data class rides the key grammar, not a sixth classification
 axis.** The data-class component is derived from the two-axis
 identity (substrate × injection; operations design § Continuous
-validation) within the existing container set — the five axes and
+validation) within the existing container set: the five axes and
 the container inventory stand unchanged. The component's tokens are
 the naming design's registered set (`real-pristine`, `real-injected`,
 `sim-pristine`, `sim-injected`). The mandate is scoped, not universal:
 the component is mandatory and leading in the product-grammar
-buckets — products at the bucket root, references and converted L2
-immediately inside their `{release}/` prefixes — so the science gate
+buckets (products at the bucket root, references and converted L2
+immediately inside their `{release}/` prefixes), so the science gate
 and the prefix-scoped grants bind to one literal leading prefix.
 Records, pointers, public metadata, backups, build, yum, mirror, and
 logs carry no data-class component; diagnostics are
@@ -214,10 +214,10 @@ difference for validation products is a lifecycle rule on the same
 prefixes.
 
 Component law: widths are contracts (exposure 6, SCA 2, attempt 10,
-record sequence 4, generation 4 — exceeding one is a defect, not a
+record sequence 4, generation 4; exceeding one is a defect, not a
 rollover); the records-prefix and diagnostics-bundle key families
-carry bare (unpadded) attempt ids deliberately — existing objects and
-key-derivation compatibility make retro-padding harmful — while the
+carry bare (unpadded) attempt ids deliberately: existing objects and
+key-derivation compatibility make retro-padding harmful, while the
 10-digit attempt width applies to product-grammar object keys; free
 identifiers
 (`run_id`, `logical_job_id`, `batch_id`, `delivery_id`) are lowercase
@@ -226,8 +226,8 @@ alphanumeric plus hyphen, letter-first, ≤ 32; enumerated names
 from the infrastructure-pointer view registry, created empty here and
 populated by the first such view's design; meta-bucket artifact names
 from the interfaces design's public-metadata set) are lowercase
-snake, ≤ 32; `data_class` is the naming design's registered set —
-compound tokens, lowercase with an interior hyphen, ≤ 32 — an
+snake, ≤ 32; `data_class` is the naming design's registered set:
+compound tokens, lowercase with an interior hyphen, ≤ 32, an
 explicit exception to the lowercase-snake rule above; `release` is
 `r`-prefixed lowercase alphanumeric plus `.`, ≤ 16; digests are 64
 lowercase hex; basenames add `.` and `_`, ≤ 128. The model-to-token
@@ -237,7 +237,7 @@ convention: substrate `real|simulated` maps to key tokens
 Builders are the enforcement point, validating components and
 registry membership; the shared sanitizer is the last-resort gate,
 deliberately broader than any one class. Identity is never parsed
-from a basename — it travels alongside as catalog columns, record
+from a basename: it travels alongside as catalog columns, record
 fields, or header keywords. Internal keys and delivered names are
 distinct namespaces: no internal key embeds a CCSP filename, no
 delivered name derives from an internal key. "Product key" is
@@ -253,7 +253,7 @@ their release prefixes) carry one grammar, exclusively:
 {data_class}/{job_type}/{run_id}/{exposure:06d}/{sca:02d}/attempt-{attempt_id:010d}/{basename}
 ```
 
-Basenames are unique within one attempt prefix — the producing stage
+Basenames are unique within one attempt prefix: the producing stage
 emits distinct names, and the conditional create is the backstop that
 makes a collision a loud attempt failure, never an overwrite. A
 post-processed product is a distinct object under its own
@@ -272,7 +272,7 @@ Records bucket prefixes, one writer each:
 Attempt scoping is protocol-enforced, not IAM-enforced: keys derive
 from immutable identity and every write is a conditional create, so a
 replayed write lands idempotently or fails loudly; conditional
-creation prevents mutation, not a misplaced first write — that defect
+creation prevents mutation, not a misplaced first write: that defect
 class is caught by the catalog↔inventory reconciliation. IAM operates
 at the prefix-class level.
 
@@ -287,7 +287,7 @@ alert archive's layout is the publication design's (the sink's writer
 code is its canonical builder); pointers are `{view}.json`, one CAS
 pointer per view; public metadata follows the interfaces design's
 artifact set, replace-in-place; backups, build artifacts, yum, mirror,
-and logs are tool- or service-owned key spaces, delegated as such —
+and logs are tool- or service-owned key spaces, delegated as such:
 the bucket is single-writer and the owning tool's layout is the
 contract.
 
@@ -299,21 +299,21 @@ constraint-enforced at mint; directory names ≤ 20 characters, agreed
 with MAST; `version` is `vX[.Y[.Z]]` carrying the delivery-minted
 counter, decoupled from row version and release identity;
 `product-type` from the MAST-agreed set; extensions `.asdf` or
-`.parquet` only — the FITS→ASDF/parquet conversion precedes first
+`.parquet` only, the FITS→ASDF/parquet conversion precedes first
 MAST delivery.
 
 ## Promotion and swap
 
 | Level | Mechanism | Atomicity |
 |---|---|---|
-| Science current-view | `vbest` row flip over immutable keys, the attempt's terminal record as the promotion manifest — full mechanics in the catalog design | one database transaction per attempt, index-enforced |
+| Science current-view | `vbest` row flip over immutable keys, the attempt's terminal record as the promotion manifest; full mechanics in the catalog design | one database transaction per attempt, index-enforced |
 | Infrastructure pointer | CAS root-pointer object referencing an immutable manifest | single-object conditional PUT |
 | Staged dataset | new generation prefix; parameter flip to its finalized manifest | parameter update |
-| Public surface | front-door origin re-point | not atomic — dual-origin overlap and drain |
+| Public surface | front-door origin re-point | not atomic: dual-origin overlap and drain |
 
 The promotion unit is an immutable manifest (keys, sizes, checksums,
 format versions), written create-once beside what it describes, by
-the producing authority, after every object it names — its existence
+the producing authority, after every object it names; its existence
 is the completeness marker. At the science level that manifest is the
 attempt's terminal record, written by the job as producing authority
 and consumed by registration; no separate product manifest exists
@@ -321,7 +321,7 @@ there. At the infrastructure-pointer level the controller is the
 producing authority. Promotion always references a finalized
 manifest, never a bare prefix, never an enumeration. One root
 pointer per view. Consumers pin the manifest they started with,
-recorded in the attempt record; a retry replays the same manifest —
+recorded in the attempt record; a retry replays the same manifest:
 consuming a newer generation is new work. A parameter flip changes
 only what new work sees; both generations stay readable during
 drain; a retired generation expires by lifecycle after a drain
@@ -332,7 +332,7 @@ binding is fixed at creation); rename (nonexistent on general
 purpose buckets); overwrite-in-place of a stable key as promotion;
 whole-bucket swap for routine generation change (reserved for
 genuine policy or ownership changes); S3 Express One Zone
-(single-AZ); Glue Data Catalog in the baseline — it is a tabular
+(single-AZ); Glue Data Catalog in the baseline: it is a tabular
 metastore for Athena/Spark-class consumers with no model for FITS
 objects, and PostgreSQL is the catalog. Revisit Glue only with a
 community tabular-over-S3 product.
@@ -342,20 +342,20 @@ community tabular-over-S3 product.
 Community byte-service is fronted by project-owned DNS over the
 community-audience buckets; discovery and retrieval are
 catalog-mediated, and the front door serves catalog-issued signed
-requests only (principle 7). The front-door implementation — CDN
+requests only (principle 7). The front-door implementation, CDN
 with origin access control, or a download service issuing
-project-domain URLs — is a named deliverable; bare presigned URLs
+project-domain URLs, is a named deliverable; bare presigned URLs
 expose the raw bucket hostname and are not a distinct option.
 Public-access block stays on every bucket; the front door's read
 principal is the only non-IAM read principal. MAST delivery is a
 cross-account read grant plus a delivery manifest against the
-products bucket — the same immutable objects, no staging copy; the
+products bucket: the same immutable objects, no staging copy; the
 grant is bucket-wide read, accepted deliberately (MAST is a trusted
 archive partner). The deferred fork: ecosystem-native raw `s3://`
 access (bulk-tooling patterns, sponsored open-data egress). The
 working buckets already bear publishable names, so taking it later
 is a policy change, not a data copy; it is re-examined once, at
-community-read-path design time — raw URIs cannot check promotion
+community-read-path design time: raw URIs cannot check promotion
 state, so that fork requires either promotion-before-write or an
 explicit exposure acceptance.
 
@@ -366,7 +366,7 @@ disabled); SSE-S3 default encryption; public-access block; gateway
 VPC endpoint for all pipeline data traffic; per-bucket cost
 allocation tags. Permanent-class buckets additionally: no principal
 holds any delete action; CloudFormation deletion and update-replace
-policies set to retain, plus stack termination protection — data
+policies set to retain, plus stack termination protection: data
 outlives any stack operation; break-glass is a recorded stack-policy
 change, not a standing capability.
 
@@ -377,7 +377,7 @@ verification separately by sampled object-attribute reads or a
 periodic batch checksum pass. CloudTrail S3 data events on the
 permanent buckets for write and delete attempts. Config rules assert
 encryption, versioning, public-access block, lifecycle, and policy
-state — drift is detected, not assumed absent. Storage Lens plus
+state: drift is detected, not assumed absent. Storage Lens plus
 per-bucket budgets with anomaly alarms; storage-class analysis runs
 before any tiering beyond the adopted diagnostics tiers.
 
@@ -394,12 +394,12 @@ may be requested from AWS Support; otherwise the ramp is accepted.
 
 Object Lock is not enabled on any bucket: immutability enforcement
 is the bucket policies above, and no external WORM requirement
-exists — reopens only on an actual requirement.
+exists, reopens only on an actual requirement.
 
 Open: disaster-recovery posture (RPO/RTO per
 policy family, per-bucket
 replication rulings for products, alerts, and records, catalog
-backup/PITR as the catalog-contract recovery path — manifests plus
+backup/PITR as the catalog-contract recovery path: manifests plus
 Inventory reconstruct the object index only).
 
 Delivered: the per-bucket key grammar (§ Key schema), the promotion
@@ -411,5 +411,5 @@ front-door implementation choice with its URL-validity/withdrawal
 semantics (interfaces design). Verifications before cutover relies
 on them: exact bucket-owner condition keys per principal type; the
 restore drill per the catalog design's acceptance criteria. (The
-conditional-copy verification is resolved — see the
+conditional-copy verification is resolved: see the
 enforce-after-load rule under principle 3.)
