@@ -3,7 +3,7 @@
 The design documents are the authoritative statement of what RAPID is
 built to be. They carry equal weight to the code: the pipeline must be
 rederivable from them. Each document owns the rules and requirements of
-its domain and states its design directly — self-contained, impersonal,
+its domain and states its design directly: self-contained, impersonal,
 current-state. Every document (or section, where mixed) is marked
 **DRAFT** (under iteration; what the team reviews) or **ADOPTED**
 (normative).
@@ -36,7 +36,7 @@ contradict, these:
    and an HPC/HTC-like working model: ssh, POSIX filesystems, personal
    compute instances. Prefer designs that fit that model; adopt a
    cloud-native pattern only where it clearly pays for the new mental
-   model it demands — where a job's logs live is as much a design
+   model it demands: where a job's logs live is as much a design
    choice as where its data lives.
 
 ## Documents
