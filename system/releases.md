@@ -1,25 +1,25 @@
 # Releases
 
-**Status: DRAFT** — under iteration; adoption gated on the validation
+**Status: DRAFT**, under iteration; adoption gated on the validation
 tests at the end of this document.
 
 ## Purpose
 
 What a RAPID release is, how releases compose from independently
 versioned components, how a release is validated, promoted, operated,
-superseded, and archived — and how release reproducibility coexists
+superseded, and archived, and how release reproducibility coexists
 with deliberately flexible infrastructure.
 
 ## The central distinction: scientific identity vs operational substrate
 
 Every element of the running system is one of two things:
 
-- **Scientific identity** — anything that can change a science
+- **Scientific identity**: anything that can change a science
   product: application source revision, environment contents,
   package set, container image, machine image, processing
   configuration, record and alert schema versions, reference and
   calibration data identities.
-- **Operational substrate** — everything that cannot: instance types
+- **Operational substrate**: everything that cannot: instance types
   and counts, network topology, security groups, fleet shape,
   dashboards, alarms, schedules.
 
@@ -27,7 +27,7 @@ The release graph governs scientific identity only. The substrate
 stays flexible: it may change at any time without a new release, and
 its state is queried live rather than frozen. This resolves the
 tension between composable releases and flexible infrastructure by
-construction — composition constrains exactly the identity-bearing
+construction: composition constrains exactly the identity-bearing
 artifacts, and flexibility is preserved exactly where identity is not
 at stake. The infrastructure definition's own revision is recorded in
 the release manifest for operational provenance, but reproducing a
@@ -38,8 +38,8 @@ Two rules follow. Identity-bearing artifacts are immutable and
 content-addressed: image tags are never reused, package repositories
 promote atomically, environment archives are digest-named, and a
 changed identity is a new version, never an in-place mutation. And a
-substrate change that would alter a scientific identity — a new
-container, a different environment — is by definition not a substrate
+substrate change that would alter a scientific identity (a new
+container, a different environment) is by definition not a substrate
 change; it enters through the release graph.
 
 ## Composition
@@ -68,7 +68,7 @@ once.
 
 The manifest is also the source of the public surface: the published
 pinned dependency manifest required by the reproducibility boundary is
-a projection of the release manifest — derived from it, never
+a projection of the release manifest, derived from it, never
 maintained separately.
 
 ## Release cycle
@@ -76,7 +76,7 @@ maintained separately.
 1. **Compose.** A candidate manifest binds component versions. Beyond
    the components above it pins the schema migration set, the
    database and extension versions, the Batch job-definition
-   revisions, and the task and process specifications — everything
+   revisions, and the task and process specifications: everything
    needed to state what ran, not only what was built.
 2. **Validate.** The candidate passes the validation battery (below),
    including a test against a real database with its spatial extension
@@ -88,7 +88,7 @@ maintained separately.
    through transform, acceptance and association; atomically activate
    the release for new admissions; drain work pinned to the previous
    release; and apply **contract** migrations only after the rollback
-   window closes. The activation step alone is atomic — the pointer to
+   window closes. The activation step alone is atomic: the pointer to
    "current" moves in one step, and a failed activation leaves the
    previous release fully in force.
 4. **Operate.** The current release runs; the previous release (N−1)
@@ -96,7 +96,7 @@ maintained separately.
 
    **Work stays pinned to its release.** A work unit admitted under a
    release runs, and has its results accepted, under that release even
-   as a newer one activates — which is what expand/contract
+   as a newer one activates, which is what expand/contract
    compatibility buys: an old worker's result remains acceptable
    during a deployment. Rollback changes the active release **for
    future admissions only**. It never edits completed products and
@@ -107,9 +107,9 @@ maintained separately.
    at startup and fail closed on a mismatch, so a version skew is
    refused at start rather than discovered mid-run.
 5. **Supersede.** When a release leaves the rollback window (N−2 and
-   older), a defined supersession step runs: its bulk artifacts —
-   environment archives, container images exported from the registry
-   as archive objects, machine images — transition to deep archival
+   older), a defined supersession step runs: its bulk artifacts
+   (environment archives, container images exported from the registry
+   as archive objects, machine images) transition to deep archival
    storage, retained indefinitely as records; its diagnostics follow
    the observability policy's stale-release transition. The manifest
    itself never leaves warm storage: reproducing what ran requires
@@ -121,8 +121,8 @@ manifest to archived artifacts that still exist.
 
 ## Publication regimes
 
-Products derived from commissioning-epoch observations — including
-rehearsal runs on real commissioning data — are never promoted to a
+Products derived from commissioning-epoch observations, including
+rehearsal runs on real commissioning data, are never promoted to a
 community surface (catalog promotion, front-door service, alert
 publication) before the Roman Project's public release of
 commissioning data. Until then such products remain at team-internal
@@ -134,7 +134,7 @@ With that release the governing policy switches to NASA SPD-41a open
 data: no exclusive-access period for new missions, with a permitted
 calibration/validation window of up to six months. The promotion gate
 is the same mechanism in both regimes and selects on validation
-state, never on scientific content — promotion criteria are the
+state, never on scientific content: promotion criteria are the
 stated processing success boundary, and non-promotion is publicly
 visible through machine-readable flags and rejection reasons in the
 catalog. Withholding a validated product on other grounds is outside
@@ -144,20 +144,20 @@ this design.
 
 The policy is tested, not asserted. A candidate release passes:
 
-- **Mission mock** — an end-to-end run against the simulated exposure
+- **Mission mock**: an end-to-end run against the simulated exposure
   schedule (realistic arrival times, sky distribution, and load
   envelope), with the observability query tests answerable throughout:
   what happened to an attempt, what produced an output, where the
   time went, what is missing.
-- **Reproduce-from-manifest** — an environment rebuilt from the
-  *published* manifest alone, on clean infrastructure, runs a
+- **Reproduce-from-manifest**: an environment rebuilt from the
+  published manifest alone, on clean infrastructure, runs a
   reference job set and matches the release's outputs. This is the
   reproducibility boundary made testable: if the public projection is
   insufficient to reproduce, the release fails validation.
-- **Rollback drill** — promote, roll back to the prior release,
+- **Rollback drill**: promote, roll back to the prior release,
   verify the prior release operates; both pointer moves observed in
   the records.
-- **Single-component advance** — one component advances while all
+- **Single-component advance**: one component advances while all
   others hold, validating that component contracts are real: the
   release graph is only composable if a new environment under an
   unchanged application is a testable, promotable event.
@@ -166,7 +166,7 @@ The policy is tested, not asserted. A candidate release passes:
 
 The consumer-facing interface requires established and replacement
 releases to run live concurrently through a migration overlap with
-an announced cutover; this document currently models one current
+an announced cutover; this document models one current
 pointer with N−1 warm only as rollback. These are incompatible as
 stated. The reconciliation belongs to the release-topology redesign
 (composable scoped releases beyond a linear sequence, per the
