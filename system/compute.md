@@ -15,7 +15,7 @@ express the RAPID processing graph.
 
 ## Queues
 
-Three job queues express capacity and policy envelopes — never
+Three job queues express capacity and policy envelopes, never
 pipeline stage names:
 
 | Queue | Priority and capacity | Carries |
@@ -26,23 +26,23 @@ pipeline stage names:
 
 The `prompt` split gives the latency-target class its own capacity.
 The `database` queue exists because A-work is the only pipeline work
-that holds a database connection: its hard concurrency cap — initially
-one — is the mechanism by which **Batch concurrency never determines
+that holds a database connection: its hard concurrency cap, initially
+one, is the mechanism by which **Batch concurrency never determines
 database concurrency**, which is a correctness boundary rather than a
 tuning choice. Without a queue-level cap nothing stops the scheduler
 from co-scheduling connection-holders without bound. Priority is the
 tiebreak where queues draw on common capacity: prompt latency wins.
 
-Bulk workloads have no artificial concurrency ceiling — their total
-compute work does not change with parallelism — so a single bulk queue
+Bulk workloads have no artificial concurrency ceiling: their total
+compute work does not change with parallelism, so a single bulk queue
 serves reference construction, reprocessing and export; a further
 split is warranted only if operating experience shows contention that
 priority ordering does not resolve. **[ADOPTED]**
 
 ## Compute environments
 
-Each queue has its own dedicated compute-environment stack — capacity
-isolation by architecture, not by scheduling policy — and each
+Each queue has its own dedicated compute-environment stack (capacity
+isolation by architecture, not by scheduling policy), and each
 on-demand environment carries its own MaxvCpus ceiling, so one class's
 burst cannot silently consume the headroom another would scale into.
 All scale to zero: capacity is elastic and there is no reserved pool.
@@ -51,8 +51,8 @@ headroom for transient overlap, and smoke-run evidence replaces it.
 Allocation strategy is best-fit-progressive: dense packing of the
 dominant job shape first, broadening only on contention. **[ADOPTED]**
 
-Instance selection is deliberately wide — six families at multiple
-sizes, spread across all three availability zones — giving the
+Instance selection is deliberately wide: six families at multiple
+sizes, spread across all three availability zones, giving the
 allocation strategy genuine width to pack densely at scale. The
 memory-optimized families are included in the environments rather than
 carved into a separate pool: a job whose footprint needs the headroom
@@ -61,11 +61,11 @@ gets it without a routing decision. **[ADOPTED]**
 Spot compute environments exist at second consultation order, built
 but disabled: zero cost while disabled, and enabling later is a state
 flip rather than a deployment. When enabled they allocate
-capacity-optimized — interruption-minimizing across the wide family
-list — not price-first. The gate is smoke-run evidence that a reclaim
+capacity-optimized (interruption-minimizing across the wide family
+list), not price-first. The gate is smoke-run evidence that a reclaim
 is retried automatically and cleanly through the attempt-record path
 rather than surfacing as a false failure; the Spot quota request is
-filed then, sized from observed demand. Bulk work adopts Spot first —
+filed then, sized from observed demand. Bulk work adopts Spot first:
 a reclaim there costs a retry, never a latency-target breach, and the
 `prompt` queue's warm reliable on-demand posture is itself a stated
 property of the target. **[ADOPTED]**
@@ -73,7 +73,7 @@ property of the target. **[ADOPTED]**
 ## Resource profiles and job definitions
 
 Job definitions exist for **distinct IAM, resource, scratch and
-timeout envelopes — not one per task**. A task is selected by the
+timeout envelopes, not one per task**. A task is selected by the
 worker subcommand and its manifest, not by having its own definition.
 
 Four semantic resource profiles carry the sizing:
@@ -88,8 +88,8 @@ Four semantic resource profiles carry the sizing:
 Measurement determines the numeric CPU, memory and scratch behind each
 profile; the profile names are the stable surface, the numbers are
 evidence-set. One pinned application image supplies every worker
-subcommand, so a science change never forces a new revision — and
-therefore a new provenance record — onto unchanged work in another
+subcommand, so a science change never forces a new revision, and
+therefore a new provenance record, onto unchanged work in another
 profile. The image is pinned by digest; a tag is carried for human
 readability only and can never change what a submitted job runs.
 Jobs run under the service identity the security design assigns to
@@ -102,7 +102,7 @@ owns retry; Batch performs none on its behalf.
 
 Per-job scratch is provided by the host root volume, sized for the
 typical packing with headroom for AMI, container-layer and agent
-overhead. Instance-store families are excluded — they would narrow the
+overhead. Instance-store families are excluded: they would narrow the
 instance list or fork a second scratch code path for a working-space
 requirement that ordinary volume sizing meets. Reconsidered only if
 smoke-run evidence shows the scratch I/O pattern IOPS-bound at the
@@ -153,7 +153,7 @@ rather than at the service maximum.
 An array index is a dense position within one submission and **never
 scientific identity**. The child's work identity comes from the
 manifest entry its index selects, and an attempt row exists for every
-child before the scheduler assigns child identifiers — so a child that
+child before the scheduler assigns child identifiers, so a child that
 never resolves an identifier is a detectable reconciliation case
 rather than a silent gap. **[ADOPTED]**
 
@@ -173,7 +173,7 @@ RAPID's taxonomy maps cause to disposition:
 | Temporary storage failure | Bounded local retry, then a new attempt |
 | Database serialization or deadlock in A | Bounded transaction retry, then a new attempt |
 | Resource exhaustion (memory, scratch, timeout) | One resource escalation, or explicit repartition |
-| Corrupt input, checksum, WCS or schema | Reject and block dependants — no retry |
+| Corrupt input, checksum, WCS or schema | Reject and block dependants; no retry |
 | Missing reference | **Blocked without consuming an attempt** |
 | Deterministic algorithm or configuration defect | Fail and block that process specification |
 | Scientifically valid empty result | **Successful empty product** |
@@ -189,8 +189,8 @@ it. **[ADOPTED]**
 One dispatching entrypoint serves every job definition; the worker
 subcommand and the manifest select the task, so the commands differ
 while the code path is one. At startup the runtime validates its full
-route — manifest task identity, queue (from the scheduler's own
-environment), resource profile and database lane — as a single tuple
+route (manifest task identity, queue, from the scheduler's own
+environment, resource profile and database lane) as a single tuple
 and rejects any mismatch. No command override exists at submit time.
 **[ADOPTED]**
 
@@ -214,7 +214,7 @@ Job configuration has three homes: **[ADOPTED]**
 
 | Home | Carries | Property |
 |---|---|---|
-| Container environment | Per-invocation identity only — manifest location, submission identity, manifest checksum, and the scheduler's own job, attempt, array-index and queue values | Never configuration, never credentials, never anything science-affecting |
+| Container environment | Per-invocation identity only: manifest location, submission identity, manifest checksum, and the scheduler's own job, attempt, array-index and queue values | Never configuration, never credentials, never anything science-affecting |
 | Parameter tree | Operational configuration: container names, endpoints, mode toggles | Read at startup, persisted as a content-addressed snapshot, hashed into the attempt record's configuration digest |
 | Release content | Anything that can alter a science product: tuning, reference-data versions | Versioned with the image; never in the mutable tree and never reachable from the environment |
 
@@ -223,12 +223,12 @@ a science-affecting value. Override fields are enumerated in the
 manifest schema, an override is recorded by construction because the
 manifest and its checksum bind into the attempt record, and a product
 produced under any science override is barred from promotion to a
-community surface — enforcement of that bar is a stated criterion of
+community surface; enforcement of that bar is a stated criterion of
 the promotion gate. **[ADOPTED]**
 
 Every external command in the payload is checked: a nonzero exit or
 missing binary raises, is classified against the versioned
-error-category allowlist, and is recorded — no unchecked execution
+error-category allowlist, and is recorded; no unchecked execution
 path exists. A caught application failure records its outcome and
 exits cleanly; scheduler-success with application-failure is the
 recorded, expected combination, and a nonzero process exit is reserved
@@ -244,17 +244,17 @@ resolve against the image's controlled PATH set at build time. The
 environment-variable policy of the code-standards design reaches
 inside this contract: the software-root variable is fail-loud at every
 payload read site, no code path defaults it, and the image-baked
-job-definition revision is advisory only — provenance authority for
+job-definition revision is advisory only: provenance authority for
 the executing revision is the submission record's pinned identities.
 **[ADOPTED]**
 
 ## Logs and provenance
 
 Each queue has one pre-created log group with a bounded retention
-window, receiving the bounded safety stream via host-role delivery —
+window, receiving the bounded safety stream via host-role delivery;
 the observability design owns the policy; this substrate binds each
-job definition's log configuration to its queue's group. Provenance —
+job definition's log configuration to its queue's group. Provenance,
 the mapping from source revision through image digest, job-definition
-revision and configuration digest to a product — is queryable through
+revision and configuration digest to a product, is queryable through
 the attempt and submission records; the compute substrate maintains no
 separate registry. **[ADOPTED]**
