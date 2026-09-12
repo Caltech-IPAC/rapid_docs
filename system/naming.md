@@ -20,7 +20,7 @@ is chosen, and the controlled vocabulary it is built from.
    never a shortened canonical form. The fleet CLI's single-letter
    alias layer is the model. Shortening a canonical surface trades
    clarity and collision-safety for keystrokes already saved by
-   completion — `rapidctl` stays `rapidctl`; `rctl` is FreeBSD's
+   completion: `rapidctl` stays `rapidctl`; `rctl` is FreeBSD's
    resource-control utility.
 2. **Prefix only where the namespace is shared.** A name carries the
    `rapid` (or `roman-rapid`) prefix exactly when it lives in a
@@ -33,7 +33,7 @@ is chosen, and the controlled vocabulary it is built from.
    below. Prose uses each name owner's own form (High-Latitude
    Time-Domain Survey per the Roman documentation; RImTimSim;
    OpenUniverse). Lowercase acronym tokens deliberately sidestep
-   upstream rendering disagreements — the survey names are hyphenated
+   upstream rendering disagreements: the survey names are hyphenated
    at STScI and unhyphenated at IPAC and GSFC.
 4. **Names are absolute and, once claimed, held.** No relative labels
    (`new`, `old`, `prev`) as names; a forward-tracking alias may
@@ -42,7 +42,7 @@ is chosen, and the controlled vocabulary it is built from.
    superseded names are retired, never reused.
 5. **A new name is derived, not invented.** Before coining one: does
    the registry already hold the noun; does context scope it
-   (principle 2); will it need siblings later — leave grammatical
+   (principle 2); will it need siblings later, leave grammatical
    room, as the dataset grammar does. Names are never authoritative
    identity: parsing a name is permitted for routing and attribution
    only, and only when verified by round trip against authoritative
@@ -58,7 +58,7 @@ is chosen, and the controlled vocabulary it is built from.
 | `rapid` | conda environments on the fleet | the fleet-wide Python substrate |
 | `rapid` | fleet shell PATH | the team fleet/account operator CLI |
 | `rapidctl` | pipeline container | the constrained pipeline-operator surface (operations design) |
-| `rapid` | MAST PIT registry | the registered PIT short name — CCSP filename field, MAST directory, database keyword |
+| `rapid` | MAST PIT registry | the registered PIT short name: CCSP filename field, MAST directory, database keyword |
 | `Group=rapid` | AWS cost-allocation tags | RAPID's resources, under `Project=roman` |
 | `rapid-<host>` | EC2 console | fleet hosts (`rapid-admin`, `rapid-db`, `rapid-<login>`) |
 | `rapid.roman.sciencecloud.nasa.gov` | delegated DNS | the project zone; interior records drop the prefix |
@@ -78,9 +78,9 @@ family) that appear only between `/` delimiters in object keys, never
 inside hyphen-joined names.
 
 The registry has three append-only tiers: (a) lexical tokens (the
-survey/source/class tables below); (b) complete claimed identifiers —
+survey/source/class tables below); (b) complete claimed identifiers:
 every claimed dataset noun, bucket name, and similar permanent
-identifier, registered whole and treated as opaque; (c) tombstones —
+identifier, registered whole and treated as opaque; (c) tombstones:
 retired identifiers and aliases, recorded so they are never reused
 and so operational language can distinguish a tombstoned identifier
 from a live lexeme. A new data-class value is not an append-only
@@ -88,7 +88,7 @@ change: it amends the two-axis identity model (operations design) and
 its science/non-science authorization status, so it requires its own
 ratification.
 
-**Surveys** — lowercase acronyms of the Core Community Surveys and
+**Surveys**: lowercase acronyms of the Core Community Surveys and
 General Astrophysics Surveys: `hltds`, `gbtds`, `hlwas`, `gps`,
 `gas`.
 
@@ -97,11 +97,11 @@ General Astrophysics Surveys: `hltds`, `gbtds`, `hlwas`, `gps`,
 | Token | Name | Provenance |
 |---|---|---|
 | `openuniverse` | OpenUniverse2024 | high-latitude survey sims, IRSA-hosted, frozen; no Galactic bulge |
-| `rimtimsim` | RImTimSim — Roman IMage and TIMe-series SIMulator | Wilson et al. 2023, ApJS (doi:10.3847/1538-4365/acf3df); RGES-PIT lineage; pixel-level GBTDS sims |
-| `socsim` | SOC-produced simulations | SOC simulation releases; a producer tag, not a lineage — before any bucket is claimed under it, the actual SOC simulation family must be registered under a lineage name, since one producer shipping two families must not share a token |
-| `socsim-r00340` | SOC simulation release r00340 | The lineage `socsim` reserves a name for. The SOC's own release identifier, from the source of truth `s3://stpubdata/roman/nexus/soc_simulations/r00340/` and carried in every file name RAPID ingested (`r0034001002001001003_0001_wfi01_f146_cal_lite.fits.gz`) — the family names itself, so nothing here is coined. This is what `g0001`'s inputs are; the second SOC family gets `socsim-r<its own release>` and the two never collide, which is exactly the confusion the `socsim` row exists to prevent. Metadata only — a `source` value in provenance records. It renames nothing: the bucket `roman-rapid-inputs-gbtds-sim`, the dataset noun `gbtds-sim`, and the generation `g0001` are claimed names and are held (principle 4) |
+| `rimtimsim` | RImTimSim: Roman IMage and TIMe-series SIMulator | Wilson et al. 2023, ApJS (doi:10.3847/1538-4365/acf3df); RGES-PIT lineage; pixel-level GBTDS sims |
+| `socsim` | SOC-produced simulations | SOC simulation releases; a producer tag, not a lineage: before any bucket is claimed under it, the actual SOC simulation family must be registered under a lineage name, since one producer shipping two families must not share a token |
+| `socsim-r00340` | SOC simulation release r00340 | The lineage `socsim` reserves a name for. The SOC's own release identifier, from the source of truth `s3://stpubdata/roman/nexus/soc_simulations/r00340/` and carried in every file name RAPID ingested (`r0034001002001001003_0001_wfi01_f146_cal_lite.fits.gz`); the family names itself, so nothing here is coined. This is what `g0001`'s inputs are; the second SOC family gets `socsim-r<its own release>` and the two never collide, which is exactly the confusion the `socsim` row exists to prevent. Metadata only: a `source` value in provenance records. It renames nothing: the bucket `roman-rapid-inputs-gbtds-sim`, the dataset noun `gbtds-sim`, and the generation `g0001` are claimed names and are held (principle 4) |
 
-**Data classes** — the substrate × injection identity (operations
+**Data classes**: the substrate × injection identity (operations
 design), as compound self-describing tokens that sort as a family:
 `real-pristine` (science), `real-injected`, `sim-pristine`,
 `sim-injected`.
@@ -114,7 +114,7 @@ general first; survey and source are both mandatory, qualifiers are
 zero or more, and each qualifier is an atomic registry token. Source
 is part of the identity because the dataset is the swap/retire/cost
 unit and two sources for one survey retire independently. Campaign
-detail — injection date, sim release, selection — stays in the
+detail (injection date, sim release, selection) stays in the
 generation manifest, never the noun (storage design). Examples:
 `hltds-openuniverse`, `gbtds-rimtimsim`, `gbtds-socsim`. The complete
 noun is registered whole (tier b) and treated as opaque: no tool or
@@ -125,7 +125,7 @@ retired rehearsal noun `socsim` is tombstoned (tier c).
 ## Reserved words
 
 A semantic dictionary scoped to RAPID-owned identifiers and normative
-prose — not a global prohibition. Ecosystem terms (an RPM Release, a
+prose, not a global prohibition. Ecosystem terms (an RPM Release, a
 GitHub Actions run) and grandfathered names are explicit exceptions.
 
 - Generic type nouns are never canonical identifiers; artifacts take
