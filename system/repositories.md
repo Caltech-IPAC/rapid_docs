@@ -19,7 +19,7 @@ nothing operational.
 `rapid` and `rapid_systems` are both team-operated. The infrastructure
 repository's documentation surface is deliberately lean and
 self-explanatory: understanding any file in it requires no lookup into
-a decision-identifier scheme — the design documents state the target
+a decision-identifier scheme: the design documents state the target
 and the repositories' issues hold the discussion. What it does keep is
 one operational tracker recording deploy state and owed live actions,
 which has to be visible to the team.
@@ -41,14 +41,14 @@ Which venue holds which statement is the documentation design's
 statement about RAPID, the design documents included, and builds the
 public documentation site; `rapid` holds code, docstrings, a README
 that points to the site, and the contribution files the software
-policy requires — no documentation tree; `rapid_systems` holds
+policy requires, and no documentation tree; `rapid_systems` holds
 everything operational.
 
 ## Content placement
 
 The pipeline repository carries code and its history only: bulk data
 artifacts (catalogs, product listings, reference files) do not enter
-git history — they belong in data stores and are referenced, not
+git history; they belong in data stores and are referenced, not
 committed. This keeps clones, CI checkouts, and archival snapshots
 light for the repository's lifetime. Third-party software is likewise
 not copied in: the pipeline declares its dependencies, and the
@@ -58,7 +58,7 @@ production standard for it.
 
 Bulk artifacts already in the pipeline repository's history are removed
 by a one-time history rewrite before any persistent identifier is
-minted against the repository — after that the cost stops being a
+minted against the repository: after that the cost stops being a
 coordinated re-clone and becomes a broken reference.
 
 Which content must be public for reproducibility, and which
@@ -78,7 +78,7 @@ Required review checks on protected branches are enabled after the
 migration's history rewrite, since that rewrite requires a force-push.
 Build provenance establishes which workflow produced a given artifact
 from a given source revision, but not that the triggering commit or
-the workflow change itself was reviewed — so enforcement is a
+the workflow change itself was reviewed. Enforcement is a
 governance question that provenance does not answer.
 
 ## Build and publish
