@@ -30,6 +30,7 @@ patterns='(^|[^0-9])[0-9]{12}([^0-9]|$)
 arn:aws
 /Users/
 ~/Vault
+~/Claude
 scratchpad
 register §
 (^|[^A-Za-z0-9_])constitution([^A-Za-z0-9_]|$)
