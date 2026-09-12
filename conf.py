@@ -17,6 +17,8 @@ exclude_patterns = [
     "_build",
     ".venv",
     "README.md",
+    "AGENTS.md",
+    "CLAUDE.md",
     ".github",
     "scripts",
     "Thumbs.db",

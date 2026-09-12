@@ -8,7 +8,8 @@ Where every statement about RAPID lives, who it is written for, and
 what the public documentation site is. This design owns the venue
 rules and the site's structure; the repository set and its visibility
 belong to the repositories design, and the external interfaces the
-site documents belong to the interfaces design.
+site documents belong to the interfaces design; how the pages are
+written belongs to the [writing design](writing).
 
 ## Classification
 
@@ -74,13 +75,19 @@ of a kind has the same shape.
 | Products | The delivered products first: what reaches the archive, tables and columns with units, file layout and naming, bulk access. Then forced photometry, cutouts, processing records, and the release list. Alerts are one page: a registered interface, the brokers that carry the stream for everyone else, the format for registrants. One getting-started page for the astronomer who does not code | Community, integrators | Current-state |
 | Science | The algorithms — tessellation, reference construction, differencing, candidate extraction, real/bogus classification, photometry — and the published performance numbers | Researchers, institutional | Current-state |
 | System | The design documents, architecture first, each carrying its status | Team, agents, institutional | Current-state |
-| Project | Team and contact; how the project is run; contributing; how to cite; the data and software policy; where things live (this design) | Everyone | Current-state |
+| Project | Team and contact; how the project is run; contributing; how to cite; the data and software policy; the glossary; where things live (this design) | Everyone | Current-state |
 | Log and blog | One blog, two categories with separate feeds. Blog: curated, external, occasional. Log: the team's blow-by-blow development record | Community (blog), team and followers (log) | Dated |
 
 Product interface pages share one shape: what it is, how to use it,
 the reference (schema, format, naming), the guarantees and known
-limits. The release list is the site's only versioned reference
-content: state per version, not narrative.
+limits. Procedures live in the product page's "how to use it"; the
+getting-started page for the astronomer who does not code is the one
+standalone procedure page, and a procedure that spans products or
+outgrows a short example becomes its own page in Products, linked
+from the product page. The glossary is one page in Project, holding
+every term the site uses with its definition or a link to the
+definition's owner. The release list is the site's only versioned
+reference content: state per version, not narrative.
 
 Posts carry an author, a date, and a category, and are never revised
 after publication. A correction goes into the reference page it
@@ -113,7 +120,8 @@ deployed today, and its shortfalls — nor any opinion or criticism of
 existing work. People appear by name in two
 places only: the team page, by name, role, and affiliation, without
 addresses; and as the author of a post, including the log's listing of
-posts by author. Contact routes are the role address, the announcement list,
+posts by author; citing published work by its authors is bibliography,
+not an appearance. Contact routes are the role address, the announcement list,
 the pipeline repository's issues, and the registration route for the
 alert stream; no route names a person.
 

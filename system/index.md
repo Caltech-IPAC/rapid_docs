@@ -58,6 +58,7 @@ contradict, these:
 | [`releases.md`](releases) | DRAFT | Release composition, validation battery, lifecycle and archival; scientific identity vs operational substrate; promotion sequence and release pinning; overall status still gated on the validation tests |
 | [`interfaces.md`](interfaces) | DRAFT | The eight external interfaces: SOC input, live alerts, product archive, forced photometry, user cutouts, processing records, public metadata, release interface; overall status still under team review |
 | [`documentation.md`](documentation) | DRAFT | Documentation policy: the classification axes, audiences, one rule per venue, the public site's six sections and page shapes, post rules, machine readership, the public-safety boundary, science-information-policy compliance, toolchain |
+| [`writing.md`](writing) | DRAFT | Writing style: three registers fixed by address not subject, present tense with separate design-status and availability labels, guarantees and open points instead of disclaimers, page shape and headings, terminology deferring to the naming design and Roman, typography, posts, a two-severity pull-request scan |
 
 ## Planned coverage
 
@@ -89,4 +90,5 @@ database
 releases
 interfaces
 documentation
+writing
 ```
