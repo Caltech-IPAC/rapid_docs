@@ -242,15 +242,14 @@ reference-page sources (every source outside the log and blog; this
 page and the repository's agent brief, `AGENTS.md`, excepted by name),
 whole words, outside fenced code. Two severities:
 
-- **Blocks the merge**: a placeholder ("TBD", "to be determined",
-  "coming soon", "in a future release", "will be updated"), "click
-  here", an image without alt text, an admonition other than
-  `warning`, a heading deeper than H3.
-- **Warns, for review**: an em dash, "will", "currently", "at this
-  time", "for now", "subject to change", "please", "note that", and
-  link text that is a bare URL. A warning is either fixed or answered
-  in the pull request. The em dash warns rather than blocks only until
-  the pages written before this design are brought into line.
+- **Blocks the merge**: an em dash, a placeholder ("TBD", "to be
+  determined", "coming soon", "in a future release", "will be
+  updated"), "click here", an image without alt text, an admonition
+  other than `warning`, a heading deeper than H3.
+- **Warns, for review**: "will", "currently", "at this time", "for
+  now", "subject to change", "please", "note that", and link text that
+  is a bare URL. A warning is either fixed or answered in the pull
+  request.
 
 Heading case, dates in prose, and everything about register, subject
 of sentence, self-containment and one home per fact are what review
