@@ -1,10 +1,10 @@
 # How the project is run
 
 **The bet.** Do the things that are hard to change up front; let the
-rest stay rough. The science pipeline will be rough until real data
+rest stay rough. The science pipeline stays rough until real data
 arrives, by necessity, so at cutover it has to run end to end and no
 more: a foundation to build on, a basis for iteration. Commissioning and
-early science will be a long bootstrap; the pipeline is built to be
+early science are a long bootstrap; the pipeline is built to be
 iterated through that, not finished before it. Hard to change, therefore
 done properly now: the data model and schema, storage layout and naming,
 identity and roles, the interfaces other PITs consume. Soft, therefore
