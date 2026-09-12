@@ -1,6 +1,6 @@
 # Observability
 
-**Status: ADOPTED** — policy and requirements are normative; the
+**Status: ADOPTED**, policy and requirements are normative; the
 reference design is illustrative of one compliant implementation,
 except the diagnostics lifecycle and the attempt record, which are
 adopted. The team reviews the implemented system in operation. The
@@ -12,7 +12,7 @@ How RAPID records and explains its operation without committing to a
 large observability platform. Nothing here requires centralized log
 search, distributed tracing, or a dashboard. Three levels: durable
 policy, testable requirements derived from it, and a replaceable
-reference design showing both can be satisfied simply — policy →
+reference design showing both can be satisfied simply: policy →
 requirement → design element → test.
 
 ## Scope and model
@@ -63,7 +63,7 @@ inferred from diagnostics.
 runtime-native transports and stores it already operates. A new
 searchable or indexed service requires a named question, an owner, a
 cost and retention model, and a removal condition. Small bounded
-mechanisms — a metric, an alarm, a short-retention safety stream — are
+mechanisms (a metric, an alarm, a short-retention safety stream) are
 permitted only when they satisfy the same test.
 
 **Channels follow their purpose.** Job diagnostics, service
@@ -103,13 +103,13 @@ expectation. Informational signals are not alarms.
 | Provenance | records; deliberate schemas | A product resolves to its inputs, checksums, source revision, container digest, job-definition revision, configuration digest, and reference/calibration identities. |
 | Reconciliation | observable failure | On a stated cadence, every submitted attempt becomes terminal, missing, or contradictory; none remains silently indeterminate beyond a stated horizon. |
 | Time semantics | latency boundaries; deliberate schemas | Timestamps are UTC RFC 3339 with offsets; event, ingestion, and recording time are distinct where needed; durations use monotonic clocks with explicit units and precision. |
-| Milestones | latency boundaries | Named observation-to-alert boundaries are queryable per work unit and its subject. The four latency clocks — arrival to admission, admission to transform result, acceptance to outbox, outbox to broker acknowledgement — are measured separately, each authored by one source. |
+| Milestones | latency boundaries | Named observation-to-alert boundaries are queryable per work unit and its subject. The four latency clocks (arrival to admission, admission to transform result, acceptance to outbox, outbox to broker acknowledgement) are measured separately, each authored by one source. |
 | Authority | channel lifecycle; explicit retention | Each field class has one named authority; disagreement between stores is detectable rather than silently resolved. |
 | Retention | explicit retention | Every retained stream has an explicit finite rule, except provenance, whose rule is tied to product lifetime. Success and failure diagnostics can expire independently. |
 | Service supervision | channel lifecycle | Operator services have bounded local diagnostics and clean start, stop, restart, and termination behavior. |
 | Safe content | sensitive-content prohibition | Fields and metric dimensions conform to allowlists; wrappers and entry points do not dump unrestricted environments; diagnostic controls and representative output pass checks for prohibited content. |
 | Alarm contract | owned alarms | Every deployed alarm records its owner, response, missing-data treatment, response hours, and test method. |
-| Query tests | cross-cutting | Tests answer: what happened to an attempt; which inputs/code/config produced an output; where SCA-to-alert time was spent; which expected records are missing; which alarms currently require action. |
+| Query tests | cross-cutting | Tests answer: what happened to an attempt; which inputs/code/config produced an output; where SCA-to-alert time was spent; which expected records are missing; which alarms require action now. |
 | Cost bound | minimal platform | Telemetry volume, metric cardinality, retention, and standing-service cost are estimated before deployment and reviewed from actual usage. |
 
 ## The operational surface
@@ -121,7 +121,7 @@ through the migration stream, answering: pipeline flow and oldest work
 age, result-acceptance backlog, active and possibly-lost attempts,
 quarantine, outbox health, reference coverage, and integrity probes
 (provenance completeness, object-orphan candidates, partition and Q3C
-index health). Every consumer — CLI, any rendering tier, automation —
+index health). Every consumer (CLI, any rendering tier, automation)
 reads the same views, so a number cannot disagree between surfaces.
 
 A small low-cardinality metric set carries symptoms only:
@@ -136,12 +136,12 @@ A small low-cardinality metric set carries symptoms only:
 | Missing objects and checksum failures | A database reference to a missing object is a critical integrity failure |
 | Outbox age, retries and permanent failures | The only route to publication, so its stall is invisible elsewhere |
 
-Every non-terminal work-unit state other than `blocked` — the
-operator-wait state — carries a bound on dwell time,
+Every non-terminal work-unit state other than `blocked` (the
+operator-wait state) carries a bound on dwell time,
 measured from the append-only event log rather than any mutable
 timestamp column, so that a state stamped without a transition cannot
 silently under-report. Exceeding the bound surfaces the unit as an
-operator-visible anomaly; it never transitions the unit — a bound
+operator-visible anomaly; it never transitions the unit: a bound
 cannot distinguish "accepted and running slowly" from "request never
 arrived", and those warrant different operator responses. A state that
 waits on a deliberate operator act carries no bound: dwell there is not
@@ -157,8 +157,8 @@ independent of age. A dwell bound for attempts is a future addition,
 gated on a reconciler-closure timestamp or an attempt-level event log.
 
 Identifiers belong in structured logs, never in metric dimensions.
-Correlation identifiers propagate end to end — admission, work,
-attempt, submission, Batch job, manifest, product, delivery — and that
+Correlation identifiers propagate end to end (admission, work,
+attempt, submission, Batch job, manifest, product, delivery), and that
 propagation is the recorded non-preclusion mechanism for a tracing
 platform, whose adoption trigger is demonstrated diagnostic need.
 There is no tracing platform and no dashboard product at this scale.
@@ -167,7 +167,7 @@ Pages are reserved for service-level symptoms: database unavailable,
 WAL archiving stalled, controller deadman, prompt-age breach, stalled
 acceptance, outbox age, reference gap, missing accepted objects, and
 failed recovery exercises. **Expected individual Batch failures never
-page** — they are the design's assumed case, absorbed by the retry
+page**: they are the design's assumed case, absorbed by the retry
 taxonomy, and paging on them would train the response away.
 
 ## Reference design (illustrative, not policy)
@@ -199,21 +199,21 @@ the evolving attempt lifecycle; AWS Batch remains authoritative for
 scheduler state. Reconciliation records disagreement instead of
 choosing whichever value arrived last.
 
-Attempt lifecycle — the PostgreSQL record evolves by state, and fields
+Attempt lifecycle: the PostgreSQL record evolves by state, and fields
 unavailable in a state are absent, never fabricated or sentinel-valued:
 
 | Lifecycle state | Required content |
 |-----------|-------------------------------------------------|
-| Submitted | Schema, run/job/attempt and scheduler identifiers; submission time; the submission-time execution binding (job-definition revision, image digest, release identity, manifest checksum, retry-policy version), copied from the logical job at row creation — the retry-policy version alone copies from the active retry-policy document |
+| Submitted | Schema, run/job/attempt and scheduler identifiers; submission time; the submission-time execution binding (job-definition revision, image digest, release identity, manifest checksum, retry-policy version), copied from the logical job at row creation; the retry-policy version alone copies from the active retry-policy document |
 | Started | Submitted fields plus start time, runtime/code/configuration identity (configuration digest bound in the same transition that marks the start) |
 | Application-closed | Started fields plus application outcome, product disposition, stages, application-intended exit, and terminal-record reference; scheduler-observed facts not yet known |
 | Terminal after start | Application-closed fields plus reconciler-recorded scheduler end state and scheduler-observed exit; agreement or contradiction classified, never silently resolved |
 | Terminal without start | Submitted fields plus scheduler end state, reason, and end time; application-only fields absent |
 | Missing or contradictory | Attempt identity, reconciliation classification, observation sources, detection time |
 
-The process exit is two columns with one writer each —
+The process exit is two columns with one writer each:
 application-intended (written at application close) and
-scheduler-observed (written by the reconciler) — the same
+scheduler-observed (written by the reconciler), the same
 disagreement-preserving shape as the timestamp pairs. Attempt rows
 are acquired through one atomic claim-or-create resolver keyed by
 scheduler job identity and attempt index (application-observed and
@@ -224,9 +224,9 @@ resolve to one row per attempt.
 
 The application writes the immutable S3 result and provenance record
 (sequence 0) at its terminal step; the reconciler closes every
-attempt with a closure record — sequence-keyed above the
+attempt with a closure record, sequence-keyed above the
 application's, a complete canonical snapshot folding the validated
-predecessor plus classification and scheduler-observed facts — so
+predecessor plus classification and scheduler-observed facts, so
 the highest-sequence record alone is always the full, reconciled
 terminal account. Where no usable sequence 0 exists (never started,
 died before writing, or present but failing key/checksum
@@ -243,7 +243,7 @@ stage timestamps/durations.
 
 Reconciliation: the controller polls, comparing PostgreSQL intent, AWS
 Batch state, and expected object records. Scheduled reconciliation is
-mandatory and sufficient for convergence — it is the only convergence
+mandatory and sufficient for convergence: it is the only convergence
 mechanism, not a fallback for one. Any event path added later is
 acceleration only, changing latency and nothing else, and every
 notification handler must be idempotent under duplication and
@@ -254,7 +254,7 @@ reordering.
 Diagnostics use a bounded CloudWatch safety stream over durable S3
 artifacts. Two facts drove the choice. First, operations increasingly
 delegates diagnosis to automated agents, whose native interface is an
-API query against a live stream — evidence that sits in local files
+API query against a live stream: evidence that sits in local files
 until an export run is invisible to them, and invisible to anyone
 while a job is still running. Second, abrupt loss (out-of-memory kill,
 Spot reclaim, host death) destroys exactly the final local evidence
@@ -270,32 +270,32 @@ stage logs, tool outputs), in an internal bucket named per the
 security document's identifier rules, keyed by run/job/attempt on a
 classification-neutral key; the retention class (success or
 failure) is a reconciler-stamped object tag applied at
-classification, and the lifecycle rules act on tags — so a
+classification, and the lifecycle rules act on tags, so a
 superseding reclassification retags rather than strands the bundle.
 Retagging is a canonical full-tag-set rewrite preserving the other
 adopted tags and moves only toward the longer-retention class. A cleanly exiting attempt uploads its own bundle at its
 terminal step, then writes the terminal record citing the bundle's
-checksum. For an attempt that never wrote one — abrupt loss, or never
-started — the reconciler builds the bundle from the attempt's
+checksum. For an attempt that never wrote one (abrupt loss, or never
+started), the reconciler builds the bundle from the attempt's
 CloudWatch stream at classification time and marks it reconstructed.
 Either way the bundle exists before the attempt is closed, whichever
 way it died.
 
 | Stream | Runtime transport | Retained copy | Moves to S3 | Tiering | Expires |
 |---|---|---|---|---|---|
-| Job stdout/stderr | CloudWatch, group per queue | none — safety net only | never; source for reconstructed bundles | — | 14 days |
+| Job stdout/stderr | CloudWatch, group per queue | none, safety net only | never; source for reconstructed bundles | none | 14 days |
 | Attempt bundle, success | local files | S3 bundle | at terminal step, by the job | none | 90 days |
-| Attempt bundle, failure | local files or stream | S3 bundle | at terminal step, or by the reconciler at classification | Standard-IA at 30 days; Glacier Instant Retrieval at 90 days; Deep Archive at 1 year | never — retained as a record |
-| Service/controller | CloudWatch, short-retention groups | the stream itself | no | — | 30 days |
-| Host/OS forensics | CloudWatch agent, off-host | the stream itself | no | — | 30 days |
+| Attempt bundle, failure | local files or stream | S3 bundle | at terminal step, or by the reconciler at classification | Standard-IA at 30 days; Glacier Instant Retrieval at 90 days; Deep Archive at 1 year | never, retained as a record |
+| Service/controller | CloudWatch, short-retention groups | the stream itself | no | none | 30 days |
+| Host/OS forensics | CloudWatch agent, off-host | the stream itself | no | none | 30 days |
 | Records and provenance | direct write | immutable S3 objects (+ live state in PostgreSQL) | at event | Standard only | ≥ lifetime of the products described |
 
 Tiering rationale: while a diagnostic can still be needed
-interactively, it stays in tiers with immediate retrieval — Standard,
+interactively, it stays in tiers with immediate retrieval: Standard,
 then Standard-IA, then Glacier **Instant Retrieval** (roughly a third
 of Standard-IA's storage price). Diagnostics from a stale release are
 no longer diagnostics: nobody debugs against superseded code. They
-change purpose to records — custody follows purpose — and move to
+change purpose to records (custody follows purpose) and move to
 Glacier **Deep Archive**, retained indefinitely at negligible cost; a
 twelve-hour retrieval is acceptable for something expected to be
 retrieved never, whose value is that it exists. The one-year transition
@@ -305,7 +305,7 @@ transition the superseded release's bundles directly (diagnostics
 carry their producing release as an object tag). Success diagnostics
 expire from Standard without
 tiering: transition requests cost per object, and S3 lifecycle skips
-objects under 128 KB by default — many success bundles are that
+objects under 128 KB by default, and many success bundles are that
 small, so expiry is the only economical action. Records and
 provenance never leave Standard: their readability requirement
 outlives any tiering saving on their negligible volume. All periods
@@ -321,8 +321,8 @@ processing attempt, realized as three live-state tables plus the
 immutable S3 terminal record above.
 
 - **Attempts**: one row per attempt, updated in place as it advances
-  through the lifecycle states. A retry — from the scheduler or the
-  controller — is a new row with its own immutable attempt identity,
+  through the lifecycle states. A retry, from the scheduler or the
+  controller, is a new row with its own immutable attempt identity,
   never an update to a prior attempt. Array-submitted children are
   independent attempt rows, created at submission time before the
   scheduler assigns child identifiers; a child whose identifier never
@@ -332,7 +332,7 @@ immutable S3 terminal record above.
   scheduler state, process exit code, application outcome, product
   disposition, and a machine-readable error category drawn from an
   allowlist versioned with the schema. Scheduler-success with
-  application-failure is a representable, expected combination — no
+  application-failure is a representable, expected combination: no
   automated decision parses diagnostic text to discover it.
 - **Stage records** are span-shaped and append-only: one row per stage
   execution, written once at completion, carrying a wall-clock start
@@ -346,10 +346,10 @@ immutable S3 terminal record above.
   The wired milestone writers are the chain's ends: `l2_available`
   carries the authoritative source-availability timestamp, and
   `alert_published` commits with emission confirmation. Intermediate
-  boundaries are not separately wired milestones — they are derived
+  boundaries are not separately wired milestones: they are derived
   from attempt and stage records. Until the upstream ingest interface
   delivers a SOC-supplied availability timestamp, the recorded
-  availability fact is the input registration row's creation time —
+  availability fact is the input registration row's creation time,
   an upper bound on availability, correct for the simulated
   substrate where registration is creation; the SOC timestamp
   replaces it when the real ingest interface lands, with no schema
@@ -358,26 +358,26 @@ immutable S3 terminal record above.
   submission, queue, startup, execution, and publication intervals,
   each authored by exactly one source (application timestamps,
   scheduler timestamps, stage aggregates, milestone timestamps) and
-  assembled by joining the records — no per-interval bespoke
+  assembled by joining the records: no per-interval bespoke
   convention. No timestamp column ever has two writers for the same
   row: the application authors creation, submission, and start;
   scheduler-observed times land in their own reconciler-written
   columns beside them; the end time is written by whichever party
-  closes the attempt — the job at clean exit, the reconciler at
+  closes the attempt, the job at clean exit, the reconciler at
   classification. Disagreement between application and scheduler
   pairs beyond a stated tolerance is flagged by reconciliation, never
   overwritten or silently resolved. The full decomposition is defined
   for a job's first scheduler attempt; a scheduler-level retry's
   queue interval is bounded only by the prior attempt's stop and its
-  own start — a stated limitation of the scheduler's per-attempt
+  own start, a stated limitation of the scheduler's per-attempt
   evidence.
-- Fields a lifecycle state has not reached are absent — never
-  sentinel-valued — in the database rows and the terminal record
+- Fields a lifecycle state has not reached are absent, never
+  sentinel-valued, in the database rows and the terminal record
   alike, and every required-or-absent cell of the lifecycle matrix is
   backed by a schema constraint.
 
 The submission-time execution binding includes the retry-policy
-version that governs the attempt — authored at submission by the
+version that governs the attempt, authored at submission by the
 submitter, required from the Submitted state onward; the
 policy-version field copies from the active retry-policy document,
 the binding's other fields from the logical job. Queue identity is
