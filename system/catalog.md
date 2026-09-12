@@ -40,7 +40,7 @@ demote it). Insert never promotes: rows land `vbest = 0`,
 
 **The registrar acts on a single premise: exactly one registrar runs
 against a given attempt at a time.** The premise is enforced, not
-assumed — a transaction-scoped advisory lease on the attempt key,
+assumed: a transaction-scoped advisory lease on the attempt key,
 acquired inside the same product/outcome/watermark transaction the
 registration commit uses, with a post-lock re-read of the watermark
 state before any write. The operator pass and the manual
@@ -48,15 +48,15 @@ state before any write. The operator pass and the manual
 derivation, so a restart overlap or a manual registration cannot
 double-write. This is the registrar's own instance of the lease
 primitive; the reconciler's closure protocol runs the same primitive
-shape over its own prefix-listing, lexical-max selection — that
+shape over its own prefix-listing, lexical-max selection: that
 machinery belongs there, not here.
 
-**The promotion manifest is the attempt's cited terminal record** —
+**The promotion manifest is the attempt's cited terminal record**,
 fetched by the attempt row's own recorded key and sequence, not
 discovered by listing. The row's cited sequence is authoritative; the
-record is fetched by exact key and validated — parseable, same attempt
+record is fetched by exact key and validated (parseable, same attempt
 identity and sequence, checksum where the row's classification records
-one — before any flip.
+one) before any flip.
 
 Attempt identity alone is not the fence. Because an ambiguous
 submission can leave more than one physical execution against a single
@@ -69,22 +69,22 @@ are checked, in that order.
 
 Scientific identity is independent of both. A product's identity is a
 deterministic digest of process specification, canonical subject,
-ordered inputs and role — never a path, a Batch identifier, an array
+ordered inputs and role: never a path, a Batch identifier, an array
 index or an attempt identifier. Attempt identity governs idempotent
 registration; it does not name the product. A store fault defers registration to a later
 pass; a validation rejection commits its own registration-outcome
 entry, in its own transaction, without advancing the registration
-watermark — the attempt stays retryable and the rejection stays
+watermark: the attempt stays retryable and the rejection stays
 durable. Records are complete canonical accounts; consumers never
 chain-fold.
 
 **Product roles bind in the declared set.** A declared product set
-may name a product by role — a stable contract name bound in release
+may name a product by role, a stable contract name bound in release
 content to the concrete product that fills it. The difference-image
 role is bound to the SFFT difference image; the ZOGY and naive
 variants remain published, checksummed products in the record with
-no identity-table rows. Every consumer of a role-named product —
-registration, alert cutouts, catalog readers — resolves the same
+no identity-table rows. Every consumer of a role-named product
+(registration, alert cutouts, catalog readers) resolves the same
 binding; no consumer carries an algorithm literal. Measurements
 registered alongside a role-bound product are drawn from the bound
 product's own processing chain. Changing a role binding is a release
@@ -107,18 +107,18 @@ the per-call autocommit fallback is removed for identity-table
 mutations (a standalone caller borrows an explicit envelope).
 
 **Enforcement**: partial unique indexes, one per identity table, on
-the identity group where `vbest IN (1, 2)` — `refimages (field, fid,
+the identity group where `vbest IN (1, 2)`: `refimages (field, fid,
 ppid)`, `diffimages (rid, ppid)`, `l2files (expid, sca)`,
 `psfs (fid, sca)`. The `update*` functions catch a violation and
 re-raise through their existing exception contract.
 
-**Conflicts**: two constraint families are retryable — the
+**Conflicts**: two constraint families are retryable, the
 natural-unique constraints containing `version` and the partial
 `vbest` indexes. Either violation aborts the losing transaction whole;
 the attempt stays closed-but-unregistered and retries on the
 registrar's next pass against re-read state, under the same per-attempt
 lease. A later-pass registration behaves exactly as a serial later
-registration — its promotion legitimately supersedes the earlier
+registration: its promotion legitimately supersedes the earlier
 winner, because serial registration order is the supersession order.
 Nothing partial commits. Same-attempt replay is idempotent under the
 attempt-identity guard.
@@ -127,7 +127,7 @@ attempt-identity guard.
 group carries a `vbest = 2` pin, that product's new row lands and
 stays at `vbest = 0` while the unit's other products promote and the
 transaction commits. The commit is atomic; the resulting current view
-is deliberately composite — the pin's designed effect. Suppressed
+is deliberately composite, the pin's designed effect. Suppressed
 promotions are recorded in the registration outcome; promoting one
 later is an operator action through the audited mutation surface.
 
@@ -137,7 +137,7 @@ rejections, post-registration supersession observations. Appends are
 append-once, keyed by event identity (type, record key, sequence,
 checksum), with an observed-sequence high-water mark for supersession
 observations. A validation rejection commits its entry without
-advancing the registration watermark — the attempt stays retryable,
+advancing the registration watermark: the attempt stays retryable,
 the rejection stays durable. A record superseded after registration
 never re-promotes: the observation is appended and no product mutates.
 
@@ -147,9 +147,9 @@ attempt rows are permanent, and any attempts-retention policy excludes
 them. `filename` columns are `text`; the one length constraint is the
 delivered-name 90-character check on delivery records.
 
-**Demotion** is a pointer move within the same machinery — promoting a
+**Demotion** is a pointer move within the same machinery, promoting a
 prior version's row, or an operator flip through the audited mutation
-surface — never a delete, never a key rewrite.
+surface: never a delete, never a key rewrite.
 
 ## Delivery records
 
@@ -171,7 +171,7 @@ left missing:
   transition leaves a terminal state.
 - **Prepare**: one transaction mints the delivery identity (unique;
   deterministic from the delivery's scheduling identity, stable under
-  replay — derivation owed by the public-path design), the delivery
+  replay: derivation owed by the public-path design), the delivery
   version per replacing product under a unique constraint on
   (delivered science identity, delivery version), every delivered
   filename (the CCSP mint and 90-character check bind here), and
@@ -179,8 +179,8 @@ left missing:
   different membership under the same identity aborts.
 - **Manifest projection**: the MAST-facing manifest (additions,
   replacements, superseded-product names) is generated from the
-  prepared rows in canonical serialization — sorted keys, no
-  nondeterministic content — and written create-once to the records
+  prepared rows in canonical serialization (sorted keys, no
+  nondeterministic content) and written create-once to the records
   bucket's delivery prefix. Replay lands idempotently; different
   content at the same key is a defect.
 - **Transfer**: the external archive action. Completion is the
@@ -191,7 +191,7 @@ left missing:
 - **Confirm / void**: the catalog transition commits first, pinning
   acknowledgment identity and timestamp (or void rationale) in the
   parent record; the create-once marker (`confirmed` or `voided`) is
-  then written with a body derived entirely from the committed rows —
+  then written with a body derived entirely from the committed rows:
   byte-deterministic replay. Voided deliveries never reuse minted
   versions; version gaps are permitted and recorded.
 
@@ -209,7 +209,7 @@ exactly those.
 | Catalog | backups (PITR per the backup design) + S3 state | restore; catalog↔Inventory reconciliation over keys, versions, sizes, ETags; checksums by the storage design's separate verification mechanism |
 | Object index only (no usable backup) | terminal records + delivery objects + generation/release manifests + S3 Inventory | reconstruct locations, product identity, promotion candidates, and delivery history from record content; promotion state beyond record content is re-ruled by operator |
 | In-flight attempts at loss | reconciler | evidence-ranked classification and closure per the observability design; the application owns record sequence 0, the reconciler all higher sequences |
-| Dangling citations beyond the reconciler's window | operator supersession | terminal rows past the 24 h supersession window are beyond the service's reach; the remedy is appending superseding closure records classifying the attempts evidence-lost |
+| Dangling citations beyond the reconciler's window | operator supersession | terminal rows past the 24 h supersession window are beyond the service's reach: the remedy is appending superseding closure records classifying the attempts evidence-lost |
 | Orphaned objects | detection by reconciliation; disposition per storage class | the orphan contract below |
 | Superseded delivered products | delivery records + manifests | prior delivered filename and checksum reconstructible with or without the database |
 
@@ -222,30 +222,30 @@ mapping, versions, and supersedes relations. These field obligations
 are part of this design.
 
 **Citation verification.** Every pointer class verifies by the full
-triple — key, sequence, checksum (rows written before the checksum
+triple: key, sequence, checksum (rows written before the checksum
 upgrade verify by key + sequence + the record body's own identity
 validation). Rows with no pointer (`missing_or_contradictory`) are
 their own outcome: flagged for a human, never resolved by
 reconstruction. Reconstruction reads verified object presence, never
-citation alone, and every projection query is horizon-aware —
+citation alone, and every projection query is horizon-aware:
 `application_closed` is an open state, and lifecycle state read
 without horizon context misclassifies.
 
 **The orphan contract.** Detection roots and eligibility per key
-family; classification only past the grace period — grace ≥ the
+family; classification only past the grace period, grace ≥ the
 enforced maximum job duration plus the reconciler's 24 h supersession
 window, floor 7 days, instantiated from the verified duration ceiling.
 
 | Key family | Detection root | Eligibility |
 |---|---|---|
 | Product-template objects | registered product rows + terminal records; release manifests for release-prefixed buckets | owning attempt terminal past every horizon; cited by no reachable record, row, or manifest |
-| Attempt records + bundles | attempt rows, associated by key derivation — every sequence of a live attempt is legitimate | object outside every existing attempt's derived prefix |
+| Attempt records + bundles | attempt rows, associated by key derivation; every sequence of a live attempt is legitimate | object outside every existing attempt's derived prefix |
 | Config snapshots | config digests recorded in attempt rows (written by the started CAS) | digest recorded by no attempt row |
 | Submission manifests | submission rows | unreferenced key |
 | Delivery objects | delivery rows | unreferenced key |
 | Staged-input generations | generation state: finalized (manifest) or abandoned (recorded declaration) | only finalized or abandoned generations classify; an unfinalized generation is in staging, unbounded, listed for operator attention only |
-| Manifests and markers | — | exempt — roots, permanent by the manifest lifecycle exemption |
-| Alert archive; CAS pointers; public metadata; tool-owned buckets | — | out of scope — sink continuity checks, class rules, and tool retention govern respectively |
+| Manifests and markers | n/a | exempt: roots, permanent by the manifest lifecycle exemption |
+| Alert archive; CAS pointers; public metadata; tool-owned buckets | n/a | out of scope: sink continuity checks, class rules, and tool retention govern respectively |
 
 Detection is a scheduled reconciliation report, never a deleter.
 Disposition follows the retention axis: permanent classes retain or
@@ -253,7 +253,7 @@ take a recorded break-glass action; release-lifetime classes ride
 their release ruling; replaceable classes ride lifecycle.
 
 **Boundaries.** S3-before-database is the recovery-safe direction for
-product and record publication — a crash strands sweepable objects,
+product and record publication: a crash strands sweepable objects,
 never rows citing absent evidence. The delivery protocol deliberately
 inverts this for its terminal transitions, because there the catalog
 is the commit authority and the S3 object is a projection. Evidence
@@ -274,16 +274,16 @@ The restore-path proof drill passes when all of:
    verification separately by the adopted mechanism over a stated
    sample; differences fully explained by the restore point's age.
 3. **Promotion-state integrity**: the partial unique indexes rebuild
-   and hold — at most one current-or-locked row per identity group —
+   and hold (at most one current-or-locked row per identity group),
    and a sampled current-view query set returns identical results
    pre- and post-restore.
 4. **Object-index reconstruction**, two phases: the delivery repair
    pass with the catalog available (exercising the crash boundaries),
    then reconstruction with the database withheld, from records,
-   delivery objects, manifests, and Inventory alone — stating
+   delivery objects, manifests, and Inventory alone, stating
    explicitly what it cannot recover.
 5. **Provenance**: for sampled products across all four identity
-   tables, the chain resolves — row → attempt → record fetched and
+   tables, the chain resolves: row → attempt → record fetched and
    verified per its class → inputs (actual-used where the route
    records them, submission intent for pass-through routes).
 6. **Documentation-only execution**: run from the documented
