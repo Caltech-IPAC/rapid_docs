@@ -70,9 +70,54 @@ does not by itself settle content placement.
 ## Branches and protection
 
 The pipeline repository's active public branch is its development
-branch; a separate branch carries the migration work toward the target
-account, on a restricted-access basis, and is the branch the migration
-lands from. The infrastructure repository develops on its main branch.
+branch, `main`. A separate branch, **`smdc`**, carries the migration
+work toward the target account and is the branch the migration lands
+from. The infrastructure repository develops on its main branch.
+
+### `smdc`
+
+`smdc` is the branch the SMDC environment actually runs. Every image
+built for the account is built from an `smdc` commit, and the pipeline
+image's six consumers — two Batch job definitions and three long-running
+services — are pinned to the digest that build produced.
+
+It exists because the migration reworks the pipeline against a target
+account that did not exist when `main`'s history was written, and
+because that rework had to be deployable and operable long before it was
+ready to be the project's public development line. Keeping it separate
+lets the environment run current code without forcing every migration
+commit through the public branch's review and release expectations
+first.
+
+The consequences are worth stating plainly, because they are what a new
+contributor gets wrong:
+
+- Pipeline changes for SMDC land on `smdc`, not `main`. A change merged
+  to `main` does not reach the environment.
+- `main` is not a subset of what runs. As of 2026-09-13 `smdc` is 965
+  commits ahead of `main` and `main` is zero commits ahead of `smdc`.
+- Anything that reads the repository to learn what SMDC does must read
+  `smdc`.
+
+### The promotion path
+
+The two branches converge at cutover, when `smdc` becomes the project's
+development line and the distinction ends. Because `main` carries no
+commits `smdc` lacks, that convergence is a fast-forward rather than a
+merge — the history is already linear.
+
+Two things gate it rather than the code being ready. The one-time
+history rewrite that removes bulk artifacts from the pipeline
+repository's history must happen before any persistent identifier is
+minted against the repository, and it requires a force-push; required
+review checks on protected branches are enabled after that rewrite, for
+the same reason. And the branches other contributors still hold — feature
+and development lines that predate or diverge from the migration — need
+a per-branch decision to rebase onto `smdc` or be retired, since a
+fast-forward of `main` does not rebase anybody else's work for them.
+
+Until that cutover, the operational rule is the simple one above: `smdc`
+is what runs.
 
 Required review checks on protected branches are enabled after the
 migration's history rewrite, since that rewrite requires a force-push.

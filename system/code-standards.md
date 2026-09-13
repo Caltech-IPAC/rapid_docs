@@ -47,14 +47,19 @@ objects, never hand-built fixtures the production path could not
 produce; every integration seam carries at least one live probe as
 first-class acceptance evidence.
 
-The pipeline repository carries a conventions file for coding agents at
-its root: `AGENTS.md` is the single authoritative, agent-neutral source
-, pointing at the ruff configuration as the style authority and
-requiring that feature changes never reformat unrelated code, and any
-agent-specific file (e.g. `CLAUDE.md`) is a thin pointer to it rather
-than a second copy of the conventions. Agents are part of the team's
-development workflow and receive the standard the same way developers
-do: from the repository itself.
+Coding agents receive the standard from the repository itself, the same
+way developers do, rather than from any individual's local
+configuration. The target shape is a single authoritative, agent-neutral
+conventions file at the repository root — `AGENTS.md` — pointing at the
+ruff configuration as the style authority and requiring that feature
+changes never reformat unrelated code, with any agent-specific file
+(e.g. `CLAUDE.md`) a thin pointer to it rather than a second copy of the
+conventions.
+
+The infrastructure repository implements this shape. The pipeline
+repository does not yet: it carries no `AGENTS.md`, and its
+agent-specific configuration is not a pointer to one. Closing that gap
+is the work this section names, not a state it describes.
 
 Commits carry one logical change each, never mixing formatting with
 substance. Subjects take a lowercase conventional-commit type prefix

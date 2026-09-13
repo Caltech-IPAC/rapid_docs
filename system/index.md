@@ -43,6 +43,7 @@ contradict, these:
 
 | Document | Status | Scope |
 |--------------|----|------------------------------------------|
+| [`glossary.md`](glossary) | ADOPTED | The cross-cutting vocabulary defined once: l2file, grain, admission and the admission pointer, work unit, attempt, submission, batch execution, currency, dead letter, run, and campaign versus production |
 | [`architecture.md`](architecture) | ADOPTED | The orienting view: what the system is, the six governing principles, the processing graph, the identity chain, data stores, execution substrate, convergence, boundaries, operator and observability surfaces, releases, failure behavior |
 | [`repositories.md`](repositories) | ADOPTED | The repository set: roles, organizations, visibility, operation and design authority, content placement, branch protection, and the build/publish surface |
 | [`security.md`](security) | ADOPTED | Reproducibility boundary and identifier exposure adopted; the eight service identities re-derived against the target; human credential custody pending |
@@ -75,6 +76,7 @@ contradict, these:
 ```{toctree}
 :hidden:
 
+glossary
 architecture
 repositories
 security
