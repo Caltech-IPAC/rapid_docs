@@ -50,7 +50,7 @@ first-class acceptance evidence.
 Coding agents receive the standard from the repository itself, the same
 way developers do, rather than from any individual's local
 configuration. The target shape is a single authoritative, agent-neutral
-conventions file at the repository root — `AGENTS.md` — pointing at the
+conventions file at the repository root, `AGENTS.md`, pointing at the
 ruff configuration as the style authority and requiring that feature
 changes never reformat unrelated code, with any agent-specific file
 (e.g. `CLAUDE.md`) a thin pointer to it rather than a second copy of the

@@ -78,8 +78,8 @@ from. The infrastructure repository develops on its main branch.
 
 `smdc` is the branch the SMDC environment actually runs. Every image
 built for the account is built from an `smdc` commit, and the pipeline
-image's six consumers — two Batch job definitions and three long-running
-services — are pinned to the digest that build produced.
+image's six consumers, two Batch job definitions and three long-running
+services, are pinned to the digest that build produced.
 
 It exists because the migration reworks the pipeline against a target
 account that did not exist when `main`'s history was written, and
@@ -104,15 +104,15 @@ contributor gets wrong:
 The two branches converge at cutover, when `smdc` becomes the project's
 development line and the distinction ends. Because `main` carries no
 commits `smdc` lacks, that convergence is a fast-forward rather than a
-merge — the history is already linear.
+merge: the history is already linear.
 
 Two things gate it rather than the code being ready. The one-time
 history rewrite that removes bulk artifacts from the pipeline
 repository's history must happen before any persistent identifier is
 minted against the repository, and it requires a force-push; required
 review checks on protected branches are enabled after that rewrite, for
-the same reason. And the branches other contributors still hold — feature
-and development lines that predate or diverge from the migration — need
+the same reason. And the branches other contributors still hold, feature
+and development lines that predate or diverge from the migration, need
 a per-branch decision to rebase onto `smdc` or be retired, since a
 fast-forward of `main` does not rebase anybody else's work for them.
 
