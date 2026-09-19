@@ -573,6 +573,88 @@ Every release exposes its lifecycle state (at minimum validating,
 approved, live-parallel, primary, retired-hot, archive-only) with
 planned and actual transition timestamps in machine-readable metadata.
 
+## Owned runs and run delete
+
+**There is no operator role.** Any team member may create a production
+run under the current release; the release binding, not a person, is
+the gate, and § Release promotion in operation states that binding.
+Owned work, what a scratch run produces, is bound instead to the login
+that created the run: `run delete` is callable by that owner or an
+administrator, through the same constrained functions every other
+mutation in this document uses, carrying a reason and an idempotency
+key.
+
+A scratch run may name its own database target the way it names its
+image digest and configuration overlay: a trial database, a second
+PostgreSQL major version for regression testing, or a throwaway
+environment stood up for the run, with no formal dev, test and
+operations estate required to do it. The pipeline already reads its
+database endpoint from the parameter tree, and the infrastructure
+repository already has a fenced database-clone host, so a run-level
+target is a run naming a different value for a setting it already
+reads, not new machinery. A production run keeps the one production
+database; a run's target is recorded provenance on every attempt it
+carries ([`data-model.md`](data-model) § Run).
+
+**`run delete`** is a fenced service operation, never a personal grant:
+
+- It refuses while anything the run produced is reachable from a
+  published product, from another run's inputs, or from an in-flight
+  attempt ([`catalog.md`](catalog) § Promotion); owner identity narrows
+  who may call it and never substitutes for that check.
+- It fences the run first, so no new submission or registration can
+  land against it, then enumerates, deletes object versions, marks
+  product and artifact rows deleted, and records a per-object outcome.
+  It is resumable: a repeated call against a partly-deleted run
+  continues from where the prior call stopped. It is not atomic across
+  PostgreSQL and S3, and does not pretend to be.
+- The S3 deletes are performed by a service identity
+  ([`security.md`](security)): no personal AWS role gains a delete
+  action, so the function, its ledger, and its dependency check cannot
+  be bypassed with an ordinary command.
+- Attempt rows, terminal records, and the run row are never deleted
+  ([`data-model.md`](data-model) § Run); what a deletion removes is
+  product and artifact bytes and the rows that cited them.
+- The four-step garbage-collection plan (§ this section's cross-
+  reference into [`storage.md`](storage), principle 8) does not run for
+  owned custody: the horizon and second inventory it uses exist to
+  protect against the same cross-run references that `run delete`'s
+  dependency check already resolves synchronously. Garbage collection
+  stays as it is for orphans in published custody.
+
+**Ceremony belongs to published work.** Every mutation against
+published work keeps the full mutation contract described in §
+Operator surface: a reason, an idempotency key, an expected state, and
+an explicit apply flag, dry-run by default. Owned-tier commands,
+`run delete` included, apply by default and require no reason: none of
+that ceremony earns its keep for a scientist acting on their own
+scratch run. The audit row is still written, with the login and the
+action, whether or not a reason was supplied.
+
+**A scratch run also ends by policy, not only by an owner's choice: the
+scratch purge.** A scratch run untouched past a stated age is warned,
+then deleted by the same `run delete` operation, unless its owner pins
+the run first. Pinning is an explicit, recorded action against the run,
+distinct from the catalog's `vbest = 2` product pin; a pinned run is
+never purged, however old. The per-user storage quota already ruled on
+elsewhere bounds what any one person can hold regardless of purge
+timing. This is the ordinary retention rule of a shared HPC system: it
+needs no separate justification here.
+
+**Owned work has many entrypoints.** The team develops, tests and
+validates subsystems one at a time, so a scratch run may run any single
+stage or subsystem on its own, difference imaging on one image,
+reference construction, the post-database chain, alert production, the
+publisher, against real or stub inputs, without the whole chain running
+in front of it. This restores the older pipeline's per-stage launch
+scripts as a property of the owned tier specifically; the published
+tier keeps the one governed, whole-chain path this document describes
+elsewhere. An owned-tier entrypoint runs under the owned-tier job role
+([`security.md`](security)), which holds no production write and no
+pipeline database secret beyond the run's own named target, so
+experimental code runs with owned privileges rather than service
+privileges.
+
 ## Roles and interfaces
 
 The operational surface serves three populations: automated
@@ -638,11 +720,14 @@ network hop, not any part of the mutation contract below. Its adoption
 trigger, should it return, is operators without a direct database
 network path, or team growth.
 
-The full mutation contract applies to every mutation: actor, reason,
-idempotency key, expected current state, dry-run output and explicit
-confirmation, with the append-only operator-action ledger recording
-target, before and after state, and correlation identifier. Routine
-operation never requires handwritten state-changing SQL.
+The full mutation contract applies to every mutation against published
+work: actor, reason, idempotency key, expected current state, dry-run
+output and explicit confirmation, with the append-only operator-action
+ledger recording target, before and after state, and correlation
+identifier. Owned-tier commands, `run delete` among them, apply by
+default and need no reason (§ Owned runs and run delete); the ledger
+still records actor and action for those too. Routine operation never
+requires handwritten state-changing SQL.
 
 The surface as a whole is the query views, the mutation path, and the
 operator documentation. It serves the three populations of § Roles

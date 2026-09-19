@@ -132,6 +132,7 @@ without an explicit, visible boundary edit.
 | Migration runner role | The versioned schema-migration stream, the only DDL path | One capability: read the database admin credential. Reached only by role-chain from the database host, so the admin-credential read always audits under this identity with the migration version as session name |
 | Operator role | Constrained operator mutations through `rapidctl` | Execute-only on the constrained procedures; no table-level write grants. Every call carries the mutation contract and lands in the operator-action ledger |
 | Backup role | Base backups and continuous WAL archiving | Write to the backup repository prefix; no delete on it. No science-store access, no application database credential |
+| Owned-tier job role | Scratch-run stage and subsystem entrypoints ([`operations.md`](operations) § Owned runs and run delete) | Create-once write to the owning run's prefix in owned custody under the run's own named database target; no production write, no pipeline database secret beyond that target. Cannot promote: products of a run whose configuration or image is not the release are structurally ineligible for promotion |
 
 The separations that carry correctness rather than convenience are
 three. Transform workers hold no database, submission or publication
@@ -147,11 +148,17 @@ contract with handwritten SQL.
 Deliberate absences are properties, not gaps: no worker role has a
 log-stream grant (the bounded safety stream is delivered by the host
 instance role), no worker role has Batch actions (a job cannot spawn
-jobs), and no role has delete on a science store: records and
-products are immutable and supersession appends. Deletion by any
-principal is reachable only through the garbage-collection path's own
+jobs), and no role has delete on published custody: records and
+published products are immutable and supersession appends. Deletion
+there is reachable only through the garbage-collection path's own
 identity, against a recorded plan; class lifecycle expiry is the
-bucket's own rule, not a principal's capability.
+bucket's own rule, not a principal's capability. Owned custody has one
+deletion path of its own, `run delete`
+([`operations.md`](operations)), and the same rule holds for it: no
+personal AWS role gains a delete action, so the S3 deletes behind an
+owner's `run delete` call are performed by a service identity, never
+by the calling person's own credential. A run's owner is a database
+identity bound to a login, not an IAM grant.
 
 A dispatched operations agent is its own actor class, distinct from
 both a human operator and a service identity: it acts under a
@@ -171,8 +178,12 @@ the mutable tree, and never reachable from the environment. The one
 sanctioned per-run override channel for a science-affecting value is
 the submission manifest's enumerated override fields (compute
 design), recorded in provenance by the manifest checksum, with
-override-bearing products barred from community promotion. A worker
-identity's parameter read extends only over that tree.
+override-bearing products barred from community promotion: the same
+bar that keeps a scratch run's configuration overlay and per-run image
+digest from being promotable, since promotion is running again under
+the release, never carrying a flag through
+([`operations.md`](operations) § Release promotion in operation).
+A worker identity's parameter read extends only over that tree.
 
 ### Database service credentials
 

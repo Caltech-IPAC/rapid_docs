@@ -41,7 +41,7 @@ rest of the chain must agree with. Designed in
 
 **admission pointer**: The record of which release identity admission
 is currently stamping. It is a pointer rather than a setting because it
-moves: campaigns and production advance it deliberately, and a
+moves: scratch runs and production advance it deliberately, and a
 submission whose release identity disagrees with it is refused rather
 than run. Moving the pointer is an audited mutation.
 
@@ -97,35 +97,68 @@ not otherwise defined in the design documents.
 ## Scope
 
 **run**: A named, bounded piece of processing, with its own identity
-(`run_id`) that its work units, attempts and products carry. A run is
-what an operator asks for and what gets compared, archived and reasoned
-about afterwards. Runs are the unit of isolation the system is being
-moved toward: schema support for per-run scoping exists, and making the
-writers honour it throughout is open work.
+(`run_id`) that its work units, attempts and products carry, and its
+kind, fixed at creation, which is one of the two run kinds below. A run
+is what a team member asks for and what gets compared, reasoned about,
+and either ended or turned into published work afterwards. Runs are the
+unit of isolation the system is being moved toward: schema support for
+per-run scoping exists, and making the writers honour it throughout is
+open work.
 
 A run is not one submission. A single run is typically submitted in many
 batches, each with its own submission name, which is why tooling that
 takes a run name will not accept a submission name.
 
-**campaign**: Processing run deliberately, by a person, over a chosen
-set of inputs: a bounded piece of work with a start, an end and a
-purpose. Campaigns are how reprocessing, validation and scale testing
-are done, and how every run on the deployed environment is currently
-done.
+**scratch**: A run kind whose products, artifacts and catalog rows land
+in owned custody: a place with no delete fence, bound to the login that
+created it, that can end by that owner's own action or by the scratch
+purge. This run kind was called campaign; the name changed because the
+old name described who asked for the work, not what happens to it, and
+what happens to it, whether the bytes can be deleted, is the property
+the rest of the design turns on. A scratch run is how reprocessing,
+validation, scale testing, and day-to-day development, iteration and
+deletion are done. Designed in [`storage.md`](storage) (owned custody),
+[`data-model.md`](data-model) (the run entity and deletion semantics),
+[`catalog.md`](catalog) (the dependency-closure rule) and
+[`operations.md`](operations) (`run delete`, the scratch purge, per-stage
+entrypoints, the run-level database target).
 
-**production**: Processing run continuously by the controller as data
-arrives, without a person asking for each piece. Production is the
+**production**: A run kind whose products, artifacts and catalog rows
+land in published custody: the place that carries the delete fence and
+termination protection, unchanged from today. Any team member may
+create a production run under the current release; there is no operator
+role, and the release binding is the gate. Production is the
 routine-operations posture the system is designed for; the operating
 lifecycle in [`operations.md`](operations) describes why it cannot begin
 immediately after launch.
 
-The distinction matters operationally, not just descriptively. The two
-use separate lanes, so a campaign does not disturb production's products
-or currency. And they are mutually exclusive in practice today: the
-controller's gatherers select work by processing date, field and attempt
-state rather than by run, so a live controller and a hand-driven
-campaign over the same dates would both find the same work and both
-submit it. The controller is therefore held while campaigns run.
+**owned work**: What a scratch run produces, held in owned custody.
+
+**published work**: What a production run produces, current or
+superseded, plus alerts sent, terminal records and promotion pointers,
+held in published custody.
+
+**scratch purge**: The policy path by which owned work ends without a
+person asking: a scratch run untouched for a stated age is warned, then
+deleted by the same fenced operation that a manual `run delete` uses,
+unless its owner pins the run first. Designed in
+[`operations.md`](operations).
+
+Custody, not who asked for the work, is the axis that matters
+operationally. Published custody keeps every guarantee it has today:
+one service writer, append-only records, audited mutation, no delete
+fence. Owned custody can end: a scratch run's owner may delete it
+through a fenced, dependency-checked operation, or let the purge do it.
+The two kinds use separate lanes, so a scratch run does not disturb
+production's products or currency. There is no path that copies owned
+work into published custody: the only way owned work becomes published
+work is to run it again as a production run under the release, which is
+also the better provenance. The two kinds are mutually exclusive in
+practice today: the controller's gatherers select work by processing
+date, field and attempt state rather than by run, so a live controller
+and a hand-driven scratch run over the same dates would both find the
+same work and both submit it. The controller is therefore held while
+scratch runs cover the same dates.
 
 ## Related
 

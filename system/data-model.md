@@ -63,13 +63,47 @@ subject kind, canonical key and validated document, unique on kind and
 key. Scientific tables stay normalized and typed: the subject
 envelope is a control-plane opacity, not a general attribute store.
 
+## Run
+
+A run is an entity, not a label on other rows: its own row, carrying
+`run_id`, an owner bound to the login that created it (never supplied
+as text), a kind fixed at creation (scratch or production,
+[`glossary.md`](glossary)), a database target, a configuration overlay
+and an image digest. The last three are recorded provenance for every
+attempt the run carries, the same way an attempt already records the
+release and image digest that ran it: a scratch run may name a database
+target other than the one production database, and a configuration or
+image that is not the release, and both travel with every product the
+run's attempts register. Products of a run whose configuration or
+image is not the release are structurally ineligible for promotion
+([`security.md`](security)), because promotion means rerunning under
+the release, not carrying a flag.
+
+**Deletion is scoped to what a run's own kind allows.** A production
+run's row and every row and object it produced follow the invariants
+below unchanged: nothing about a production run can be deleted.
+A scratch run can end, through `run delete`
+([`operations.md`](operations)): its product and artifact rows are
+marked deleted, with their key and checksum retained, and the objects
+they cite are deleted from owned custody. Attempt rows, terminal
+records and the run row itself are never deleted; they are the run's
+provenance and stay, permanent, under invariant 1 below, whether or not
+the run that produced them still has any bytes to its name. What
+survives a deletion can explain any result that ever cited the run;
+what is gone is the bulk.
+
 ## Invariants
 
 1. **History is append-only; state is a derived summary.** Events,
    records, and audit rows are immutable; any "current state" column
    is a queryable summary updated in the same transaction as its
    event row, and any stored summary must be reconstructible from
-   the history.
+   the history. A scratch run's deletion does not touch this
+   invariant: it deletes product and artifact bytes and marks their
+   rows deleted, an action on the object-store and product layers,
+   never on the append-only event, attempt or record history, which
+   stays exactly as permanent for a scratch run as for a production
+   one (§ Run).
 2. **One writer per fact.** Every table, record class, and store
    prefix has a named writer; two writers for one fact is a design
    defect. Interval and milestone data are assembled by joining

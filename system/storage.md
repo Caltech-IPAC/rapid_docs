@@ -11,6 +11,36 @@ and swap mechanics, and the assurance controls. The catalog's
 internal schema belongs to the database design; interface contracts
 (what consumers are promised) belong to the interfaces design.
 
+## Custody by run kind
+
+A run's outputs, its products, artifacts and catalog rows, land in one
+of two custody places, fixed by the run's kind at creation
+([`glossary.md`](glossary)):
+
+- **Published custody** is what a production run writes to today: the
+  place that carries the delete fence and termination protection.
+  Nothing about this tier changes. One service writer, append-only
+  records, audited mutation, no principal holds a delete action.
+- **Owned custody** is what a scratch run writes to: its own bucket or
+  prefix, with no delete fence. Owned work still writes create-once
+  keys, so a rerun is a new attempt and never an overwrite, and it
+  still carries full provenance. The difference is the lifecycle: a
+  scratch run's owner can end it, through the fenced, dependency-checked
+  `run delete` ([`operations.md`](operations)), and an untouched run
+  ends on its own by the scratch purge.
+
+There is no path that copies an object from owned custody into
+published custody. A pointer flip over an unchanged key cannot move an
+object into protected custody, and S3 cannot gate a delete on an
+object's tags, so the only way owned work becomes published work is to
+run it again as a production run under the release
+([`catalog.md`](catalog) § Promotion); that rerun is also the better
+provenance record. Everything that is not a run's output, staged
+inputs, reference sets, configuration snapshots, records, backups and
+diagnostics, keeps the five-axis classification below exactly as
+adopted; this section adds a sixth question, which custody place a run
+output lands in, answered by the run's kind alone.
+
 ## Classification
 
 Every stored artifact is classified on five axes, and storage
@@ -90,8 +120,10 @@ structure is derived from the classification:
    signed requests only: promotion state is checked at issuance, and
    a never-promoted object is unreachable even by a guessed key.
 8. **Garbage collection deletes only allowlisted data classes, and
-   never the real substrate.** No data class is deletable by default;
-   a class becomes eligible only by explicit addition to the deletion
+   never the real substrate.** This principle, and the four-step
+   collection procedure it governs, scope to published custody. No
+   data class in published custody is deletable by default; a class
+   becomes eligible only by explicit addition to the deletion
    allowlist that garbage collection consults at every consumption
    point. Independently of that list, every class on the real
    substrate is refused, a mechanical check on the substrate axis,
@@ -99,7 +131,11 @@ structure is derived from the classification:
    naming the class. Retention rules on other artifact classes
    (diagnostics, staged inputs, build artifacts) are the per-class
    lifecycle rules above,
-   not this allowlist.
+   not this allowlist. Owned custody deletes by a different path
+   entirely: the owner delete named in § Custody by run kind, which
+   checks the same dependency closure synchronously rather than by an
+   allowlisted, horizon-gated sweep ([`catalog.md`](catalog) §
+   Promotion; [`operations.md`](operations)).
 
 ## Naming
 
@@ -164,6 +200,7 @@ speculatively.
 | Logical writer | IAM principal |
 |---|---|
 | Transform workers (Batch): products, attempt-class records, diagnostics, reference sets, converted L2, all under their attempt prefix | Batch job role (transform tier: no database, submission, publication, or external-effect access; alert production is not a Batch writer: accepted alert packets reach the outbox via the controller's acceptance path and leave only through the publisher) |
+| Scratch runs: products, artifacts and catalog rows in owned custody | Owned-tier job role ([`security.md`](security)): holds create-once write to the owning run's prefix in owned custody and no production write; the run's owner and database target are recorded provenance ([`data-model.md`](data-model)), not a grant the role itself carries |
 | Reconciliation: closure and terminal records, reconstructed diagnostics, retention tags on all bundles | Controller role (reconciliation is one of its functions; diagnostics write adopted with this design, tag rewrite with the payload co-design) |
 | Controller: CAS pointers, pointer-level promotion manifests, submission manifests, public operational metadata | Controller role (science-product promotion manifests are the terminal records, job-written, catalog design) |
 | Delivery process: delivery manifests and state markers | No principal yet: no delivery exists before the public-path design, which owes the mapping; the grant wires at first cutover per the wiring rule |
@@ -327,6 +364,14 @@ only what new work sees; both generations stay readable during
 drain; a retired generation expires by lifecycle after a drain
 criterion.
 
+Promotion from owned custody follows none of the above: there is no
+manifest, pointer or flip that moves an owned object into published
+custody, because no mechanism here can gate a delete on an object
+having since been promoted. Owned work is promoted by being run again,
+as a production run under the release, which writes fresh objects
+directly into published custody under the mechanisms this section
+already states (§ Custody by run kind).
+
 Rejected mechanisms: access points as a pointer layer (bucket
 binding is fixed at creation); rename (nonexistent on general
 purpose buckets); overwrite-in-place of a stable key as promotion;
@@ -351,7 +396,10 @@ principal is the only non-IAM read principal. MAST delivery is a
 cross-account read grant plus a delivery manifest against the
 products bucket: the same immutable objects, no staging copy; the
 grant is bucket-wide read, accepted deliberately (MAST is a trusted
-archive partner). The deferred fork: ecosystem-native raw `s3://`
+archive partner). The Roman Research Nexus read grant, today
+whole-bucket including the submissions prefix, narrows to published
+custody: owned custody carries no external read grant. The deferred
+fork: ecosystem-native raw `s3://`
 access (bulk-tooling patterns, sponsored open-data egress). The
 working buckets already bear publishable names, so taking it later
 is a policy change, not a data copy; it is re-examined once, at

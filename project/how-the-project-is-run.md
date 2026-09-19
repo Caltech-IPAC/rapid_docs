@@ -24,7 +24,10 @@ early science are a long bootstrap; the pipeline is built to be
 iterated through that, not finished before it. Hard to change, therefore
 done properly now: the data model and schema, storage layout and naming,
 identity and roles, the interfaces other PITs consume. Soft, therefore
-allowed to be rough: stage internals, tuning, alert content.
+allowed to be rough: stage internals, tuning, alert content, and,
+explicitly, owned work: what a scratch run produces is rerun, iterated
+on and deleted without ceremony, and only the rerun under the release
+that turns it into published work inherits the hard side's guarantees.
 
 **The team.** Teammates work independently on the pipeline. Nothing
 requires the lead's sign-off; hard-to-change decisions become team

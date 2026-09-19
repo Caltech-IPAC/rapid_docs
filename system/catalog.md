@@ -31,6 +31,29 @@ stream, which implements this document.
 
 ## Promotion
 
+**Promotion is release promotion.** The catalog's `vbest` mechanics
+below govern how a production run's own products become current within
+published custody; they are not a path by which a scratch run's
+products enter published custody, and no such path exists. Owned
+outputs are never copied into published custody: a pointer flip over
+an unchanged key cannot move an object into protected custody, and S3
+cannot gate a delete on an object's tags. The only way a scratch run's
+work becomes published work is for it to be run again as a production
+run under the current release, writing fresh, independently promoted
+products by the mechanics below ([`storage.md`](storage) § Custody by
+run kind; [`operations.md`](operations) on the release as the gate).
+
+**Deletion checks the dependency closure before it checks anything
+else.** A scratch run's owner may delete the run (`run delete`,
+[`operations.md`](operations)), but the deletion refuses while anything
+the run produced is reachable from a published product, from another
+run's inputs, or from an in-flight attempt. This is the same reference
+check the garbage collector's reference collector already performs,
+anti-joining against artifacts, legacy image tables, catalogs, active
+submission manifests and manifest bodies; `run delete` reuses it as its
+precondition rather than defining a second one. Owner identity narrows
+who may call the deletion; it never substitutes for the check.
+
 `vbest` on the four identity tables (`l2files`, `refimages`,
 `diffimages`, `psfs`) is the promotion pointer: 0 = not current, 1 =
 current best, 2 = locked best (operator pin; promotion refuses to
