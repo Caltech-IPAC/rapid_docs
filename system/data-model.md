@@ -1,6 +1,6 @@
 # Data model
 
-**Status: ADOPTED**, this document is the map of RAPID's data model
+**Status: DRAFT**, this document is the map of RAPID's data model
 and the owner of its cross-cutting invariants.
 Per-entity detail (schemas, state machines, key grammars) lives in
 the domain documents cited per layer; a domain document may

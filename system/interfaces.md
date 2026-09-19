@@ -212,7 +212,7 @@ never archive policy). PSF models and other auxiliaries are separate
 products; an image's provenance names the exact immutable
 auxiliaries used.
 
-**Identity and the current view** (ADOPTED, via the storage design).
+**Identity and the current view** (DRAFT, via the storage design).
 Object keys are immutable and identify a particular processing
 result; reprocessing creates new objects. A catalog identifies the
 supported current result, and discovery and resolution go through the

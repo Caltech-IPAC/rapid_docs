@@ -1,6 +1,6 @@
 # Code standards
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 The standard is a tool configuration, not a prose style guide. Ruff is
 the authority for Python layout and linting, configured in the
@@ -70,7 +70,7 @@ dispatching it and remains attributable as the acting agent.
 
 ## Environment variables
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 The environment carries per-invocation identity and process-level
 plumbing only. Process-level plumbing means values a process needs to

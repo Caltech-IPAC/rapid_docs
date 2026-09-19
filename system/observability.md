@@ -1,10 +1,10 @@
 # Observability
 
-**Status: ADOPTED**, policy and requirements are normative; the
+**Status: DRAFT**, policy and requirements are normative; the
 reference design is illustrative of one compliant implementation,
 except the diagnostics lifecycle and the attempt record, which are
 adopted. The team reviews the implemented system in operation. The
-operational surface is ADOPTED.
+operational surface is DRAFT.
 
 ## Purpose
 
@@ -114,7 +114,7 @@ expectation. Informational signals are not alarms.
 
 ## The operational surface
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 PostgreSQL views are the primary operational surface, versioned
 through the migration stream, answering: pipeline flow and oldest work

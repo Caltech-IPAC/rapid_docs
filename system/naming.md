@@ -1,6 +1,6 @@
 # Naming
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 ## Purpose
 

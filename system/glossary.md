@@ -1,6 +1,6 @@
 # Glossary
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 RAPID's vocabulary is named for its data model rather than for the
 science, and a reader meeting it for the first time has to learn a dozen

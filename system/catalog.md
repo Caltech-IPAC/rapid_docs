@@ -1,9 +1,9 @@
 # Catalog
 
-**Status: ADOPTED**. The catalog's promotion mechanics, delivery
+**Status: DRAFT**. The catalog's promotion mechanics, delivery
 records, recoverability projection, and restore acceptance criteria.
 The executor-fence and product-identity paragraphs in § Promotion are
-also ADOPTED.
+also DRAFT.
 The per-bucket key grammar and writer authority live in the storage
 design; the catalog's table schemas live in the database migration
 stream, which implements this document.

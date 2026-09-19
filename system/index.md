@@ -6,7 +6,10 @@ rederivable from them. Each document owns the rules and requirements of
 its domain and states its design directly: self-contained, impersonal,
 current-state. Every document (or section, where mixed) is marked
 **DRAFT** (under iteration; what the team reviews) or **ADOPTED**
-(normative).
+(normative). Every page is DRAFT at present: the corpus states the
+target the lead is building to, and the team's review of each page
+lands at the cutover to SMDC. Nothing becomes ADOPTED without that
+review.
 
 ## Cross-cutting design rules
 
@@ -43,19 +46,19 @@ contradict, these:
 
 | Document | Status | Scope |
 |--------------|----|------------------------------------------|
-| [`glossary.md`](glossary) | ADOPTED | The cross-cutting vocabulary defined once: l2file, grain, admission and the admission pointer, work unit, attempt, submission, batch execution, currency, dead letter, run, and campaign versus production |
-| [`architecture.md`](architecture) | ADOPTED | The orienting view: what the system is, the six governing principles, the processing graph, the identity chain, data stores, execution substrate, convergence, boundaries, operator and observability surfaces, releases, failure behavior |
-| [`repositories.md`](repositories) | ADOPTED | The repository set: roles, organizations, visibility, operation and design authority, content placement, branch protection, and the build/publish surface |
-| [`security.md`](security) | ADOPTED | Reproducibility boundary and identifier exposure adopted; the eight service identities re-derived against the target; human credential custody pending |
-| [`code-standards.md`](code-standards) | ADOPTED | Ruff as style/lint authority, one-time reformat mechanics, naming and diagnostics rules, environment-variable policy |
-| [`naming.md`](naming) | ADOPTED | Cross-namespace naming: coining principles, the `rapid` disambiguation map, token registry (surveys, sim sources, data classes), dataset-noun grammar; reserved words; complete-identifier and tombstone registers; the data-class key component lives in the storage key schema |
-| [`observability.md`](observability) | ADOPTED | Logging, metrics, records, failure visibility, retention; diagnostics lifecycle and attempt record adopted; operational views, symptom metrics and paging set |
-| [`storage.md`](storage) | ADOPTED | Five-axis storage classification, bucket set and naming, enforced immutability (bucket policy, no Object Lock), promotion/swap mechanics, assurance; DR posture open |
-| [`catalog.md`](catalog) | ADOPTED | Catalog core: promotion and product roles, delivery records, recoverability projection, restore acceptance; executor fence and product identity |
-| [`data-model.md`](data-model) | ADOPTED | The data-model map: entity layers including the workflow and delivery layers, writers, relationships, the submission as an entity; the eleven cross-cutting invariants |
-| [`operations.md`](operations) | ADOPTED | Operational lifecycle, the controller, admission, result acceptance, reconciliation, association, alert production via the outbox, failure and problems paths, the `rapidctl` operator surface |
-| [`compute.md`](compute) | ADOPTED | Execution substrate: the three queues, compute environments, resource profiles and job definitions, scratch, the submission protocol, retry taxonomy, payload contract |
-| [`database.md`](database) | ADOPTED | Access model and typed repositories, pooling and sizing, availability and durability, schema management, failure behavior; pooler (PgBouncer + auth_query) |
+| [`glossary.md`](glossary) | DRAFT | The cross-cutting vocabulary defined once: l2file, grain, admission and the admission pointer, work unit, attempt, submission, batch execution, currency, dead letter, run, and campaign versus production |
+| [`architecture.md`](architecture) | DRAFT | The orienting view: what the system is, the six governing principles, the processing graph, the identity chain, data stores, execution substrate, convergence, boundaries, operator and observability surfaces, releases, failure behavior |
+| [`repositories.md`](repositories) | DRAFT | The repository set: roles, organizations, visibility, operation and design authority, content placement, branch protection, and the build/publish surface |
+| [`security.md`](security) | DRAFT | Reproducibility boundary and identifier exposure adopted; the eight service identities re-derived against the target; human credential custody pending |
+| [`code-standards.md`](code-standards) | DRAFT | Ruff as style/lint authority, one-time reformat mechanics, naming and diagnostics rules, environment-variable policy |
+| [`naming.md`](naming) | DRAFT | Cross-namespace naming: coining principles, the `rapid` disambiguation map, token registry (surveys, sim sources, data classes), dataset-noun grammar; reserved words; complete-identifier and tombstone registers; the data-class key component lives in the storage key schema |
+| [`observability.md`](observability) | DRAFT | Logging, metrics, records, failure visibility, retention; diagnostics lifecycle and attempt record adopted; operational views, symptom metrics and paging set |
+| [`storage.md`](storage) | DRAFT | Five-axis storage classification, bucket set and naming, enforced immutability (bucket policy, no Object Lock), promotion/swap mechanics, assurance; DR posture open |
+| [`catalog.md`](catalog) | DRAFT | Catalog core: promotion and product roles, delivery records, recoverability projection, restore acceptance; executor fence and product identity |
+| [`data-model.md`](data-model) | DRAFT | The data-model map: entity layers including the workflow and delivery layers, writers, relationships, the submission as an entity; the eleven cross-cutting invariants |
+| [`operations.md`](operations) | DRAFT | Operational lifecycle, the controller, admission, result acceptance, reconciliation, association, alert production via the outbox, failure and problems paths, the `rapidctl` operator surface |
+| [`compute.md`](compute) | DRAFT | Execution substrate: the three queues, compute environments, resource profiles and job definitions, scratch, the submission protocol, retry taxonomy, payload contract |
+| [`database.md`](database) | DRAFT | Access model and typed repositories, pooling and sizing, availability and durability, schema management, failure behavior; pooler (PgBouncer + auth_query) |
 | [`releases.md`](releases) | DRAFT | Release composition, validation battery, lifecycle and archival; scientific identity vs operational substrate; promotion sequence and release pinning; overall status still gated on the validation tests |
 | [`interfaces.md`](interfaces) | DRAFT | The eight external interfaces: SOC input, live alerts, product archive, forced photometry, user cutouts, processing records, public metadata, release interface; overall status still under team review |
 | [`documentation.md`](documentation) | DRAFT | Documentation policy: the classification axes, audiences, one rule per venue, the public site's six sections and page shapes, post rules, machine readership, the public-safety boundary, science-information-policy compliance, toolchain |

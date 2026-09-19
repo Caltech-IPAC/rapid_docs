@@ -1,6 +1,6 @@
 # Repositories
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 RAPID's code and documentation live in three repositories:
 

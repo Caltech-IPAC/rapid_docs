@@ -1,6 +1,6 @@
 # Storage
 
-**Status: ADOPTED**, except the open point listed at the end
+**Status: DRAFT**, except the open point listed at the end
 (disaster-recovery posture), which is marked where it arises.
 
 ## Purpose
@@ -159,7 +159,7 @@ security design's role boundaries carry the corresponding grants.
 Grants are wired per bucket when its first consumer cuts over, never
 speculatively.
 
-**[ADOPTED]**
+**[DRAFT]**
 
 | Logical writer | IAM principal |
 |---|---|

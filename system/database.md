@@ -1,6 +1,6 @@
 # Database access
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 ## Purpose
 
@@ -149,7 +149,7 @@ path with an explicit budget counted inside `max_connections`;
 their concurrency with prompt processing is a scheduling matter for the
 workload classes defined in the operations document.
 
-The pooler is PgBouncer (ADOPTED): mature, single-purpose, actively
+The pooler is PgBouncer (DRAFT): mature, single-purpose, actively
 maintained, packaged, transaction pooling with prepared-statement
 support, SCRAM pass-through, and an admin console exposing pool state
 as queryable facts. It is single-threaded; if one core ever bounds
@@ -245,18 +245,18 @@ defect. Bulk loads land through a staging table and an upsert so a
 rerun cannot produce duplicate rows; the load rate of that shape is
 measured at implementation. With prevention in place, the dedup
 sweep is a should-find-nothing integrity check, not a maintenance
-dependency. **[ADOPTED]**
+dependency. **[DRAFT]**
 
 Every table holding science or workflow rows is LOGGED, per-field
 children included: unlogged tables lose their contents on crash
 recovery and are not replicated. Trading durability for load speed
 is an argued-for regression requiring measurements, never a default.
-**[ADOPTED]**
+**[DRAFT]**
 
 All four identity tables carry attempt-identity columns and
 find-before-mint guards per the established additive template; a
 writer threads attempt identity from the point an operational writer
-exists. **[ADOPTED]**
+exists. **[DRAFT]**
 
 ## Pipeline and user serving
 

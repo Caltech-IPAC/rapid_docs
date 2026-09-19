@@ -1,6 +1,6 @@
 # Architecture
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 ## Purpose
 

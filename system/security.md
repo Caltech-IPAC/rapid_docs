@@ -1,10 +1,10 @@
 # Security
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 ## Reproducibility boundary
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 RAPID's results must be reproducible by the external community. The
 governing policies are NASA SPD-41a (Scientific Information Policy for
@@ -38,7 +38,7 @@ persistent identifier for citation.
 
 ## Identifier exposure
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 Identifiers divide along the same public/private boundary as content.
 
@@ -82,7 +82,7 @@ storage.md § Naming).
 
 ## Service identity and access
 
-**Status: ADOPTED**, human credential custody remains not yet
+**Status: DRAFT**, human credential custody remains not yet
 covered, noted at the end.
 
 The pipeline is owned by service identities, not people: the cloud

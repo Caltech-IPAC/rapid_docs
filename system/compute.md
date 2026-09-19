@@ -1,6 +1,6 @@
 # Compute
 
-**Status: ADOPTED**
+**Status: DRAFT**
 
 The execution substrate for pipeline processing: AWS Batch on EC2. The
 operations document owns what runs and when; this document owns the
@@ -37,7 +37,7 @@ Bulk workloads have no artificial concurrency ceiling: their total
 compute work does not change with parallelism, so a single bulk queue
 serves reference construction, reprocessing and export; a further
 split is warranted only if operating experience shows contention that
-priority ordering does not resolve. **[ADOPTED]**
+priority ordering does not resolve. **[DRAFT]**
 
 ## Compute environments
 
@@ -49,14 +49,14 @@ All scale to zero: capacity is elastic and there is no reserved pool.
 The declared starting ratio is sized under the on-demand quota with
 headroom for transient overlap, and smoke-run evidence replaces it.
 Allocation strategy is best-fit-progressive: dense packing of the
-dominant job shape first, broadening only on contention. **[ADOPTED]**
+dominant job shape first, broadening only on contention. **[DRAFT]**
 
 Instance selection is deliberately wide: six families at multiple
 sizes, spread across all three availability zones, giving the
 allocation strategy genuine width to pack densely at scale. The
 memory-optimized families are included in the environments rather than
 carved into a separate pool: a job whose footprint needs the headroom
-gets it without a routing decision. **[ADOPTED]**
+gets it without a routing decision. **[DRAFT]**
 
 Spot compute environments exist at second consultation order, built
 but disabled: zero cost while disabled, and enabling later is a state
@@ -68,7 +68,7 @@ rather than surfacing as a false failure; the Spot quota request is
 filed then, sized from observed demand. Bulk work adopts Spot first:
 a reclaim there costs a retry, never a latency-target breach, and the
 `prompt` queue's warm reliable on-demand posture is itself a stated
-property of the target. **[ADOPTED]**
+property of the target. **[DRAFT]**
 
 ## Resource profiles and job definitions
 
@@ -93,7 +93,7 @@ therefore a new provenance record, onto unchanged work in another
 profile. The image is pinned by digest; a tag is carried for human
 readability only and can never change what a submitted job runs.
 Jobs run under the service identity the security design assigns to
-their function. **[ADOPTED]**
+their function. **[DRAFT]**
 
 Scheduler-side automatic attempts are configured to **one**. RAPID
 owns retry; Batch performs none on its behalf.
@@ -107,7 +107,7 @@ instance list or fork a second scratch code path for a working-space
 requirement that ordinary volume sizing meets. Reconsidered only if
 smoke-run evidence shows the scratch I/O pattern IOPS-bound at the
 baseline. A storage-quota check against the fleet's aggregate
-root-volume footprint precedes full-scale concurrency. **[ADOPTED]**
+root-volume footprint precedes full-scale concurrency. **[DRAFT]**
 
 ## Submission
 
@@ -155,7 +155,7 @@ scientific identity**. The child's work identity comes from the
 manifest entry its index selects, and an attempt row exists for every
 child before the scheduler assigns child identifiers, so a child that
 never resolves an identifier is a detectable reconciliation case
-rather than a silent gap. **[ADOPTED]**
+rather than a silent gap. **[DRAFT]**
 
 ## Retry
 
@@ -163,7 +163,7 @@ Retry layers are distinct, and the scheduler owns none of RAPID's.
 Batch automatic attempts are one; every retry is a new RAPID attempt
 with its own immutable identity, and the prior attempt's record
 stands. Retry applies per child: one child's retry never resubmits its
-siblings, and successful siblings are never repeated. **[ADOPTED]**
+siblings, and successful siblings are never repeated. **[DRAFT]**
 
 RAPID's taxonomy maps cause to disposition:
 
@@ -182,7 +182,7 @@ RAPID's taxonomy maps cause to disposition:
 The versioned retry policy maps error category and operational class
 to disposition; policy versions change independently of scientific
 releases, and every attempt records the policy version that governed
-it. **[ADOPTED]**
+it. **[DRAFT]**
 
 ## Payload contract
 
@@ -192,7 +192,7 @@ while the code path is one. At startup the runtime validates its full
 route (manifest task identity, queue, from the scheduler's own
 environment, resource profile and database lane) as a single tuple
 and rejects any mismatch. No command override exists at submit time.
-**[ADOPTED]**
+**[DRAFT]**
 
 Task and process specifications ship with the application release and
 load through an idempotent, audited deployment step. Startup **fails
@@ -210,7 +210,7 @@ waits for controller acceptance. A workers are the exception by
 design: they hold one connection, use set-based SQL, and run under the
 `database` queue's hard cap.
 
-Job configuration has three homes: **[ADOPTED]**
+Job configuration has three homes: **[DRAFT]**
 
 | Home | Carries | Property |
 |---|---|---|
@@ -224,7 +224,7 @@ manifest schema, an override is recorded by construction because the
 manifest and its checksum bind into the attempt record, and a product
 produced under any science override is barred from promotion to a
 community surface; enforcement of that bar is a stated criterion of
-the promotion gate. **[ADOPTED]**
+the promotion gate. **[DRAFT]**
 
 Every external command in the payload is checked: a nonzero exit or
 missing binary raises, is classified against the versioned
@@ -236,7 +236,7 @@ for conditions the job could not record. The retry surface is pinned:
 job definitions carry condition-gated retries for scheduler-visible
 reasons and a final no-retry catch-all, the submission layer never
 passes a retry-strategy override, and an application failure with a
-clean exit is never scheduler-retried. **[ADOPTED]**
+clean exit is never scheduler-retried. **[DRAFT]**
 
 Jobs run each attempt in a per-attempt working directory created by
 the runtime; diagnostics follow the observability design, and tools
@@ -246,7 +246,7 @@ inside this contract: the software-root variable is fail-loud at every
 payload read site, no code path defaults it, and the image-baked
 job-definition revision is advisory only: provenance authority for
 the executing revision is the submission record's pinned identities.
-**[ADOPTED]**
+**[DRAFT]**
 
 ## Logs and provenance
 
@@ -257,4 +257,4 @@ job definition's log configuration to its queue's group. Provenance,
 the mapping from source revision through image digest, job-definition
 revision and configuration digest to a product, is queryable through
 the attempt and submission records; the compute substrate maintains no
-separate registry. **[ADOPTED]**
+separate registry. **[DRAFT]**
