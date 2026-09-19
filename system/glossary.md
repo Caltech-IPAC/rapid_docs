@@ -146,9 +146,10 @@ unless its owner pins the run first. Designed in
 
 Custody, not who asked for the work, is the axis that matters
 operationally. Published custody keeps every guarantee it has today:
-one service writer, append-only records, audited mutation, no delete
-fence. Owned custody can end: a scratch run's owner may delete it
-through a fenced, dependency-checked operation, or let the purge do it.
+one service writer, append-only records, audited mutation, the delete
+fence and termination protection unchanged. Owned custody has no such
+fence: a scratch run's owner may delete it through a fenced,
+dependency-checked operation, or let the purge do it.
 The two kinds use separate lanes, so a scratch run does not disturb
 production's products or currency. There is no path that copies owned
 work into published custody: the only way owned work becomes published

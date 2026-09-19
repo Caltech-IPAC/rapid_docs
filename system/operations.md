@@ -581,8 +581,9 @@ the gate, and § Release promotion in operation states that binding.
 Owned work, what a scratch run produces, is bound instead to the login
 that created the run: `run delete` is callable by that owner or an
 administrator, through the same constrained functions every other
-mutation in this document uses, carrying a reason and an idempotency
-key.
+mutation in this document uses. As an owned-tier command it applies by
+default and needs no reason (§ Owned runs and run delete, below), and
+still carries an idempotency key, so a repeated call is safe to retry.
 
 A scratch run may name its own database target the way it names its
 image digest and configuration overlay: a trial database, a second
@@ -615,9 +616,9 @@ carries ([`data-model.md`](data-model) § Run).
 - Attempt rows, terminal records, and the run row are never deleted
   ([`data-model.md`](data-model) § Run); what a deletion removes is
   product and artifact bytes and the rows that cited them.
-- The four-step garbage-collection plan (§ this section's cross-
-  reference into [`storage.md`](storage), principle 8) does not run for
-  owned custody: the horizon and second inventory it uses exist to
+- The four-step garbage-collection plan ([`storage.md`](storage),
+  principle 8) does not run for owned custody: the horizon and second
+  inventory it uses exist to
   protect against the same cross-run references that `run delete`'s
   dependency check already resolves synchronously. Garbage collection
   stays as it is for orphans in published custody.

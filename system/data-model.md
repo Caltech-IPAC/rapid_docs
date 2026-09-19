@@ -80,9 +80,12 @@ image is not the release are structurally ineligible for promotion
 the release, not carrying a flag.
 
 **Deletion is scoped to what a run's own kind allows.** A production
-run's row and every row and object it produced follow the invariants
-below unchanged: nothing about a production run can be deleted.
-A scratch run can end, through `run delete`
+run's row and every row and object it produced keep the guarantees
+published custody gives them today, unchanged by this design: no new
+deletion path opens for them, and the existing ones, garbage collection
+on allowlisted classes, diagnostics tiered decay, disposability once
+MAST holds the durable copy, keep governing exactly as before. A
+scratch run can end, through `run delete`
 ([`operations.md`](operations)): its product and artifact rows are
 marked deleted, with their key and checksum retained, and the objects
 they cite are deleted from owned custody. Attempt rows, terminal
