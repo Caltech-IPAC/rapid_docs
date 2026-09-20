@@ -5,41 +5,41 @@
 
 ## Purpose
 
-How RAPID stores everything durable: the classification that derives
-the bucket set, the naming scheme, enforced immutability, promotion
-and swap mechanics, and the assurance controls. The catalog's
-internal schema belongs to the database design; interface contracts
-(what consumers are promised) belong to the interfaces design.
+This design defines RAPID's durable storage: how artifacts are
+classified, named and assigned to buckets, how immutability is
+enforced, and how promotion, swaps and assurance controls work.
+The database design owns the catalog's internal schema. The interfaces
+design owns the contracts that state what consumers are promised.
 
 ## Custody by run kind
 
-A run's outputs, its products, artifacts and catalog rows, land in one
-of two custody places, fixed by the run's kind at creation
-([`glossary.md`](glossary)):
+A run's kind, fixed at creation, determines which of two custody tiers
+holds its outputs: products, artifacts and catalog rows
+([glossary](glossary)).
 
-- **Published custody** is what a production run writes to today: the
-  place that carries the delete fence and termination protection.
-  Nothing about this tier changes. One service writer, append-only
-  records, audited mutation, no principal holds a delete action.
-- **Owned custody** is what a scratch run writes to: its own bucket or
-  prefix, with no delete fence. Owned work still writes create-once
-  keys, so a rerun is a new attempt and never an overwrite, and it
-  still carries full provenance. The difference is the lifecycle: a
-  scratch run's owner can end it, through the fenced, dependency-checked
-  `run delete` ([`operations.md`](operations)), and an untouched run
-  ends on its own by the scratch purge.
+- **Published custody** holds the outputs of production runs, with a
+  delete fence and termination protection. It has one service writer,
+  append-only records and audited mutations. No principal holds a
+  delete action.
+- **Owned custody** holds the outputs of scratch runs in their own
+  bucket or prefix, with no delete fence. Keys are create-once, so a
+  rerun creates a new attempt without overwriting earlier outputs.
+  Each output carries full provenance. The owner can end the run
+  through the fenced, dependency-checked `run delete` command
+  ([operations](operations)); the scratch purge ends untouched runs.
 
-There is no path that copies an object from owned custody into
-published custody. A pointer flip over an unchanged key cannot move an
-object into protected custody, and S3 cannot gate a delete on an
-object's tags, so the only way owned work becomes published work is to
-run it again as a production run under the release
-([`catalog.md`](catalog) § Promotion); that rerun is also the better
-provenance record. Everything that is not a run's output, staged
-inputs, reference sets, configuration snapshots, records, backups and
-diagnostics, keeps the five-axis classification below exactly as
-adopted; this section adds a sixth question, which custody place a run
-output lands in, answered by the run's kind alone.
+Owned work becomes published work by being run again as a production
+run under the release ([catalog](catalog) § Promotion). The rerun
+records the provenance of the published outputs. No path copies an
+object from owned custody into published custody. A pointer flip over
+an unchanged key cannot move an object into protected custody, and S3
+cannot make permission to delete depend on an object's tags.
+
+Artifacts that are not run outputs, including staged inputs, reference
+sets, configuration snapshots, records, backups and diagnostics,
+retain the adopted [five-axis classification](#classification). For
+run outputs, the custody tier is an additional question, answered
+solely by the run's kind.
 
 ## Classification
 
@@ -84,8 +84,8 @@ structure is derived from the classification:
    queries to locations; project-owned DNS fronts public
    byte-serving; configuration parameters bind the pipeline to its
    containers. No raw bucket name is published, so no bucket name is
-   permanent and every bucket is recreatable. Publication, not
-   creation, is the one-way door.
+   permanent and every bucket is recreatable. Publishing a bucket name
+   would make it an external commitment.
 3. **Immutability is enforced, not promised.** Versioning alone does
    not enforce it: a second PUT creates a new current version.
    Write-once classes carry policy-enforced conditional creates and
@@ -100,17 +100,17 @@ structure is derived from the classification:
    cannot send conditional headers, so the bucket starts with
    enforcement off and the policy attaches once the load verifies
    (verified live).
-4. **The catalog is the symlink.** Immutable objects, new versions
-   written beside old, promotion by one atomic pointer update,
-   demotion by pointing back. Never rename, never overwrite, never
-   delete-to-replace. The replaceable-current-file classes (public
-   operational metadata, git mirror) are the contract-level
-   exceptions.
+4. **The catalog points to immutable objects.** New versions are
+   written beside old ones. Promotion atomically updates a pointer;
+   demotion points it back. Objects are never renamed, overwritten or
+   deleted to make room for replacements. The replaceable-current-file
+   classes (public operational metadata, git mirror) are the
+   contract-level exceptions.
 5. **Retention is a property of the class, set once in lifecycle
    configuration**; tuning a period is a configuration change.
-   Retention follows custody: permanent means permanent while RAPID
-   is durable owner; verified MAST custody makes disposability a
-   real decision, taken then, under the durable-ownership rules.
+   Permanent retention lasts while RAPID is the durable owner.
+   Once MAST custody is verified, the durable-ownership rules govern
+   the decision on whether RAPID's copy can be discarded.
 6. **Writers are enumerated and minimal.** One authoritative writing
    identity per object class; a bucket carries the fewest writer
    identities its classes require, stated completely in the bucket
@@ -120,22 +120,21 @@ structure is derived from the classification:
    signed requests only: promotion state is checked at issuance, and
    a never-promoted object is unreachable even by a guessed key.
 8. **Garbage collection deletes only allowlisted data classes, and
-   never the real substrate.** This principle, and the four-step
-   collection procedure it governs, scope to published custody. No
+   never the real substrate.** This principle and its four-step
+   collection procedure apply to published custody. No
    data class in published custody is deletable by default; a class
    becomes eligible only by explicit addition to the deletion
    allowlist that garbage collection consults at every consumption
-   point. Independently of that list, every class on the real
-   substrate is refused, a mechanical check on the substrate axis,
-   not a reviewer's judgment, and not overridable by an operator
-   naming the class. Retention rules on other artifact classes
-   (diagnostics, staged inputs, build artifacts) are the per-class
-   lifecycle rules above,
-   not this allowlist. Owned custody deletes by a different path
-   entirely: the owner delete named in § Custody by run kind, which
-   checks the same dependency closure synchronously rather than by an
-   allowlisted, horizon-gated sweep ([`catalog.md`](catalog) §
-   Promotion; [`operations.md`](operations)).
+   point. An independent check on the substrate axis refuses every
+   class on the real substrate; an operator cannot override it by
+   naming a class. Other artifact classes, including diagnostics,
+   staged inputs and build artifacts, follow their own lifecycle rules
+   rather than this allowlist.
+   Deletion in owned custody uses the owner command described in
+   [Custody by run kind](#custody-by-run-kind). It checks the same
+   dependency closure synchronously, rather than through an
+   allowlisted sweep with a waiting period ([catalog](catalog) §
+   Promotion; [operations](operations)).
 
 ## Naming
 
@@ -192,8 +191,8 @@ unique, deletes denied), keeping versioning cost-neutral there.
 
 Every logical writer resolves to exactly one IAM principal; the
 security design's role boundaries carry the corresponding grants.
-Grants are wired per bucket when its first consumer cuts over, never
-speculatively.
+Grants are configured for each bucket when its first consumer cuts
+over, rather than in advance.
 
 **[DRAFT]**
 
@@ -364,13 +363,12 @@ only what new work sees; both generations stay readable during
 drain; a retired generation expires by lifecycle after a drain
 criterion.
 
-Promotion from owned custody follows none of the above: there is no
-manifest, pointer or flip that moves an owned object into published
-custody, because no mechanism here can gate a delete on an object
-having since been promoted. Owned work is promoted by being run again,
-as a production run under the release, which writes fresh objects
-directly into published custody under the mechanisms this section
-already states (§ Custody by run kind).
+Promotion from owned custody requires a production rerun under the
+release, as described in [Custody by run kind](#custody-by-run-kind).
+The rerun writes fresh objects directly into published custody.
+Manifests and pointer updates cannot move an owned object into
+published custody: none of these mechanisms can prevent deletion of
+an owned object on the basis that it has since been promoted.
 
 Rejected mechanisms: access points as a pointer layer (bucket
 binding is fixed at creation); rename (nonexistent on general
@@ -409,14 +407,16 @@ explicit exposure acceptance.
 
 ## Policy and assurance baseline
 
-Every bucket: TLS-only; Object Ownership bucket-owner-enforced (ACLs
-disabled); SSE-S3 default encryption; public-access block; gateway
-VPC endpoint for all pipeline data traffic; per-bucket cost
-allocation tags. Permanent-class buckets additionally: no principal
-holds any delete action; CloudFormation deletion and update-replace
-policies set to retain, plus stack termination protection: data
-outlives any stack operation; break-glass is a recorded stack-policy
-change, not a standing capability.
+Every bucket requires TLS, bucket-owner-enforced Object Ownership
+(ACLs disabled), SSE-S3 default encryption and public-access block.
+All pipeline data traffic uses a gateway VPC endpoint, and each bucket
+carries cost allocation tags.
+
+For permanent-class buckets, no principal holds a delete action.
+CloudFormation deletion and update-replace policies retain the data,
+and the stack has termination protection, so data survives any stack
+operation. Break-glass requires a recorded stack-policy change;
+there is no standing capability.
 
 Assurance: weekly S3 Inventory on the three permanent buckets,
 delivered to the logs bucket; scheduled catalog↔inventory

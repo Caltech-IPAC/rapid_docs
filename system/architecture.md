@@ -4,43 +4,35 @@
 
 ## Purpose
 
-The shape of the system: how processing flows, what executes it, where
-data rests, and what boundaries separate the parts. This document is
-the orienting view: a reader who has not read the domain documents
-should finish it knowing how an observation becomes a published alert,
-and which document owns each mechanism it passed through.
+This document follows an observation from admission to published
+alert. It describes the processing flow, execution roles, data stores,
+and boundaries between them, with pointers to the detailed designs.
 
-It states no rule of its own. Every mechanism named here is owned by a
-domain document (compute, storage, database, observability,
-operations, security, interfaces, releases, code standards,
-repositories), and this document defers to them wherever detail is
-wanted. Where the two disagree, the domain document is correct. Domain
-documents carry their own status; a mechanism drawn from a DRAFT
-document is the current target, not a ratified fact.
+The domain documents define every mechanism described here; this page
+adds no requirements. They cover compute, storage, database,
+observability, operations, security, interfaces, releases, code
+standards, and repositories. Where a domain document and this page
+disagree, the domain document takes precedence. Each carries its own
+status: a mechanism from a DRAFT document remains a proposed target.
 
 ## What the system is
 
 RAPID is a **modular monolith with distributed execution**. One
 installable application supplies the controller, the Batch worker
 commands, the publisher, the operator CLI and the database
-migrations. These are deployment roles, not independent
-architectures: the same code, the same typed definitions, and the same
-schema contract, started under different commands and different
-identities.
+migrations. Each role starts under its own command and identity,
+sharing the application code, typed definitions, and schema contract.
 
-The deployment runs at its smallest correct setting. Every capacity,
-redundancy and tooling choice below is a **deployment-scale dial, not
-a model change**: one controller rather than an active-active pair,
-one PostgreSQL primary rather than a replicated cluster, scheduled
-reconciliation rather than an event bus, one association lane rather
-than many. The architecture is whole at this scale, and each deferred
-capability carries a recorded non-preclusion mechanism and an adoption
-trigger.
+The initial deployment uses one controller, one PostgreSQL primary,
+scheduled reconciliation, and one association lane. These choices set
+capacity, redundancy, and tooling without changing the data model or
+its correctness requirements. The [deferred capabilities](#deferred-capabilities)
+table records how the design supports each later addition and what
+would justify adopting it.
 
 ## Organizing principles
 
-The system shape derives from six principles, each normative. They do
-the structural work that the rest of this document only arranges.
+Six normative principles determine the system's structure.
 
 1. **One durable truth.** PostgreSQL is the sole authority for
    accepted inputs and products, provenance, logical work, attempt
@@ -70,28 +62,24 @@ the structural work that the rest of this document only arranges.
    sufficient for convergence. Loss of any acceleration path changes
    latency and nothing else.
 
-Two further rules shape what the reader will not find here. The
-**structural family is fixed**: AWS Batch and PostgreSQL with Q3C are
-the skeleton, and no event-driven rearchitecture is in scope. And
-**familiar workflows** are preferred, so the design favors mechanisms
-a scientific programmer can reason about and debug over cloud-native
-patterns that demand a new mental model.
+The design retains AWS Batch and PostgreSQL with Q3C; an event-driven
+rearchitecture is out of scope. It favors familiar workflows that a
+scientific programmer can reason about and debug over cloud-native
+patterns that require a new mental model.
 
 ## Explicit exclusions
 
-Normative, and stated here because their absence is a design choice
-rather than an omission: no internal Kafka or message bus, no Step
-Functions or second workflow authority, no per-stage service or
-function, no general workflow engine, no mutable latest-result row,
-and no hidden Batch retry lifecycle.
+The design explicitly excludes internal Kafka or another message bus,
+Step Functions or a second workflow authority, per-stage services or
+functions, a general workflow engine, mutable latest-result rows, and
+a hidden Batch retry lifecycle. These exclusions are normative.
 
 ## Deferred capabilities
 
-Each capability below is out of scope at the current deployment
-scale, not out of scope of the architecture: the baseline design
-names what keeps it reachable, and the trigger names the condition
-that would bring it in. A row whose prerequisite is another row is
-built after it.
+These capabilities are deferred at the initial deployment scale.
+Each row identifies the existing design support and the condition for
+adoption. Where a capability depends on another row, that prerequisite
+is implemented first.
 
 | Capability | Kept reachable by | Adoption trigger |
 |---|---|---|
@@ -138,10 +126,9 @@ delays acceptance; it never causes recomputation or loss. The
 publisher is a separate process under a separate IAM and database
 role, holding the broker credentials alone, running as one instance
 and permitted to share the controller's host. The outbox absorbs
-publisher downtime by design. Neither is an active-active pair: the
-row-claim and lease machinery that would make active-active safe is
-already in the model, so running one instance of each is purely a
-capacity setting.
+publisher downtime. Both run as single instances. The existing
+row-claim and lease mechanisms also support safe active-active
+operation if that capability is adopted.
 
 ## Processing graph
 
@@ -187,8 +174,8 @@ manifest and exits.
 **Result acceptance** is a bounded controller loop, not a Batch job
 and not a scientific checkpoint. It verifies the fenced executor,
 registers products, artifacts and provenance, streams detections,
-verifies counts and constraints, succeeds the D work unit and
-materializes A work.
+verifies counts and constraints, marks the D work unit successful,
+and creates A work.
 
 **A**, associate and assess, takes an accepted detection product over
 a deterministic coarse sky partition. It performs set-based Q3C
@@ -231,9 +218,9 @@ from an intermediate physical failure.
 
 Subjects are **typed** and validated at creation by task-specific
 canonicalizers (exposure-detector, date-detector, date-field, field
-and release unit). There are no sentinel exposure or detector carriers,
-no identifiers smuggled through numeric columns, and no parallel
-untyped fact carriers alongside typed state.
+and release unit). Each subject uses its own typed representation;
+sentinel exposure or detector values, identifiers stored in unrelated
+numeric columns, and parallel untyped representations are prohibited.
 
 No transaction spans job submission. An ambiguous submission resolves
 through the durable submission-row protocol (PREPARED → CALLING →
@@ -263,21 +250,20 @@ scientific code performs WCS and pixel transformations, exact
 geometry, differencing and probabilistic association.
 
 One PostgreSQL primary runs in a single availability zone with no
-standbys and no failover procedure: at this scale, database loss is a
-restore event, not a correctness event. database.md owns the
-availability posture and connection arithmetic: pooling, per-role
-budgets, and the endpoint and failover-readiness detail.
+standbys and no failover procedure. Database loss requires a restore;
+the correctness guarantees remain in force during recovery. The
+[database design](database.md) defines availability, pooling,
+per-role connection budgets, the client endpoint, and preparations for
+later failover support.
 
-Storage is classified on five axes (mutability, custody, retention,
-audience and writer), and the container set derives from that
-classification: a container exists per enforceable policy point, and
-differences a prefix can enforce are carried as prefixes rather than
-splits. Immutability is enforced rather than promised, through
-policy-enforced conditional creates and denial of both ordinary and
-version-specific deletes. Object deletion happens only through the
-two-pass inventory anti-join with a safety horizon exceeding the
-retry, quarantine and point-in-time-recovery windows, against a
-recorded plan.
+Storage is classified by mutability, custody, retention, audience,
+and writer. Containers separate policies that require container-level
+enforcement; prefixes separate policies that can be enforced within a
+container. Policies enforce immutability through conditional creates
+and denial of both ordinary and version-specific deletes. Object
+deletion follows a recorded plan and uses the two-pass inventory
+anti-join, with a safety horizon longer than the retry, quarantine,
+and point-in-time-recovery windows.
 
 ## Execution substrate
 
@@ -324,23 +310,21 @@ re-derives ready work on a short interval, tens of seconds, part of
 the prompt latency budget. There are no EventBridge rules, no SQS
 queues and no redrive tooling.
 
-That places the durability requirement on the admission source, which
-is where it belongs: the source of incoming observations must be
-durable and replayable, and the controller admits by polling it.
-Admission is idempotent, so a repeated observation returns its
-existing admission, and a source that cannot replay requires a durable
-buffer in front of admission. "The database is down" must never mean
-"an observation was lost."
+The controller polls a durable, replayable source of incoming
+observations. Admission is idempotent: a repeated observation returns
+its existing admission. A source that cannot replay requires a durable
+buffer before admission, so a database outage does not lose observations.
 
-Association keeps its full ordering mechanism from day one even though
-one lane makes neighbor locking vacuous. Work is claimed in canonical
+Association uses its full ordering mechanism from the initial
+deployment, even with a single lane, where neighbor locking has no
+effect. Work is claimed in canonical
 `(observation_time, detection_id)` order behind a persistent watermark
 per `(association_set, lane)`, advanced in the same transaction as the
 accepted associations. Ordering is scoped within an association set;
 reprocessing sets carry their own watermarks over historical times and
 never regress the live one. Reprocessing association always writes an
-isolated `association_set` and never mutates the live prompt set:
-correctness, not scale.
+isolated `association_set` and never mutates the live prompt set,
+regardless of deployment scale.
 
 ## Boundaries
 
@@ -357,24 +341,23 @@ correctness, not scale.
 
 ## Operator surface
 
-`rapidctl` is the interface, executing over a dedicated constrained
-database role that holds only procedure execution, no table-level
-write grants. There is no administrative adapter service and no custom
-web application: the known operators connect through the pooler
-under the constrained role, with nothing in between. Dropping the adapter tier removes a network hop, not
-any part of the mutation contract, which applies in full: every
-mutation requires actor, reason, idempotency key, expected current
-state, dry-run output and explicit confirmation, and the append-only
-operator-action ledger records target, before and after state, and
-correlation identifier.
+Operators use `rapidctl`, connecting through the pooler under a
+dedicated database role. That role can execute constrained procedures
+but has no table-level write grants. There is no administrative adapter
+service or custom web application.
+
+Every mutation requires an actor, reason, idempotency key, expected
+current state, dry-run output, and explicit confirmation. The
+append-only operator-action ledger records the target, before and
+after state, and correlation identifier.
 
 ## Observability
 
 PostgreSQL operational views are the primary surface: pipeline flow
 and oldest work age, acceptance backlog, active and possibly-lost
 attempts, quarantine, outbox health, reference coverage and integrity
-probes. A small low-cardinality CloudWatch symptom set carries backlog
-age by task class, the four latency clocks (arrival to admission,
+probes. A small set of low-cardinality CloudWatch metrics records
+backlog age by task class, the four latency clocks (arrival to admission,
 admission to transform result, acceptance to outbox, outbox to broker
 acknowledgement), pool saturation, WAL-archive lag, reconciliation
 discrepancies, and missing-object and checksum failures.
@@ -442,8 +425,8 @@ targets, not guarantees.
 
 ## Operating states
 
-The system's posture changes with mission phase, and the change is an
-explicit selected state rather than an emergent condition.
+An explicitly selected operating state determines the system's
+behavior in each mission phase.
 
 | Phase | Posture |
 |---|---|
@@ -470,13 +453,13 @@ promotion.
 | Missing reference | Work blocks without consuming an attempt, and resumes when reference activation makes coverage available |
 | Bad release | Deactivate it for new admissions, retain evidence, and reprocess under a new release |
 
-Failure delays work; it does not create another truth. Recovery is
-deterministic replay from PostgreSQL and immutable objects. Quarantine
-is an explained work disposition, not another queue or bucket. A
-failure gathering or handling one enabled work stream never prevents
-progress of otherwise-independent ready work streams; health and
-consecutive failures are tracked per work stream, and process-level
-failure is reserved for shared faults.
+Recovery uses deterministic replay from PostgreSQL and immutable
+objects, without introducing another source of workflow truth. Quarantine
+records a work disposition and its reason without moving work to a
+separate queue or bucket. A failure gathering or handling one enabled
+work stream leaves independent ready work streams running. Health and
+consecutive failures are tracked per work stream; only shared faults
+cause process-level failure.
 
 ## Where the detail lives
 
