@@ -88,6 +88,19 @@ deleted, retaining each key and checksum. Attempt rows, terminal records
 and the run row remain permanently. The surviving provenance records
 how the outputs were produced, even after their bytes have been deleted.
 
+A product's identity is shared across every run that realizes it;
+deletion is scoped to one run's realization, not to the product. When
+two runs each hold a realization of the same product, deleting one
+run's realization tombstones only that realization's row (and, where
+owned exclusively by the deleted run, its bytes); the other run's
+realization rows, its own current pointer, its bindings and its
+provenance are untouched, and the shared product row itself is never
+tombstoned while any realization of it survives. Shared identity is
+consequently never itself a reachability dependency: a companion run
+merely sharing a product's identity does not, on its own, block the
+other run's deletion — only a recorded physical or provenance dependency
+does (below).
+
 ## Invariants
 
 1. **History is append-only; state is a derived summary.** Events,

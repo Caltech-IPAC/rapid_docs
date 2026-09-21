@@ -29,6 +29,26 @@ stream, which implements this document.
    release identity (a tag). One mint point each; no concept borrows
    another's home.
 
+## Partitioned tables
+
+**Child tables live in `public`, not `derived`.** The per-epoch/per-field
+children of a partitioned catalog table (`sources`, `merges`,
+`astroobjects`, `astroobjectsmeta`) are created by
+`derived.create_child_table`, whose composed DDL explicitly qualifies
+every clause to `public.%I` — the creator, the inheritance clause and
+the grant target all name the schema, so a `derived`-first
+`search_path` cannot silently misplace a new child (migration 141; the
+fix corrected a placement bug that had put four existing children in
+`derived` instead, relocated to `public` under migration 145). A child
+inherits its prototype's structure by `LIKE` — columns, defaults, CHECK
+constraints and indexes compared by definition, not by generated name —
+and takes the prototype's owner: `sources`'s children are owned by
+`rapid_pipeline_write`, and every other prototype's children (and, as of
+145, `sources`'s own historical children) are owned by `rapid_pipeline`.
+A single, unified owner across all four prototype families is a
+follow-up decision (recorded, not made here); until then a new child
+follows its own prototype's current owner.
+
 ## Promotion
 
 **Promotion is release promotion.** The catalog's `vbest` mechanics

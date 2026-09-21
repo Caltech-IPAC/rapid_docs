@@ -600,9 +600,33 @@ carries ([`data-model.md`](data-model) § Run).
 **`run delete`** is a fenced service operation, never a personal grant:
 
 - It refuses while anything the run produced is reachable from a
-  published product, from another run's inputs, or from an in-flight
+  published product, from another run's recorded inputs through the
+  physical edges and manifests that name them, or from an in-flight
   attempt ([`catalog.md`](catalog) § Promotion); owner identity narrows
-  who may call it and never substitutes for that check.
+  who may call it and never substitutes for that check. Reachability is
+  run-scoped physical use, not shared identity: a companion run merely
+  sharing a product's identity, or holding its own independent current
+  pointer onto shared history, is not by itself a dependency
+  ([`data-model.md`](data-model)).
+- The dependency check is decided from a caller-evidence envelope, not
+  from an unbounded live scan: for every other run's in-flight
+  submission that could name this run's objects, the caller reads that
+  submission's manifest, attributes what it resolves back to that
+  submission, and reports what it could not read rather than silently
+  treating an unreadable manifest as clear. Unresolved provenance fails
+  closed — an attempt or run whose provenance cannot be resolved refuses
+  deletion, it does not proceed on the absence of evidence. The envelope
+  has a coverage limit: it evaluates the in-flight submissions the
+  caller can enumerate at call time, not a guarantee against every
+  submission that could ever be created; closing that gap with a
+  database-resident input edge that a producer maintains going forward
+  is a follow-up, not part of this contract.
+- An objectless run — no candidate object versions remain — is an
+  audited no-op, not a silent success: it still writes its one ledger
+  row. If a prior call left an unresolved garbage-collection plan open,
+  a later call resumes against that open plan instead of re-treating
+  empty enumeration as fresh; only empty objects **and** no open plan is
+  the no-op.
 - It fences the run first, so no new submission or registration can
   land against it, then enumerates, deletes object versions, marks
   product and artifact rows deleted, and records a per-object outcome.
