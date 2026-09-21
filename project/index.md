@@ -14,7 +14,7 @@ configuration and scripts, and the pipeline software, are under the BSD
 - [Team and contact](team)
 - [How the project is run](how-the-project-is-run)
 - [Contributing](contributing)
-- Where things live: see the [documentation design](../system/documentation) in System
+- Where things live: see the [specification](../system/specification) in System
 
 ```{toctree}
 :hidden:

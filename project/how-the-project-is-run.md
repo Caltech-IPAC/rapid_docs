@@ -12,8 +12,8 @@ workstations, change parameters, compare results, and discard outputs without
 affecting published products. Scratch and production runs share a data
 model and record the code, configuration, and inputs used. Their outputs
 have different retention and deletion rules, described in the
-[storage design](../system/storage). The [interfaces design](../system/interfaces)
-states the contracts for products delivered outside RAPID. The production
+[specification](../system/specification), which also
+states the manifest contracts at the pipeline's edges. The production
 service is designed for the mission's full data volume.
 
 ## Development approach
@@ -29,7 +29,7 @@ through commissioning and survey observations. An end-to-end pipeline provides
 a working basis for that development, with recorded inputs, code and
 configuration so results can be compared. Individual stages can be
 tested and revised independently in scratch runs. Changes enter
-production through the [release process](../system/releases).
+production through tagged releases, as the [specification](../system/specification) states.
 
 ## Working together
 
@@ -48,5 +48,5 @@ contributors can work from the same specification. Code comments and
 docstrings refer to the documented rules they implement.
 
 Updates to the team explain what changed, what colleagues need to know,
-and where to find the relevant reference. The [documentation design](../system/documentation)
-describes where each kind of information is maintained.
+and where to find the relevant reference. The [specification](../system/specification)
+states which repository holds each kind of information.

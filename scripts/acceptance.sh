@@ -58,7 +58,7 @@ done
 check "Status lines render as <strong>Status: ...</strong>" "$r3"
 
 # 4. Source available beside every built page: _sources/<docname>.md.txt
-#    exists, and system/architecture.html links to its own source file
+#    exists, and system/specification.html links to its own source file
 #    (the source link proper, not the edit-this-page button).
 r4=0
 while IFS= read -r -d '' pagemd; do
@@ -72,10 +72,10 @@ done < <(find . \
   \( -path ./_build -o -path ./.venv \) -prune -o \
   -name '*.md' -type f -print0)
 
-grep -o 'href="[^"]*"' "$html/system/architecture.html" \
-  | grep -q '_sources/system/architecture\.md\.txt"$' || {
+grep -o 'href="[^"]*"' "$html/system/specification.html" \
+  | grep -q '_sources/system/specification\.md\.txt"$' || {
     r4=1
-    echo "  system/architecture.html does not link to its own _sources/system/architecture.md.txt"
+    echo "  system/specification.html does not link to its own _sources/system/specification.md.txt"
   }
 check "every built page has a _sources/<docname>.md.txt and architecture links its own source" "$r4"
 
