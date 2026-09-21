@@ -5,8 +5,8 @@ Differencing), built with [Sphinx](https://www.sphinx-doc.org/), the
 [MyST parser](https://myst-parser.readthedocs.io/), and
 [ABlog](https://ablog.readthedocs.io/), hosted on Read the Docs.
 
-Where every statement about RAPID lives, and what this site is, is the
-documentation design: `system/documentation.md`.
+Which repository holds which statement about RAPID is stated in the
+specification: `system/specification.md`.
 
 ## Building and checking locally
 

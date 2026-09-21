@@ -1,12 +1,11 @@
 # Writing this site as an agent
 
 This file is for any language model drafting or revising a page in this
-repository. The site's writing design, `system/writing.md`, states the
-house style and is the authority; the documentation design,
-`system/documentation.md`, states where things go. This file adds what
-neither can: the ways generated prose gives itself away, and how to use
-a style guide as a calibration rather than a cage. Build and check commands
-are in the README.
+repository. The specification, `system/specification.md`, is the design
+authority and states where things go. This file adds what the
+specification cannot: the ways generated prose gives itself away, and
+how to use a style guide as a calibration rather than a cage. Build and
+check commands are in the README.
 
 ## What good looks like
 
