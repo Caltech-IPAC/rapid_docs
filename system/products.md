@@ -7,10 +7,11 @@ stages' `consumes` and `produces` declarations name, what makes each product
 unique, and the metadata `register` needs from its manifest entry. Written
 2026-09-21 from the `dev` schema and the stage contract, revised on a Codex
 review, direction approved by the lead.
-The schema follows this vocabulary, not the reverse. The current tables
-are named below so the team recognises what each product corresponds
-to; their columns, keys and types are redesigned by the runs and schema
-work to hold exactly what this page requires.
+The `dev` schema is kept (lead, 2026-09-21): its tables and columns
+stay as the team knows them, and this vocabulary maps onto them. Where
+the vocabulary needs something the tables lack, a column or table is
+added; nothing is renamed or dropped. The tables are named below so the
+team can see what each product corresponds to.
 
 ## In plain terms
 
@@ -129,7 +130,8 @@ External identifiers (the observatory's exposure id) are stored as
 delivered and mapped to internal ids at admission.
 
 The full field list per kind is fixed one kind at a time, with the
-schema that holds it, difference image first. For the difference image:
+columns that hold it, difference image first; see the [runs](runs) page
+for how the run model attaches to the existing tables. For the difference image:
 
 | Field | Source |
 |---|---|
