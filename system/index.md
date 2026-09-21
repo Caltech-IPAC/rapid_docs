@@ -17,6 +17,7 @@ remain in this repository's history.
 | Document | Status | Scope |
 |---|---|---|
 | [`specification.md`](specification) | DRAFT | Purpose and outcome; the pipelines and their stages; the stage contract; runs, the three output states, promotion, attempts and deletion; tools; the three repositories and their boundary; releases; the manifest edges; constraints; sequencing; what is not yet decided |
+| [`products.md`](products) | DRAFT | Product kinds and result-set kinds, logical key versus instance id, bundles, reading across runs, registration metadata with one source per field, one complete worked manifest |
 | [`stage-contract.md`](stage-contract) | DRAFT | The `rapidpipe` package and its dependency direction; the stage declaration, one invocation form, attempts, the manifest, five exit codes, settings; local fixtures; what it replaces |
 
 ```{toctree}
@@ -24,4 +25,5 @@ remain in this repository's history.
 
 specification
 stage-contract
+products
 ```
