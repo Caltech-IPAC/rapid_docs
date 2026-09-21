@@ -163,8 +163,8 @@ depend on.
 
 The team touches one command-line tool, shipped in the pipeline repo,
 with a small set of operations: create a run, start a stage or the whole
-loop, watch progress, cancel and restart from failure, list and compare
-runs, promote a candidate, delete scratch. Each operation reports the
+loop, rerun part of a run, watch progress, cancel and restart from
+failure, list and compare runs, promote a candidate, delete scratch. Each operation reports the
 affected run identifier and a meaningful exit status. Each stage is also
 a plain script that the tool calls and a person can call directly.
 Design the interface around these operations and the stage contracts;
@@ -233,6 +233,26 @@ write the manifests and are outside this specification.
 - The repositories document access, deployment, diagnosis, restart,
   promotion reversal and database recovery. Account-specific instructions
   live in `rapid_systems`.
+- Protected branches with required CI checks on `main` in all three
+  repositories.
+- Requirements carried from the retired issue backlog on 2026-09-21,
+  each still binding on the rebuild:
+  - The alert stream retains two months at the project level; the
+    stream itself is not the archive, so an archive sink with stated
+    retention and ownership is required before alerts are published.
+  - Backups: no lifecycle rule may expire the newest backup chain, and
+    sizing follows a stated classification, cadence and growth model.
+  - The product store needs a growth model and tiering; about 60 TB of
+    legacy IMSS products and NASA records retention bear on it.
+  - Human credential custody and a break-glass procedure for the
+    account must be written down and rehearsed.
+  - Database connections through the pooler use TLS; the pooler's
+    posture is a security requirement, not a convenience.
+  - Long-lived connections must account for the Nitro default
+    connection-tracking idle timeout.
+  - Platform facts still open with SMDC: address-range collision,
+    egress model, IAM PassRole scoping, backup-plan scope and recovery
+    path.
 
 ## Sequencing
 
@@ -265,9 +285,24 @@ that CI verifies and the lead merges. Proposed order, earliest first:
 - Storage layout beneath the three states.
 - The checks that gate automatic promotion: their content is scientific
   and the lead's.
-- Admission rules for duplicate, incomplete or corrected inputs, and the
-  processing-date time convention.
-- Reference-image eligibility and selection rules.
+- The boundary between mission-supplied data and RAPID-derived
+  products, and what each side's retention and provenance owe.
+- Admission rules for duplicate, incomplete or corrected inputs,
+  including how a re-delivered observation supersedes the earlier one;
+  the science half of the input contract (discovery, completeness,
+  versioning); and the processing-date time convention.
+- Reference-image eligibility and selection rules, and where the
+  reference PSF is resolved from.
+- Product identity under concurrent processing: collision, publication
+  and replay semantics beyond the science identifier and context stamp.
+- Whether a release change overlaps for consumers mid-migration or
+  switches by pointer.
+- Recovery targets per storage family and the stance on failover read
+  cost.
+- Whether alert payload bytes are split from delivery evidence after a
+  retention horizon.
+- Churning reference data such as ephemerides: cached at run time or
+  baked into the image.
 - External delivery protocols.
 
 Stage contracts and the promotion rules must be approved before their
