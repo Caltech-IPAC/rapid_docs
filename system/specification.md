@@ -133,6 +133,9 @@ retained.
 
 Every run's mutable files and database results are isolated from other
 runs. Admitted inputs and reference images are shared and read-only.
+Current result sets are readable by any run as frozen inputs, by
+instance id, so production can accumulate a catalog across processing
+dates; scratch result sets are readable only within their own run.
 Changes become visible to consumers only through promotion.
 
 ### Promotion

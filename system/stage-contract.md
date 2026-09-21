@@ -178,9 +178,8 @@ and report its outputs.
 
 ## Not decided here
 
-- The product vocabulary and each kind's registration metadata, which
-  the products design fixes with at least one complete example before
-  the first stage is written.
+- Each remaining kind's registration metadata; the vocabulary and the
+  difference-image example are on the [products](products) page.
 - Whether delivered statistics describe associations before or after
   pruning. A science decision for the lead.
 - The exact Batch infrastructure-failure patterns to retry.
