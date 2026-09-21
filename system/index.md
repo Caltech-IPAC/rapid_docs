@@ -17,9 +17,11 @@ remain in this repository's history.
 | Document | Status | Scope |
 |---|---|---|
 | [`specification.md`](specification) | DRAFT | Purpose and outcome; the pipelines and their stages; the stage contract; runs, the three output states, promotion, attempts and deletion; tools; the three repositories and their boundary; releases; the manifest edges; constraints; sequencing; what is not yet decided |
+| [`stage-contract.md`](stage-contract) | DRAFT | The `rapidpipe` package and its dependency direction; the stage declaration, one invocation form, attempts, the manifest, five exit codes, settings; local fixtures; what it replaces |
 
 ```{toctree}
 :hidden:
 
 specification
+stage-contract
 ```
