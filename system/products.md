@@ -179,9 +179,9 @@ for how the run model attaches to the existing tables. For the difference image:
       },
       "primary": "diff/e20260821001234_SCA07_zogy.fits",
       "members": [
-        {"role": "difference",   "path": "diff/e20260821001234_SCA07_zogy.fits",       "bytes": 201326592, "sha256": "sha256:9a1f0e2d3c4b5a69788796a5b4c3d2e1f00112233445566778899aabbccddeeff"},
-        {"role": "uncertainty",  "path": "diff/e20260821001234_SCA07_zogy_unc.fits",   "bytes": 201326592, "sha256": "sha256:0b2e1f3d4c5a6b7988a7b6c5d4e3f2019900aabbccddeeff00112233445566778"},
-        {"role": "significance", "path": "diff/e20260821001234_SCA07_zogy_scorr.fits", "bytes": 201326592, "sha256": "sha256:1c3f2e4d5b6a7c8a99b8c7d6e5f4a3b20aa11bbccddeeff001122334455667789"}
+        {"role": "difference",   "path": "diff/e20260821001234_SCA07_zogy.fits",       "bytes": 201326592, "sha256": "sha256:9a1f0e2d3c4b5a69788796a5b4c3d2e1f00112233445566778899aabbccddeef"},
+        {"role": "uncertainty",  "path": "diff/e20260821001234_SCA07_zogy_unc.fits",   "bytes": 201326592, "sha256": "sha256:0b2e1f3d4c5a6b7988a7b6c5d4e3f2019900aabbccddeeff0011223344556677"},
+        {"role": "significance", "path": "diff/e20260821001234_SCA07_zogy_scorr.fits", "bytes": 201326592, "sha256": "sha256:1c3f2e4d5b6a7c8a99b8c7d6e5f4a3b20aa11bbccddeeff00112233445566778"}
       ],
       "registration": {
         "centre": {"ra": 269.4521, "dec": -28.7710},
@@ -199,7 +199,7 @@ for how the run model attaches to the existing tables. For the difference image:
       "instance": "pi-cat-0000998878",
       "key": {"difference": "pi-diff-0000998877", "catalog_type": "sextractor", "sign": "positive"},
       "primary": "cat/e20260821001234_SCA07_zogy_pos.sexcat",
-      "members": [{"role": "catalog", "path": "cat/e20260821001234_SCA07_zogy_pos.sexcat", "bytes": 88214, "sha256": "sha256:2d4a3f5e6c7b8d9aaac9d8e7f6a5b4c31bb22ccddeeff0011223344556677889a"}],
+      "members": [{"role": "catalog", "path": "cat/e20260821001234_SCA07_zogy_pos.sexcat", "bytes": 88214, "sha256": "sha256:2d4a3f5e6c7b8d9aaac9d8e7f6a5b4c31bb22ccddeeff0011223344556677889"}],
       "registration": {"source_count": 412}
     }
   ]
