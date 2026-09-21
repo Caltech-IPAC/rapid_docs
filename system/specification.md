@@ -66,6 +66,10 @@ date's exposures:
 
 ### The stage contract
 
+The full contract, the package layout and the exit codes are on the
+[stage contract](stage-contract) page; this section states the rules
+in outline.
+
 Every stage has its own entrypoint and declares its arguments,
 configuration, input and output formats, database reads and writes,
 resource needs, and exit codes for success and each kind of failure.
@@ -161,7 +165,7 @@ depend on.
 
 ## Tools
 
-The team touches one command-line tool, shipped in the pipeline repo,
+The team touches one command-line tool, `rapidpipe`, shipped in the pipeline repo,
 with a small set of operations: create a run, start a stage or the whole
 loop, rerun part of a run, watch progress, cancel and restart from
 failure, list and compare runs, promote a candidate, delete scratch. Each operation reports the
