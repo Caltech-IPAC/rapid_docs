@@ -176,8 +176,17 @@ For the difference image (`difference` makes it, `register` records it):
 | current flag, status | allocation; never current at registration | `vbest` 0, `status` 0 |
 | written by later stages | not registration | `avid`, `archivestatus`, `nalertpackets` |
 
-For the l2 image (`admit` makes it and records it, since admission is
-the one stage that reads the delivered header):
+For the l2 image (`admit` makes it, `register` records it; admission is
+the one stage that reads the delivered header, so every header value the
+tables need travels in its manifest entry). `admit` has no upstream
+stage: its input manifest is a delivery manifest, written by whoever
+stages the delivered file, with stage `delivery`, one `l2-image` entry
+of format version `delivered` whose key names the exposure, detector and
+delivered version, and the delivered file as its member. `admit`
+verifies the delivered bytes, copies the file into the attempt's output
+location, and publishes a new instance; the delivery's instance id and
+source are kept in the registration block, not as a dependency, because
+a delivery is not a registered product.
 
 | Field | Source | Column |
 |---|---|---|
