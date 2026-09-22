@@ -6,7 +6,8 @@ Companion to the [stage contract](stage-contract): the product vocabulary the
 stages' `consumes` and `produces` declarations name, what makes each product
 unique, and the metadata `register` needs from its manifest entry. Written
 2026-09-21 from the `dev` schema and the stage contract, revised on a Codex
-review, direction approved by the lead.
+review, direction approved by the lead. The difference-image and l2-image
+registration field lists were fixed later the same day.
 The `dev` schema is kept (lead, 2026-09-21): its tables and columns
 stay as the team knows them, and this vocabulary maps onto them. Where
 the vocabulary needs something the tables lack, a column or table is
@@ -125,27 +126,78 @@ indexes from a position) or allocate (row ids, current flags). Nothing
 substitutes zero for an unavailable measurement; a missing required
 value fails validation.
 
-Checksums are SHA-256 throughout, stored with the algorithm named.
-External identifiers (the observatory's exposure id) are stored as
-delivered and mapped to internal ids at admission.
+Checksums are SHA-256 throughout, stored with the algorithm named;
+the one exception is the legacy MD5 columns, ruled below. External
+identifiers (the observatory's exposure id) are stored as delivered and
+mapped to internal ids at admission.
 
 The full field list per kind is fixed one kind at a time, with the
-columns that hold it, difference image first; see the [runs](runs) page
-for how the run model attaches to the existing tables. For the difference image:
+columns that hold it; see the [runs](runs) page for how the run model
+attaches to the existing tables. Two lists are fixed so far: the
+difference image, because it is the first kind the rebuild registers,
+and the l2 image, because `admit` is the first stage built and
+`register` needs its list. The remaining kinds follow with their stages.
 
-| Field | Source |
-|---|---|
-| l2 instance, reference instance, differencer, settings hash | manifest identity |
-| field, filter, observation time | lookup on the l2 instance |
-| image centre and four corners (RA, Dec) | manifest, from the difference WCS |
-| science and reference info bits | manifest |
-| source counts per catalog type and sign | manifest |
-| registration residuals: x and y RMS and median | manifest |
-| reference scale factor | manifest |
-| spatial indexes | derived from the centre at registration |
-| file paths, sizes, checksums | manifest members |
-| run, attempt, result-set, instance ids | enclosing manifest and allocation |
-| current flag, status | allocation; never current at registration |
+Three rules hold across every kind, so that the `dev` tables keep the
+meaning the team knows:
+
+- **Legacy checksum columns keep their MD5.** `l2files.checksum`,
+  `refimages.checksum` and `diffimages.checksum` are 32-character MD5
+  columns. The stage computes the MD5 of the primary member alongside
+  its SHA-256 and carries it in the registration block as `md5`; the
+  SHA-256 goes to `product_members`. Nothing is stored under a name that
+  misdescribes it.
+- **Legacy version columns are allocated the way the team's procedures
+  allocated them**, the next number for the table's logical pair within
+  the run, except where the version is delivered (the l2 image).
+- **Legacy current flags are never set at registration.** `vbest` is 0
+  on every row a run writes; custody lives on the instance row.
+
+For the difference image (`difference` makes it, `register` records it):
+
+| Field | Source | Column |
+|---|---|---|
+| l2 instance | manifest identity | `diffimages.rid`, with `expid` and `sca` copied from that `l2files` row |
+| reference instance | manifest identity | `diffimages.rfid`: that instance's `refimages` row |
+| differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage |
+| settings hash | manifest identity | the instance's logical key only; no legacy column |
+| field, filter, observation time | lookup on the l2 instance | `field`, `fid`, `jd` (from that row's `mjdobs`), on `diffimages` and `diffimmeta` |
+| image centre and four corners (RA, Dec) | manifest, from the difference WCS | `ra0`, `dec0` to `ra4`, `dec4` |
+| science and reference info bits | manifest | `infobitssci`, `infobitsref` |
+| source counts per catalog type and sign | manifest | `diffimmeta.source_counts`, all of them as the manifest carries them; `diffimmeta.nsexcatsources` holds the SExtractor positive count for the team's existing queries |
+| registration residuals: x and y RMS and median | manifest | `dxrmsfin`, `dyrmsfin`, `dxmedianfin`, `dymedianfin` |
+| reference scale factor | manifest | `scalefacref` |
+| spatial indexes | derived from the centre at registration | `hp6`, `hp9` on both tables |
+| file path | manifest primary member, resolved against the attempt's output location | `filename` |
+| checksum | manifest registration block, `md5` | `checksum` |
+| version | allocation: the next number for (`rid`, `ppid`) within the run | `version` |
+| software version | allocation from the run's code revision | `svid`: one `swversions` row per code revision, made on first use |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on both tables |
+| current flag, status | allocation; never current at registration | `vbest` 0, `status` 0 |
+| written by later stages | not registration | `avid`, `archivestatus`, `nalertpackets` |
+
+For the l2 image (`admit` makes it and records it, since admission is
+the one stage that reads the delivered header):
+
+| Field | Source | Column |
+|---|---|---|
+| observatory exposure id | manifest identity, stored as delivered | `exposures`: an external-id column added with the `admit` stage; `l2files.expid` stays the internal id |
+| detector | manifest identity | `sca` on `l2files` and `l2filemeta` |
+| delivered version | manifest identity | `version`, stored as delivered; the legacy procedure allocated it per (`expid`, `sca`) |
+| exposure record | lookup, or allocation on first admission of the exposure | `expid`; the `exposures` row carries the header's date, filter, exposure time and MJD |
+| filter | manifest, from the header | `fid` on both tables: lookup in `filters` |
+| observation time, exposure time | manifest, from the header | `dateobs`, `mjdobs` (both tables), `exptime` |
+| info bits | manifest | `infobits` |
+| verification | manifest: 1 when the stage verified the delivered DATASUM and CHECKSUM keywords, else 0 | `status` |
+| WCS as delivered: reference point, pixel matrix, axis types and units, SIP coefficients, equinox | manifest, from the header | `crval1` to `cunit2`, `a_order` and `a_*`, `b_order` and `b_*`, `equinox` |
+| target position | manifest, from the header | `ra`, `dec` |
+| orientation and photometric calibration | manifest, from the header | `paobsy`, `pafpa`, `zptmag`, `skymean` |
+| image centre and four corners (RA, Dec) | manifest, from the WCS | `l2filemeta.ra0`, `dec0` to `ra4`, `dec4` |
+| spatial indexes | derived from the centre at registration | `field`, `hp6`, `hp9` on both tables; `l2filemeta.x`, `y`, `z`; `l2files.overlapfields` from the corners |
+| file path | manifest primary member, resolved against the attempt's output location | `filename` |
+| checksum | manifest registration block, `md5` | `checksum` |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on both tables, added with the `admit` stage |
+| current flag | allocation; never current at registration | `vbest` 0 |
 
 ## A complete manifest
 
@@ -190,7 +242,8 @@ for how the run model attaches to the existing tables. For the difference image:
         "infobits_reference": 0,
         "source_counts": {"sextractor": {"positive": 412, "negative": 388}, "photutils": {"positive": 405, "negative": 391}},
         "registration_residual": {"x_rms": 0.031, "y_rms": 0.029, "x_median": 0.004, "y_median": -0.002},
-        "reference_scale_factor": 0.998
+        "reference_scale_factor": 0.998,
+        "md5": "9e107d9d372bb6826bd81d3542a419d6"
       }
     },
     {
@@ -217,8 +270,15 @@ lookups and defaults. It does not read product files.
   set, or both. The lead's science call.
 - Whether both catalog families (SExtractor and Photutils) are retained
   in the rebuild.
-- The registration field lists for the remaining kinds; each is fixed
-  with its schema.
+- The registration field lists for the remaining kinds (reference
+  image, reference catalog, source catalog, alert container, the
+  exports); each is fixed with its stage.
+- Whether promotion maintains `vbest` on the `dev` tables for the
+  team's existing queries, or consumers move to the `current_selection`
+  view. The lists above set `vbest` to 0 and leave it there.
+- Carrying an MD5 for the legacy checksum columns is the reversible
+  choice; dropping it would leave `l2files.checksum`, a NOT NULL column,
+  needing relaxation.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - The alert outbox shape and the per-alert record.
