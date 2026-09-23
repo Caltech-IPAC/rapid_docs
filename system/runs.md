@@ -184,8 +184,38 @@ one kind at a time, difference image first, each with the stage that
 writes it. Ruled by the lead 2026-09-21: the `dev` schema coexists and is
 kept as far as possible; the rebuild adds, it does not rename or drop.
 
+## Trial database
+
+A scratch run's `database target` may name a trial database instead of
+the one production database. A trial database lives on the production
+PostgreSQL instance, beside `rapid`, created with rapid's own schema:
+it is not a separate server or a clone. rapid's own migration applier
+(`database/apply-migrations.sh`, `database/migrations/`, files named
+`YYYYMMDD-NN-name.sql`) builds and updates it, run inside the pipeline
+container image; the applier records each applied file's sha256 and an
+applied migration is never edited. Clients reach a trial database
+through the pooler: pgbouncer routes any database name to the one
+PostgreSQL port (a wildcard `[databases]` entry), so adding a trial
+database needs no pooler config change. The pipeline authenticates as a
+per-tier service login (for example `rapid_rebuild_pipeline`) holding
+SELECT/INSERT/UPDATE/DELETE on the trial database's tables, granted by
+guarded migrations in rapid's own stream (they no-op where the role
+does not exist, so CI still applies the stream from empty); people read
+it through `rapid_read`. That role's identity — its NOLOGIN cluster
+role, its secret and its SSM tree — is provisioned separately, by the
+system repo's own migration stream, since the role itself is
+cluster-wide and rapid's stream owns only the trial database's tables.
+A job definition's `RAPID_PARAMETER_PATH` selects the tier: it points
+at an SSM tree `/rapid/<tier>/db/*` (name, host, port, secret id) that
+resolves the trial database's name, host and port, with the service
+login's password in Secrets Manager under
+`rapid/db/service/<tier>-pipeline`. Each tier runs under its own Batch
+job definition, revision-pinned to an image digest. Practised
+2026-09-22/23: trial database `rapid_rebuild`, service login
+`rapid_rebuild_pipeline`, tree `/rapid/rebuild`, job definition
+`rapid-rebuild`.
+
 ## Not decided here
 
 - The approved check policy that turns auto-promote on.
 - The scratch lifetime and warning mechanics.
-- The trial-database mechanism for scratch runs.
