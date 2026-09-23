@@ -181,7 +181,7 @@ For the difference image (`difference` makes it, `register` records it):
 | Field | Source | Column |
 |---|---|---|
 | l2 instance | manifest identity | `diffimages.rid`, with `expid` and `sca` copied from that `l2files` row |
-| reference instance | manifest identity | `diffimages.rfid`: that instance's `refimages` row |
+| reference instance | manifest identity | `diffimages.rfid`: that instance's `refimages` row, through the `instance` column added with the `difference` stage; for a reference registered by `dev`, which has no instance, the legacy rfid the registration block carries as `reference_rfid` |
 | differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage. ZOGY registers as in `dev`. SFFT registration is a stage setting, off by default; when on, its output is its own `difference-image` instance, with its own `diffimages` row and `ppid`. The naive subtraction is an optional diagnostic file, never a registered instance. |
 | settings hash | manifest identity | the instance's logical key only; no legacy column |
 | field, filter, observation time | lookup on the l2 instance | `field`, `fid`, `jd` (from that row's `mjdobs`), on `diffimages` and `diffimmeta` |
@@ -284,8 +284,10 @@ a delivery is not a registered product.
         "infobits_science": 0,
         "infobits_reference": 0,
         "source_counts": {"sextractor": {"positive": 412, "negative": 388}, "photutils": {"positive": 405, "negative": 391}},
-        "registration_residual": {"x_rms": 0.031, "y_rms": 0.029, "x_median": 0.004, "y_median": -0.002},
+        "registration_residual": {"x_rms": 0.0, "y_rms": 0.0, "x_median": 0.004, "y_median": -0.002},
         "reference_scale_factor": 0.998,
+        "detection_role": "significance",
+        "reference_rfid": null,
         "md5": "9e107d9d372bb6826bd81d3542a419d6"
       }
     },
