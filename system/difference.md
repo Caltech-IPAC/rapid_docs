@@ -131,7 +131,7 @@ are not repeated here. Settings new with the port are marked.
 | `[paths] rapid_sw`, `cfg_path` | `/code`, `/code/cdf` | where the pipeline image puts the repository and its tool configuration files |
 | `[paths] python` | empty | new: the interpreter for `py_zogy.py`; empty is the stage's own (`dev` hard-codes `/usr/bin/python3.11`) |
 | `[paths] zogy_code` | `/code/modules/zogy/v21Aug2018/py_zogy.py` | ZOGY |
-| `[paths] bkgest_code`, `bkgest_include_dir` | `/code/c/bin/bkgest`, `/code/c/include` | bkgest |
+| `[paths] bkgest_code`, `bkgest_include_dir` | `bkgest`, `/opt/rapid/share/bkgest` | bkgest, on `PATH`, and its include files as the pipeline image installs them; `dev` uses `/code/c/bin/bkgest` and `/code/c/include`, absent from the image (rapid #93) |
 | `[paths] sextractor`, `swarp` | `sex`, `swarp` | the tools, on `PATH` |
 | `[paths] work_subdirectory` | `diff` | new: the working directory under the attempt's output location |
 | `[instrument] sca_gain`, `sca_readout_noise` | 2.0, 9.4 | the socsims values |
