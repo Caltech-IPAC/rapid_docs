@@ -67,8 +67,10 @@ in the execution record's `notes`.
 6. Make `sources_<yyyymmdd>_<sca>` if it does not exist, register the
    source set, and COPY the CSV into the child table, all in one
    transaction; the loaded row count is read back and must match.
-7. Optionally CLUSTER the child table on its position index and ANALYZE
-   it (`[child_tables] cluster_and_analyze`, off).
+
+`load` never clusters or analyzes per image: `dev`'s once-per-processing-date
+CLUSTER and ANALYZE is its own `maintain` stage instead, described below
+under the child tables (lead, 2026-09-23).
 
 ## The child tables
 
@@ -82,18 +84,35 @@ login holds table grants only, so two functions do the same work as
 - `create_sources_child_table(obs_date, sca)`: `dev`'s creation (`LIKE
   sources INCLUDING DEFAULTS INCLUDING CONSTRAINTS`, owner `rapidporole`,
   unlogged, `INHERIT sources`), its eight indexes (`pid`, `expid`, `sca`,
-  `field`, `flags`, `mjdobs`, `sid`, and the Q3C position index) and its
+  `field`, `flags`, `mjdobs`, `sid`, and the Q3C position index), and its
   grants to `rapidreadrole` and `rapidadminrole`, plus the rebuild's
   service login and `rapid_read` where those roles exist. An advisory
-  lock serialises two loads making the same table.
+  lock serialises two loads making the same table. The function also
+  creates b-tree indexes on `result_set` and `run` (migration
+  `20260923-09`), matching the naming pattern of the other eight: run
+  deletion reads rows by `run` and crossmatch reads a result set by
+  `result_set`, both scans. There is no per-child UNIQUE on `(pid, id,
+  isdiffpos)`: scratch runs coexist over the same logical inputs by
+  design, and the done check in `load`'s inputs guards uniqueness within
+  one run (lead, 2026-09-23).
 - `cluster_sources_child_table(obs_date, sca)`: `dev`'s CLUSTER on the
-  position index and ANALYZE.
+  position index and ANALYZE. Called by the `maintain` stage below, not
+  by `load`.
 
 Three things differ from `dev`: the tablespace lines are omitted, as the
 baseline omits them; the grants run when the table is made rather than
 after loading; and `dev`'s `REVOKE ALL ... FROM rapidporole` with its
 re-grant list is omitted, because on PostgreSQL 17 and later that pair
 takes away the owner's `MAINTAIN` privilege and CLUSTER is then refused.
+
+`dev` runs its CLUSTER and ANALYZE once per processing date, after every
+image for that date has loaded; running it per image would recluster
+the table on every load. The rebuild keeps that timing but moves it out
+of `load` into its own stage, `maintain`, unit (observation date,
+detector), scheduled after the date's last `load` unit and before
+`crossmatch`, calling `cluster_sources_child_table`. It is built with
+the crossmatch port, crossmatch being the first stage that reads a
+clustered child table (lead, 2026-09-23).
 
 ## What lands in `sources`
 
@@ -157,13 +176,12 @@ launcher and the manifests replace.
 
 | Setting | Default | `dev` |
 |---|---|---|
-| `[load] differencer` | `zogy` | `dev` loads SFFT's catalogs (`output_sfft_psfcat_filename`) with the ZOGY image's `pid` (`[SCI_IMAGE] ppid = 15`); the rebuild registers ZOGY only, so ZOGY's catalogs load by default and `sfft` selects SFFT's instance once it registers |
+| `[load] differencer` | `zogy` | ZOGY stays the default: it is the only differencer whose catalogs exist to load. `dev` loads SFFT's catalogs (`output_sfft_psfcat_filename`) against the ZOGY image's `pid` (`[SCI_IMAGE] ppid = 15`); once SFFT registers as its own `difference-image` instance (`[sfft] register_sfft` on, a `pipelines` row for SFFT), setting `differencer=sfft` loads SFFT's catalogs against SFFT's own `pid` instead, a stated departure from `dev` accepted as a correctness gain (lead, 2026-09-23) |
 | `[load] done_check` | true | `DONTCHECKDONEFILE` unset |
 | `[load] skip_loading` | false | `SKIPLOADING` unset: when true, no table is made and no rows load |
 | `[instrument] naxis1_sciimage`, `naxis2_sciimage` | 4088, 4088 | `[INSTRUMENT]`; one is added, as `dev` adds it |
 | `[psf_fit_bounds] xy_fit_min` | -0.5 | module constant |
 | `[psf_fit_bounds] xy_fit_max_offset` | 0.5 | module constant |
-| `[child_tables] cluster_and_analyze` | false | `dev` clusters and analyzes once per processing date after all loads; per image it would recluster the table on every load |
 
 ## Exit codes
 
@@ -177,26 +195,44 @@ launcher and the manifests replace.
 
 ## The psf registration block
 
-The products page's `psf` kind (filter, detector, version; made by
-`admit`; table `psfs`) now has its field list, and `register` records
-it. Nothing emits a `psf` entry yet: `admit`'s manifest carries none,
-and the difference stage's input `psf` entries, keyed `applies_to`, are
-consumed, not registered. The block is designed in and unused.
+The products page's `psf` kind (filter, detector, version; registered
+by `psf-import`, the [runs](runs) page's import-run pattern; table
+`psfs`) now has its field list, and `register` records it. Nothing
+emits a `psf` entry yet: `psf-import` is not built, and the difference
+stage's input `psf` entries are consumed, not registered. The block is
+designed in and unused.
+
+A psf instance's `version` is logical and equals the allocated legacy
+number: the manifest key's `version` and the `psfs.version` column hold
+the same value, there is no separate delivered-version column, and the
+psf's delivered identity is its checksum, not its version (lead,
+2026-09-23).
+
+`applies_to` (`science` or `reference`) is a role in the difference
+stage's input set, not a field of the `psf` kind's key: an input-set
+entry carries a product key and a role side by side, so the same `psf`
+instance can be named with either role without changing its key (lead,
+2026-09-23).
 
 | Field | Source | Column |
 |---|---|---|
 | filter | manifest key `filter` | `fid`: lookup in `filters` |
 | detector | manifest key `detector`, SCA 1 to 18 | `sca` |
-| version | manifest key `version` | the key only; `psfs.version` is allocated |
+| version | manifest key `version`, equal to the allocated legacy version | the key, and `psfs.version` |
 | legacy version | allocated by `dev`'s own `addPSF`: the next number for (`fid`, `sca`) across the table | `version` |
 | file path | manifest primary member, the one member, role `psf`, under the attempt's output location | `filename` |
 | checksum | registration block `md5` | `checksum` |
 | verification | registration block `status`: 1 when the maker verified the file | `status` |
-| current flag | never current at registration; `dev`'s `updatePSF` is not called | `vbest` 0 |
+| current flag | 0 at registration; made current afterwards as `dev`'s `updatePSF` does | `vbest` |
 | run, attempt, instance | the manifest and the registering attempt; migration `20260923-07` | `run`, `attempt`, `instance` |
 
-`psfs`'s key `(fid, sca, version)` is kept unwidened: `addPSF` allocates
-across the table, so two runs never hold the same version.
+`psfs`'s key `(fid, sca, version)` is kept unwidened, table-wide through
+`dev`'s `addPSF`: it allocates across the whole table, so two runs never
+hold the same version. This is a deliberate exception to the run
+model's per-run versioning; the difference image keeps within-run
+numbering instead, because its `version` is allocated per run for
+`(rid, ppid)`, and its key carries the run through that allocation
+(lead, 2026-09-23).
 
 ## Local execution
 

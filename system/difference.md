@@ -32,7 +32,7 @@ products the attempt consumes, with their files beside it.
 | one `l2-image` | `image`, the delivered file (gzipped or not) | as `admit` writes it; the stage reads the exposure time, the info bits, the centre and the corners |
 | one `reference-image` | `image`, `coverage`, `uncertainty` | `infobits`; `rfid`, the legacy `refimages` row of a reference registered by `dev`, else null |
 | one `reference-catalog` | `catalog`, the reference's SExtractor catalog | none; the stage reads its FWHM column |
-| two `psf` | `psf` | none; the key's `applies_to` is `science` or `reference` |
+| two `psf` | `psf` | none; each input-set entry's role, `applies_to`, is `science` or `reference` |
 
 Every member's size and SHA-256 is checked before use; a mismatch, a
 missing entry or a malformed block exits 65.
@@ -147,7 +147,8 @@ are not repeated here. Settings new with the port are marked.
 | `[zogy] detection_role` | `significance` | new: the member ZOGY's catalogs detect on |
 | `[sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs as in `dev`; cross-convolution is forced off for rimtimsim data, as in `dev` |
 | `[sfft] sfft_bsmask_value`, `sfft_bsmask_radius`, `sfft_use_gainmatch_catalogs`, `sfft_use_segmentation` | `20000.0`, `30.0`, false, false | the socsims block; an empty `sfft_bsmask_value` selects `dev`'s file-name fallback |
-| `[sfft] python_cmd`, `sfft_code`, `activate_cmd` | `python3.11`, `/code/modules/sfft/sfft_rapid_rimtimsim.py`, `source /sfft_env/bin/activate` | hard-coded in `dev` |
+| `[sfft] sfft_code` | `/code/modules/sfft/sfft_rapid_rimtimsim.py` | hard-coded in `dev` |
+| `[sfft] python_cmd`, `activate_cmd` | empty, empty | new: empty `python_cmd` selects the stage's own interpreter, the same convention as `[paths] python`; empty `activate_cmd` runs SFFT in the stage's own environment rather than activating one. Neither is a venv gap: the base image resolves sfft 1.7.3 into the main conda environment, `/sfft_env` exists nowhere, and `dev`'s `python3.11` is an smdc-layer alias for 3.14. `dev`'s values, `python3.11` and `source /sfft_env/bin/activate`, remain selectable (lead, 2026-09-23). |
 | `[sfft] register_sfft` | false | new: register SFFT's result as its own instance (lead, 2026-09-22) |
 | `[sfft] detection_role` | `difference` | new: the member SFFT's catalogs detect on (the cross-convolved image with `crossconv_flag`, as in `dev`) |
 | `[naive_diffimage] naive_diffimage_flag`, `naive_output_diffimage_file` | true, `naive_diffimage_masked.fits` | the naive subtraction, a diagnostic |
@@ -157,10 +158,13 @@ are not repeated here. Settings new with the port are marked.
 | `[fake_sources] inject_fake_sources_flag` | false | fake-source injection is not ported; true exits 64 |
 | `[statistics] clip_correction_seed` | -1 | new: seeds the clipped-statistics correction's random draw; negative is `dev`'s unseeded draw |
 
+## Fixture and selftest
+
+The stage's fixture and its `rapidpipe selftest --stage difference` run
+on Batch follow the [stage contract](stage-contract) page's mechanism.
+The real-tool run against fixed inputs and the IMSS comparison remain
+the lead's gate before operational use, and that gate has not run.
+
 ## Not decided here
 
-- Who composes the input-set manifest for a production run, and the
-  `psf` kind's `applies_to` key field.
 - A `pipelines` row for SFFT, which its registration needs.
-- The real-tool run of the stage fixture and the IMSS comparison, the
-  lead's gate before operational use.

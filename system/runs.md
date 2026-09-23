@@ -68,7 +68,25 @@ ready while attempts remain; otherwise it becomes failed. Cancellation,
 or a permanently failed required dependency, makes an unstarted unit
 cancelled with a recorded reason. Complete, failed and cancelled are
 terminal. Unit state is stored, not derived. Inputs are bound in
-`unit_inputs` before execution and retained for retries.
+`unit_inputs` before execution and retained for retries. `register`'s
+own unit id is `<producing stage>/<producing unit id>` (for example
+`admit/e20260821001234/SCA07`, `difference/e20260821001234/SCA07`),
+derived from the manifest `register` reads: one `register` unit follows
+every producer, with no occurrence counter, and it is runnable singly
+for one producer at a time (lead, 2026-09-23). This applies from the
+next run; rows a run wrote before it stay as they are.
+
+**Input-set composition.** A stage declares its input set by product
+kind and role. The launcher resolves each entry from this run's own
+instance of that kind for the unit first; failing that, from the run's
+frozen input selection, using `dev`'s selection rules (the current
+reference by field and filter, the current PSFs by filter and
+detector). It never resolves an entry from an unrelated run unless the
+input selection names that instance explicitly. The resolved binding is
+written to `unit_inputs` before execution, and the manifest a stage
+reads is generated from that binding; a hand-composed manifest is a
+test path, not how a production run assembles its inputs (lead,
+2026-09-23).
 
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
@@ -92,7 +110,12 @@ instances and record completion, including empty completion. After an
 uncertain commit the same attempt recovers its recorded results rather
 than inserting duplicates. Published identity, content metadata and
 provenance are immutable; custody and deletion metadata change only
-through promotion and deletion.
+through promotion and deletion. A dev-registered product enters the run
+model by an import run: `reference-import` for a reference `dev`
+registered, `psf-import` for a PSF `dev` registered, each a scratch run
+whose one unit registers that product with a run, an attempt and an
+instance of its own, so it can be named as a frozen input like any
+other instance (lead, 2026-09-23).
 
 **Custody.** Scratch never leaves scratch. Candidate becomes current by
 promotion; current becomes candidate again when superseded. At most one
@@ -140,9 +163,14 @@ outside the run points into it, and marks the run deleting, in one
 transaction. Attempt allocation, input binding and result acceptance
 use the same run fence and refuse a deleting or deleted run. After the
 deleting state commits, cleanup idempotently removes the run's object
-versions and run-scoped science rows, then records completion; failure
-leaves the run deleting so cleanup resumes. Custody stays separate from
-deletion state. Run, unit, attempt and instance rows remain as
+versions and run-scoped science rows in `diffimages`, `diffimmeta`,
+`psfs`, `refimages` and the `sources` children, then records
+completion; failure leaves the run deleting so cleanup resumes. The
+deletion invariant is that cleanup removes a science row only where its
+`run` column equals the run being deleted; rows with `run` NULL, which
+is everything `dev` wrote, are never touched (lead, 2026-09-23). Custody
+stays separate from deletion state. Run, unit, attempt and instance
+rows remain as
 tombstones with their provenance. Scratch expiry calls the same
 operation after the run's expiry date, with a warning first and a pin to
 hold a run; no age-based lifecycle rule expires run data on its own.
