@@ -48,7 +48,7 @@ instance id, never a bare version number.
 | `psf` | detector-image | filter, detector, version | FITS | `admit` | `psfs` |
 | `reference-image` | field | field, filter, reference recipe, version | FITS bundle: image, coverage map, uncertainty | `reference` | `refimages`, `refimimages`, `refimmeta` |
 | `reference-catalog` | field | reference instance, catalog type | table, format per catalog type | `reference` | `refimcatalogs` |
-| `difference-image` | detector-image | l2 instance, reference instance, differencer, settings hash | FITS bundle: difference, uncertainty, significance | `difference` | `diffimages`, `diffimmeta` |
+| `difference-image` | detector-image | l2 instance, reference instance, differencer, settings hash | FITS bundle, roles declared per differencer | `difference` | `diffimages`, `diffimmeta` |
 | `source-catalog` | detector-image | difference instance, catalog type, sign | table | `difference` | none until `load` |
 | `alert-container` | detector-image | difference instance, alert schema version | Avro object container plus JSON summary | `alerts` | the outbox |
 | `light-curve` | field | field, object set instance, request id | Parquet | `photometry` | none; exported |
@@ -57,6 +57,20 @@ instance id, never a bare version number.
 A bundle is one product with several member files. The manifest entry
 names the primary member and lists every member with its role, size and
 SHA-256; member paths resolve against the attempt's output location.
+
+The difference-image bundle's roles are declared per differencer.
+`difference` and `uncertainty` are always present. `significance` is
+present where the differencer produces one: ZOGY does, SFFT does not.
+`psf`, the difference PSF, is a named optional role for any
+differencer; `kernel`, the matching-kernel solution, is a named
+optional role for SFFT. A role a differencer declares but does not
+deliver fails registration. Which member the catalog stage detects on
+is a per-differencer setting recorded with the instance: significance
+for ZOGY, difference for SFFT (lead, 2026-09-22).
+
+The port of the difference stage minimises differences to the `dev`
+branch; improvements come later. A mechanism that can be designed in
+but left unused is designed in, off by default (lead, 2026-09-22).
 
 The reference recipe names the reference pipeline and its settings, so
 two ways of building a reference for one field never share a version
@@ -98,6 +112,10 @@ A pruned set is its base association set minus an explicit list of
 excluded pairs (object, source) within that base; the base is never
 mutated. A statistics set names the exact membership it describes, so
 "before or after pruning" is read off the input, not stored as a flag.
+Delivered statistics describe the association set, as `dev` computes
+them: `dev` runs crossmatch, then statistics, then prune. The pruned
+set as a statistics input is designed in, since the `statistics-set`
+row already keys on either, and left unused (lead, 2026-09-22).
 
 Every row carries the run id, the attempt id that wrote it and its
 result-set id. Keys are set-scoped: statistics for one object in two
@@ -146,12 +164,17 @@ meaning the team knows:
   columns. The stage computes the MD5 of the primary member alongside
   its SHA-256 and carries it in the registration block as `md5`; the
   SHA-256 goes to `product_members`. Nothing is stored under a name that
-  misdescribes it.
+  misdescribes it. The MD5 carry is kept rather than dropped, which
+  would need relaxing `l2files.checksum`'s NOT NULL constraint (lead,
+  2026-09-22).
 - **Legacy version columns are allocated the way the team's procedures
   allocated them**, the next number for the table's logical pair within
   the run, except where the version is delivered (the l2 image).
 - **Legacy current flags are never set at registration.** `vbest` is 0
   on every row a run writes; custody lives on the instance row.
+  Promotion maintains `vbest` on the `dev` tables for the team's
+  existing queries, alongside `current_selection`; consumers moving to
+  `current_selection` is a later improvement (lead, 2026-09-22).
 
 For the difference image (`difference` makes it, `register` records it):
 
@@ -159,13 +182,14 @@ For the difference image (`difference` makes it, `register` records it):
 |---|---|---|
 | l2 instance | manifest identity | `diffimages.rid`, with `expid` and `sca` copied from that `l2files` row |
 | reference instance | manifest identity | `diffimages.rfid`: that instance's `refimages` row |
-| differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage |
+| differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage. ZOGY registers as in `dev`. SFFT registration is a stage setting, off by default; when on, its output is its own `difference-image` instance, with its own `diffimages` row and `ppid`. The naive subtraction is an optional diagnostic file, never a registered instance. |
 | settings hash | manifest identity | the instance's logical key only; no legacy column |
 | field, filter, observation time | lookup on the l2 instance | `field`, `fid`, `jd` (from that row's `mjdobs`), on `diffimages` and `diffimmeta` |
 | image centre and four corners (RA, Dec) | manifest, from the difference WCS | `ra0`, `dec0` to `ra4`, `dec4` |
-| science and reference info bits | manifest | `infobitssci`, `infobitsref` |
-| source counts per catalog type and sign | manifest | `diffimmeta.source_counts`, all of them as the manifest carries them; `diffimmeta.nsexcatsources` holds the SExtractor positive count for the team's existing queries |
-| registration residuals: x and y RMS and median | manifest | `dxrmsfin`, `dyrmsfin`, `dxmedianfin`, `dymedianfin` |
+| reference info bits | manifest, `infobits_reference` | `infobitsref`: the reference instance's info bits |
+| catalog-outcome mask | manifest, `catalog_outcome_bits`, set per job when no Photutils catalog was produced | `infobitssci`, its `dev` meaning kept: a six-bit mask, one bit per differencer and sign (see below). The manifest also carries `infobits_science`, the l2 image's quality bits; only the mask is registered. |
+| source counts per catalog type and sign | manifest | `diffimmeta.source_counts`, all of them as the manifest carries them; `diffimmeta.nsexcatsources` holds the SExtractor positive count for the team's existing queries. Both catalog families, SExtractor and Photutils, are retained in the rebuild (lead, 2026-09-22). |
+| registration residuals: x and y RMS and median | manifest | `dxmedianfin`, `dymedianfin` measured; `dxrmsfin`, `dyrmsfin` from ZOGY's astrometric-uncertainty inputs (dx, dy), a named stage setting defaulting to 0.0, reproducing `dev` and registering as 0.0 under that default. The measured residuals stay in the stage log (lead, 2026-09-22). |
 | reference scale factor | manifest | `scalefacref` |
 | spatial indexes | derived from the centre at registration | `hp6`, `hp9` on both tables |
 | file path | manifest primary member, resolved against the attempt's output location | `filename` |
@@ -175,6 +199,15 @@ For the difference image (`difference` makes it, `register` records it):
 | run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on both tables |
 | current flag, status | allocation; never current at registration | `vbest` 0, `status` 0 |
 | written by later stages | not registration | `avid`, `archivestatus`, `nalertpackets` |
+
+`infobitssci`'s six bits, kept from `dev`:
+
+- bit 0: ZOGY positive
+- bit 1: ZOGY negative
+- bit 2: SFFT positive
+- bit 3: SFFT negative
+- bit 4: naive positive
+- bit 5: naive negative
 
 For the l2 image (`admit` makes it, `register` records it; admission is
 the one stage that reads the delivered header, so every header value the
@@ -247,6 +280,7 @@ a delivery is not a registered product.
       "registration": {
         "centre": {"ra": 269.4521, "dec": -28.7710},
         "corners": [[269.39, -28.83], [269.51, -28.83], [269.51, -28.71], [269.39, -28.71]],
+        "catalog_outcome_bits": 0,
         "infobits_science": 0,
         "infobits_reference": 0,
         "source_counts": {"sextractor": {"positive": 412, "negative": 388}, "photutils": {"positive": 405, "negative": 391}},
@@ -275,19 +309,9 @@ lookups and defaults. It does not read product files.
 
 ## Not decided here
 
-- Whether delivered statistics describe the association set, the pruned
-  set, or both. The lead's science call.
-- Whether both catalog families (SExtractor and Photutils) are retained
-  in the rebuild.
 - The registration field lists for the remaining kinds (reference
   image, reference catalog, source catalog, alert container, the
   exports); each is fixed with its stage.
-- Whether promotion maintains `vbest` on the `dev` tables for the
-  team's existing queries, or consumers move to the `current_selection`
-  view. The lists above set `vbest` to 0 and leave it there.
-- Carrying an MD5 for the legacy checksum columns is the reversible
-  choice; dropping it would leave `l2files.checksum`, a NOT NULL column,
-  needing relaxation.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - The alert outbox shape and the per-alert record.
