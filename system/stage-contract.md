@@ -166,7 +166,7 @@ or paths. `make db` starts a local PostgreSQL with Q3C and applies the
 migrations; fixture setup loads the seed data. CI uses the same
 commands. The same fixture also runs through `rapidpipe selftest
 --stage <name>` on Batch, as an ordinary job against the deployed image
-and digest, run through rapid-admin's docker venue; the submitted job's
+and digest, replacing the docker run on rapid-admin that served until it existed; the submitted job's
 execution record is the evidence that it ran, distinct from the
 real-tool fixture gate below (lead, 2026-09-23). Each rebuilt science
 stage also has an IMSS comparison on fixed inputs, with differences and

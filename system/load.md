@@ -223,7 +223,7 @@ instance can be named with either role without changing its key (lead,
 | file path | manifest primary member, the one member, role `psf`, under the attempt's output location | `filename` |
 | checksum | registration block `md5` | `checksum` |
 | verification | registration block `status`: 1 when the maker verified the file | `status` |
-| current flag | set as `dev`'s `updatePSF` sets it | `vbest` |
+| current flag | 0 at registration; made current afterwards as `dev`'s `updatePSF` does | `vbest` |
 | run, attempt, instance | the manifest and the registering attempt; migration `20260923-07` | `run`, `attempt`, `instance` |
 
 `psfs`'s key `(fid, sca, version)` is kept unwidened, table-wide through
