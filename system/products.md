@@ -313,7 +313,8 @@ lookups and defaults. It does not read product files.
 
 - The registration field lists for the remaining kinds (reference
   image, reference catalog, source catalog, alert container, the
-  exports); each is fixed with its stage.
+  exports); each is fixed with its stage. The source set's rows and
+  result-set record, and the `psf` block, are on the [load](load) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - The alert outbox shape and the per-alert record.
