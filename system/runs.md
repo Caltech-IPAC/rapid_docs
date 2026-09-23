@@ -119,7 +119,11 @@ intermediate revisions and unselected attempts are excluded. Piecemeal
 promotion names an explicit subset and passes the same validation.
 Promotion replaces only identical kind-and-logical-key selections;
 different settings or upstream instances produce additional current
-products rather than supersede earlier ones. All promotions take one
+products rather than supersede earlier ones. A reprocessing with
+changed settings therefore sits beside the old result as a new
+instance, per the products page's keys, rather than superseding it;
+`vbest` is maintained at promotion as `dev`'s version allocation does
+(lead, 2026-09-22). All promotions take one
 transaction-scoped advisory lock; after acquiring it the transaction
 checks every expected previous selection, including expected absence,
 against the actual selection and refuses the whole request on any
@@ -185,6 +189,3 @@ kept as far as possible; the rebuild adds, it does not rename or drop.
 - The approved check policy that turns auto-promote on.
 - The scratch lifetime and warning mechanics.
 - The trial-database mechanism for scratch runs.
-- Whether consumers want a reprocessing with changed settings to
-  supersede the old result or sit beside it; the rules above make it
-  sit beside, per the products page's keys.
