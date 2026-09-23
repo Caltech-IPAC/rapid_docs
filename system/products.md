@@ -45,7 +45,7 @@ instance id, never a bare version number.
 | Kind | Unit | Logical key | Format | Made by | Today's table |
 |---|---|---|---|---|---|
 | `l2-image` | detector-image | exposure, detector, delivered version | FITS or ASDF as delivered | `admit` | `l2files` |
-| `psf` | detector-image | filter, detector, version | FITS | `admit` | `psfs` |
+| `psf` | detector-image | filter, detector, version | FITS | `psf-import` | `psfs` |
 | `reference-image` | field | field, filter, reference recipe, version | FITS bundle: image, coverage map, uncertainty | `reference` | `refimages`, `refimimages`, `refimmeta` |
 | `reference-catalog` | field | reference instance, catalog type | table, format per catalog type | `reference` | `refimcatalogs` |
 | `difference-image` | detector-image | l2 instance, reference instance, differencer, settings hash | FITS bundle, roles declared per differencer | `difference` | `diffimages`, `diffimmeta` |
