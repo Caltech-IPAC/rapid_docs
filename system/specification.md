@@ -257,6 +257,18 @@ write the manifests and are outside this specification.
     posture is a security requirement, not a convenience.
   - Long-lived connections must account for the Nitro default
     connection-tracking idle timeout.
+  - Database connections from pipeline code (`rapidpipe.db.connection`)
+    resolve the endpoint and credential in one order: an explicit
+    `endpoint=`/`credentials=` argument first; then the `PG*` environment
+    when those variables are set (`RAPID_DB_SECRET_ID` still resolves the
+    credential from Secrets Manager ahead of `PGUSER`/`PGPASSWORD`); then,
+    designed in but unused by any caller as of 2026-09-22, the Batch
+    estate's `RAPID_PARAMETER_PATH` SSM parameter tree, whose
+    `db/server`/`db/port`/`db/name`/`db/secret-id` keys supply the
+    endpoint and, via the same Secrets Manager resolver, the credential.
+    The environment is never treated as an in-process transport: nothing
+    in `rapidpipe.db.connection` writes it for a downstream reader to
+    read back.
   - Platform facts still open with SMDC: address-range collision,
     egress model, IAM PassRole scoping, backup-plan scope and recovery
     path.
