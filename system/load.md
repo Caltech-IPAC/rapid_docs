@@ -108,11 +108,11 @@ takes away the owner's `MAINTAIN` privilege and CLUSTER is then refused.
 `dev` runs its CLUSTER and ANALYZE once per processing date, after every
 image for that date has loaded; running it per image would recluster
 the table on every load. The rebuild keeps that timing but moves it out
-of `load` into its own stage, `maintain`, unit (observation date,
-detector), scheduled after the date's last `load` unit and before
-`crossmatch`, calling `cluster_sources_child_table`. It is built with
-the crossmatch port, crossmatch being the first stage that reads a
-clustered child table (lead, 2026-09-23).
+of `load` into its own stage, [maintain](maintain), unit kind
+`detector-date` (observation date, detector), scheduled after the
+date's last `load` unit and before `crossmatch`, calling
+`cluster_sources_child_table` (lead, 2026-09-23; unit kind named by the
+supervisor step 1, 2026-09-24 -- see [maintain](maintain), "Unit").
 
 ## What lands in `sources`
 
