@@ -97,7 +97,7 @@ row until `load`.
 | `infobits_science` | the l2 image's quality bits | carried, not registered |
 | `infobits_reference` | the reference's info bits | `infobitsref` |
 | `source_counts` | `{sextractor, photutils}` by `{positive, negative}`; null where a catalog was not made | `diffimmeta.source_counts`; the SExtractor positive count also in `nsexcatsources` |
-| `registration_residual` | `x_rms`, `y_rms`: ZOGY's astrometric inputs, the `[zogy] astrometric_sigma` setting (0.0); `x_median`, `y_median`: the measured offsets applied | `dxrmsfin`, `dyrmsfin`, `dxmedianfin`, `dymedianfin` |
+| `registration_residual` | `x_rms`, `y_rms`: the measured astrometric residual RMS from gain matching, not the value ZOGY itself is fed; `x_median`, `y_median`: the measured offsets applied | `dxrmsfin`, `dyrmsfin`, `dxmedianfin`, `dymedianfin` |
 | `reference_scale_factor` | the gain-matching scale factor applied to the reference | `scalefacref` |
 | `detection_role` | the member the catalogs were detected on | carried |
 | `md5` | the primary member's MD5 | `checksum` |
@@ -140,7 +140,7 @@ are not repeated here. Settings new with the port are marked.
 | `[ref_image] saturation_level` | 100000.0 | `dev` reads `[SEXTRACTOR_REFIMAGE] sextractor_SATUR_LEVEL` |
 | `[awaicgen] zprefimg` | 17.0 | the reference zero point gain matching uses |
 | `[zogy] astrometric_uncert_x`, `astrometric_uncert_y` | 0.05, 0.05 | gain matching's fallback RMS |
-| `[zogy] astrometric_sigma` | 0.0 | new: ZOGY's astrometric inputs, registered as `dxrmsfin` and `dyrmsfin`; 0.0 is `dev`'s override (lead, 2026-09-22) |
+| `[zogy] astrometric_sigma` | 0.0 | new: ZOGY's own astrometric inputs, always 0.0 as `dev`'s override; `dxrmsfin` and `dyrmsfin` register the measured residual RMS from gain matching instead, not this setting (lead, 2026-09-23) |
 | `[zogy] post_zogy_keep_diffimg_lower_cov_map_thresh` | 0.5 | the coverage threshold for masking |
 | `[zogy] zogy_sn_sr_from_uncertainty_maps` | true | ZOGY's noise arguments from the uncertainty maps |
 | `[zogy] zogy_output_*_file` | `zogy_diffimage.fits`, `diffpsf.fits`, `scorrimage.fits` | ZOGY's output names |
@@ -160,8 +160,31 @@ are not repeated here. Settings new with the port are marked.
 
 ## Fixture and selftest
 
-The stage's fixture and its `rapidpipe selftest --stage difference` run
-on Batch follow the [stage contract](stage-contract) page's mechanism.
+`rapidpipe selftest --stage difference`, with its `--real-tools` flag,
+runs inside the pipeline image on AWS Batch (rapid #103, #104, #105),
+an ordinary job against the deployed image and digest that replaces the
+earlier `rapid-admin` docker fixture venue. The fixture's real-tool
+expectations were seeded 2026-09-23 from a measured run and are
+deterministic across docker and Batch; its catalog row counts are
+checked within `max(3 sources, 2%)`, since SExtractor and Photutils
+catalogs vary by a few sources run to run on pixel-identical images.
+
+On dev's pid-1105 inputs, with dev's settings of the time (gain 1.0,
+read noise 8.5, ZOGY noise from image scatter), the rebuilt stage
+reproduces dev's ZOGY difference to numerical equivalence: 0.93% of
+pixels differ from dev's by more than 1e-3 DN, and the median relative
+difference is 1.5e-6. Every difference above 0.011 DN sits within about
+300 pixels of two science-image pixels of 10,000 DN or more that dev's
+2026-08-20 artifact-repair step (`625b8dcf`, ported by the rebuild) now
+removes and that dev's 2026-08-09 comparison run predates. Gain
+matching, the background subtraction, the resampled and gain-matched
+reference, the naive difference and ZOGY's own PSF are identical or
+differ only at float precision. With the rebuild's own defaults, the
+differences from that same comparison are dev's own later changes that
+the rebuild ports too: the instrument's gain and read noise (`8428314b`)
+and ZOGY's noise inputs from the uncertainty maps rather than image
+scatter (`df5117c3`). Verified 2026-09-23.
+
 The real-tool run against fixed inputs and the IMSS comparison remain
 the lead's gate before operational use, and that gate has not run.
 
