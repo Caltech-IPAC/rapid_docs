@@ -58,14 +58,21 @@ required product kinds, their mapping to upstream units, and the
 condition that makes each input set complete.
 
 Stage names are a stable list: `admit`, `reference`, `difference`,
-`finalize`, `register`, `load`, `crossmatch`, `statistics`, `prune`,
-`alerts`, `photometry`, `export`. Units of work are `exposure`,
-`detector-image`, `field` and `processing-date`.
+`finalize`, `register`, `load`, `maintain`, `crossmatch`, `statistics`,
+`prune`, `alerts`, `photometry`, `export` (`maintain` added by the
+supervisor step 1, 2026-09-24: the stage was created by the lead's
+ruling of 2026-09-23, described on the [load](load) page, but this list
+was not amended until the port landed). Units of work are `exposure`,
+`detector-image`, `field`, `processing-date` and `detector-date`
+(`detector-date` added the same day, for `maintain`'s unit -- see
+[maintain](maintain), "Unit").
 
 Transform stages (`reference`, `difference`, `finalize`, `photometry`)
 declare no database access. `register` records file products from
-manifests; `load` loads source rows. `crossmatch`, `statistics` and
-`prune` read named, completed database result sets and write new
+manifests; `load` loads source rows; `maintain` clusters and analyzes a
+`sources` child table, once per observation date and detector, reading
+named source sets but writing none of its own. `crossmatch`, `statistics`
+and `prune` read named, completed database result sets and write new
 run-scoped result sets; their manifests identify those input and output
 sets. No stage changes another run's results or the current selection.
 
