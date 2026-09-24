@@ -55,10 +55,18 @@ bind a complete current result-set instance from another run as a
 frozen input; that binding stays valid if the instance is later
 superseded, because the dependency retains it. Scratch result sets are
 usable only within their own run. Production runs use the one
-production database; scratch runs may name a trial database. A run is
-finished when every unit is terminal; a finished run is never reopened.
-Seeding a new run copies configuration and permitted input selections;
-it does not authorise reuse of another run's scratch outputs.
+production database; scratch runs may name a trial database. A run
+becomes eligible to finish once every unit is terminal, but finishing
+is an explicit `finish` and not automatic; a finished run is never
+reopened (supervisor step 3, 2026-09-24). Seeding a new run copies
+configuration and permitted input selections; it does not authorise
+reuse of another run's scratch outputs.
+
+Scratch runs receive a default `expires_at` of fourteen days after
+creation. `pinned` holds a run past that date. An expiry sweep deletes
+unpinned scratch runs past their `expires_at`, running as the run's
+owner and through the same operation as `run delete`; the sweep's
+warning mechanics are not decided here (supervisor step 3, 2026-09-24).
 
 **Units.** A unit is pending until its declared input set is complete
 and its upstream attempts are selected. It then becomes ready, and
@@ -135,25 +143,36 @@ need not be current. Automatic promotion stays disabled until the lead
 approves its policy; reprocessing is a production run with auto-promote
 off.
 
-**Promotion.** Default promotion uses a frozen list of the run's
-declared deliverables, with exactly one replacement instance per kind
-and logical key, each from its unit's selected completed attempt;
-intermediate revisions and unselected attempts are excluded. Piecemeal
-promotion names an explicit subset and passes the same validation.
-Promotion replaces only identical kind-and-logical-key selections;
-different settings or upstream instances produce additional current
-products rather than supersede earlier ones. A reprocessing with
-changed settings therefore sits beside the old result as a new
-instance, per the products page's keys, rather than superseding it;
-`vbest` is maintained at promotion as `dev`'s version allocation does
-(lead, 2026-09-22). All promotions take one
-transaction-scoped advisory lock; after acquiring it the transaction
-checks every expected previous selection, including expected absence,
-against the actual selection and refuses the whole request on any
-mismatch, then validates dependencies, updates custody and records the
-action. Each promotion records a before and after instance for every
-affected key, either nullable. Reversal submits the inverse mapping and
-is refused if the recorded after-selection is no longer current.
+**Promotion.** The default deliverable list is every candidate instance
+the run produced through its unit's selected attempt, one per kind and
+logical key; intermediate revisions and unselected attempts are
+excluded, and two candidates for the same key refuse the promotion,
+since a promotion needs exactly one replacement instance per kind and
+logical key (supervisor step 3, 2026-09-24). Piecemeal promotion names
+an explicit subset of that list and passes the same validation. A
+change may also name no replacement, unselecting a key: the replaced
+instance returns to candidate, and the promotion record's after-instance
+for that key is null (supervisor step 3, 2026-09-24). Promotion
+replaces only identical kind-and-logical-key selections; different
+settings or upstream instances produce additional current products
+rather than supersede earlier ones. A reprocessing with changed
+settings therefore sits beside the old result as a new instance, per
+the products page's keys, rather than superseding it. Only a
+production run's outputs can be promoted; scratch never leaves scratch.
+`vbest` maintenance is concrete: promotion sets the `dev` row's `vbest`
+to 1 for each replacement instance and to 0 for each replaced instance,
+resolved through the `instance` column, on `l2files`, `refimages`,
+`diffimages` and `psfs`; result sets carry no `vbest` (lead, 2026-09-22;
+made concrete by the supervisor, step 3, 2026-09-24). All promotions
+take one transaction-scoped advisory lock; after acquiring it the
+transaction checks every expected previous selection, including
+expected absence, against the actual selection and refuses the whole
+request on any mismatch, then validates dependencies, updates custody
+and records the action. Each promotion records a before and after
+instance for every affected key, either nullable. Reversal is itself a
+promotion, carrying the inverse mapping and
+`request_context.rollback_of`, and is refused if the recorded
+after-selection is no longer current (supervisor step 3, 2026-09-24).
 
 **Deletion.** `run delete` is allowed on a scratch run by its owner.
 It first locks the run, verifies the owner, refuses if any attempt is
@@ -161,27 +180,38 @@ queued, running or unresolved, or if any frozen input binding of
 unfinished work or any provenance dependency of a retained output
 outside the run points into it, and marks the run deleting, in one
 transaction. Attempt allocation, input binding and result acceptance
-use the same run fence and refuse a deleting or deleted run. After the
-deleting state commits, cleanup idempotently removes the run's object
-versions and run-scoped science rows in `diffimages`, `diffimmeta`,
-`psfs`, `refimages` and the `sources` children, then records
-completion; failure leaves the run deleting so cleanup resumes. The
-deletion invariant is that cleanup removes a science row only where its
-`run` column equals the run being deleted; rows with `run` NULL, which
-is everything `dev` wrote, are never touched (lead, 2026-09-23). Custody
-stays separate from deletion state. Run, unit, attempt and instance
-rows remain as
-tombstones with their provenance. Scratch expiry calls the same
-operation after the run's expiry date, with a warning first and a pin to
-hold a run; no age-based lifecycle rule expires run data on its own.
+use the same run fence and refuse a deleting or deleted run. The
+science-row cleanup set is `l2files`, `l2filemeta`, `refimages`,
+`diffimages`, `diffimmeta`, `psfs` and `sources` (the parent delete
+reaches the children), each where the `run` column equals the run being
+deleted; `l2files` and `l2filemeta` join the set because a scratch
+run's admitted rows are its own, and the fence already refuses when
+another run binds them (supervisor step 3, 2026-09-24). Rows with `run`
+NULL, which is everything `dev` wrote, are never touched (lead,
+2026-09-23). Cleanup runs in order: mark the run deleting and commit;
+remove the object versions; remove the science rows; mark the run's
+instance rows deleted (`deletion_state`); mark the run deleted and
+commit. Failure at any step leaves the run deleting, and re-running
+cleanup on a deleting run finishes it from wherever it stopped
+(supervisor step 3, 2026-09-24). Custody stays separate from deletion
+state. Run, unit, attempt and instance rows remain as tombstones with
+their provenance. Scratch expiry calls the same operation after the
+run's expiry date, with a warning first and a pin to hold a run.
 
 ## Storage layout
 
-Two buckets separate personal and project custody. Candidate and
-current objects share the project bucket and never move at promotion.
-Ordinary execution roles cannot delete completed objects; only the
-cleanup role deletes, and only through `run delete`. Within either
-bucket:
+Two buckets separate personal and project custody: `s3://roman-rapid-scratch/rapidpipe`
+for scratch runs, `s3://roman-rapid-products/rapidpipe` for production
+runs. The launcher chooses the root from the run's kind at submission,
+reading `RAPIDPIPE_OUTPUTS_ROOT_SCRATCH` or
+`RAPIDPIPE_OUTPUTS_ROOT_PRODUCTION`; `RAPIDPIPE_OUTPUTS_ROOT` is the
+fallback for either when its kind-specific variable is unset. Runs
+written under `rapidpipe-firstrun/` before 2026-09-24 stay where they
+were written; their attempt rows carry that location rather than moving
+to the new root (supervisor step 3, 2026-09-24). Candidate and current
+objects share the project bucket and never move at promotion. Ordinary
+execution roles cannot delete completed objects; only the cleanup role
+deletes, and only through `run delete`. Within either bucket:
 
 ```
 runs/<run-id>/<stage>/<unit-id>/<attempt-id>/manifest.json
@@ -193,6 +223,24 @@ project bucket, in the run that admitted or built them. Consumers read
 current products through the selection, never by guessing paths. Alert
 containers follow the same scheme; the outbox row carries the
 container's location and each alert's byte range.
+
+Each kind runs under its own Batch job definition. Scratch runs use
+`rapid-rebuild`, whose job role can write only the scratch bucket;
+production runs use `rapid-rebuild-production`, whose job role can
+write `rapidpipe/*` of the products bucket and never delete. The
+launcher reads `RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH` or
+`RAPIDPIPE_BATCH_JOB_DEFINITION_PRODUCTION`, falling back to
+`RAPIDPIPE_BATCH_JOB_DEFINITION` for either (supervisor step 3,
+2026-09-24).
+
+Deletion runs under different credentials than execution. `run delete`
+runs launcher-side, under the caller's own credentials, not a Batch
+job's. On rapid-rusholme, the instance role holds `rapid-scratch-cleanup`,
+which can delete object versions under the scratch bucket's
+`rapidpipe*/runs/*` prefix and nothing else; the deletion code itself
+refuses to touch any object outside the scratch bucket. A dedicated
+cleanup principal for workstation submission is a later step
+(supervisor step 3, 2026-09-24).
 
 ## Identifiers
 
@@ -243,7 +291,33 @@ job definition, revision-pinned to an image digest. Practised
 `rapid_rebuild_pipeline`, tree `/rapid/rebuild`, job definition
 `rapid-rebuild`.
 
+## Python interface
+
+`rapidpipe.runs`, in its `repository` and `cleanup` modules, and
+`rapidpipe.launch.batch` are the interface the command-line tool and
+the scheduler build on, as the specification's Tools section names them
+(supervisor step 3, 2026-09-24).
+
+| Function | Does |
+|---|---|
+| `create_run(conn, kind, owner, purpose, selected_stages, code_revision, image_digest, schema_version, settings_overlay_ref, input_selection_ref, lane, resource_profile, database_target, max_attempts_per_unit, auto_promote, check_policy_ref, seed_run=None, expires_at=None) -> run_id` | Inserts the run row and returns its id. |
+| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Starts one unit on Batch; the outputs root and job definition default from the run's kind when not given. |
+| `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
+| `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
+| `promote(conn, who, reason, changes, check_policy_version=None, check_result_ids=(), request_context=None) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, logical_key, expected_before, after)`, either instance nullable. |
+| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy_version=None) -> promotion_id` | Builds the run's default deliverable list, optionally narrowed to `kinds`, and calls `promote` with it. |
+| `rollback_promotion(conn, promotion_id, who, reason) -> promotion_id` | Submits a past promotion's inverse mapping as a new promotion. |
+| `finish_run(conn, run_id) -> None` | Marks a run finished; refuses unless every unit is terminal. |
+| `delete_run(conn, run_id, requested_by, *, s3_client=None, scratch_bucket=None) -> DeletionReport` | Runs guarded deletion on a scratch run; the report lists the objects, versions and per-table rows removed and the instances marked deleted. |
+| `expire_runs(conn, *, now=None, s3_client=None) -> list[DeletionReport]` | Calls `delete_run` for every unpinned scratch run past its `expires_at`. |
+| `pin_run(conn, run_id, pinned) -> None` | Sets or clears a run's `pinned` flag. |
+
+The command-line tool's `run create`, `submit`, `reconcile`, `cancel`,
+`promote`, `rollback`, `delete`, `finish`, `pin` and `unpin` are thin
+wrappers over these (supervisor step 3, 2026-09-24); the tool's final
+shape is the next step's.
+
 ## Not decided here
 
 - The approved check policy that turns auto-promote on.
-- The scratch lifetime and warning mechanics.
+- The scratch expiry warning mechanics.
