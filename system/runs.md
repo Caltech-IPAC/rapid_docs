@@ -252,7 +252,11 @@ Admitted inputs and reference images live under the same scheme in the
 project bucket, in the run that admitted or built them. Consumers read
 current products through the selection, never by guessing paths. Alert
 containers follow the same scheme; the outbox row carries the
-container's location and each alert's byte range.
+container's location and each alert's block locator, an offset and
+length into the container plus the record's ordinal position, since
+Avro compresses records per block and a single record has no byte range
+of its own (supervisor step 2, 2026-09-24; the [alerts](alerts) page has
+the outbox's full column list).
 
 Each kind runs under its own Batch job definition. Scratch runs use
 `rapid-rebuild`, whose job role can write only the scratch bucket;

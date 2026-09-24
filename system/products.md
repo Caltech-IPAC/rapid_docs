@@ -81,11 +81,17 @@ ids, each fixing exposure, detector and delivered version.
 of the same kind in its own attempt location. Its manifest records the
 input instance, the output revision, and the sizes and checksums of the
 finalized files. `register` consumes the selected finalized instance.
+The chain, the stamped header and the source-catalog republication are
+fixed on the [finalize](finalize) page (supervisor step 2, 2026-09-24).
 
 Alert names are not a file product. `alerts` writes one record per
 alert (name, candidate id, first-seen time, position) into the alert
 outbox alongside the container's byte range; `register` records the
-container.
+container. The outbox row's locator is a block offset and length plus
+the record's ordinal position, not a per-alert byte range, and `alerts`
+registers the container and its alert-set itself, with `register`
+validating and replaying them; both are fixed on the [alerts](alerts)
+page (supervisor step 2, 2026-09-24).
 
 ## Database result sets
 
@@ -312,9 +318,12 @@ lookups and defaults. It does not read product files.
 ## Not decided here
 
 - The registration field lists for the remaining kinds (reference
-  image, reference catalog, source catalog, alert container, the
-  exports); each is fixed with its stage. The source set's rows and
-  result-set record, and the `psf` block, are on the [load](load) page.
+  image, reference catalog, source catalog, the exports); each is fixed
+  with its stage. The source set's rows and result-set record, and the
+  `psf` block, are on the [load](load) page. The `alert-container`
+  registration block and the `alert-set` result set are on the
+  [alerts](alerts) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
-- The alert outbox shape and the per-alert record.
+- The alert outbox shape and the per-alert record are fixed on the
+  [alerts](alerts) page (supervisor step 2, 2026-09-24).
