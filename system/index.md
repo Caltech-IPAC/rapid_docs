@@ -22,6 +22,8 @@ remain in this repository's history.
 | [`stage-contract.md`](stage-contract) | DRAFT | The `rapidpipe` package and its dependency direction; the stage declaration, one invocation form, attempts, the manifest, five exit codes, settings; local fixtures; what it replaces |
 | [`difference.md`](difference) | DRAFT | The `difference` stage as ported from `dev`: its input set, the steps it runs, its outputs, the registration fields and columns, and its settings |
 | [`load.md`](load) | DRAFT | The `load` stage as ported from `dev`: its inputs, the child tables, what lands in `sources`, the source-set result set, its settings and exit codes; the `psf` registration block |
+| [`finalize.md`](finalize) | DRAFT | The `finalize` stage as ported from `dev`'s post-processing pipeline: the chain order, the manifest it republishes as new instances, the header stamp, its settings and exit codes |
+| [`alerts.md`](alerts) | DRAFT | The `alerts` stage as ported from `dev`'s alert production: the input-set manifest, what it reads from the source, association and statistics sets, the container and the alert outbox, its registration, settings and exit codes |
 
 ```{toctree}
 :hidden:
@@ -32,4 +34,6 @@ products
 runs
 difference
 load
+finalize
+alerts
 ```
