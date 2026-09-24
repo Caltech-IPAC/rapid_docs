@@ -109,7 +109,7 @@ The remaining columns come from lookups and allocations:
 |---|---|
 | `rid`, `expid`, `sca`, `field`, `fid`, `jd` | the l2 instance's `l2files` row; `jd` is its `mjdobs` plus 2400000.5, as `dev`'s `addDiffImage` computes it |
 | `rfid` | the reference instance's `refimages` row, through the `instance` column the migration `20260923-02-refimages-instance.sql` adds; for a reference registered by `dev`, the block's `reference_rfid` |
-| `ppid` | the differencer: `zogy` is 15, the science pipeline's row, as in `dev`; `sfft` has no row yet and is refused |
+| `ppid` | the differencer: `zogy` is 15, the science pipeline's row, as in `dev`; `sfft` is 16, priority 6, script `sfft_rapid_rimtimsim.py`, its own `pipelines` row added by the migration `20260924-01-pipelines-sfft.sql` (lead, 2026-09-24) |
 | `hp6`, `hp9` | derived from the centre, on both tables |
 | `version` | the next number for (`rid`, `ppid`) within the run |
 | `svid` | the `swversions` row whose `cvstag` is the run's code revision, made on first use |
@@ -187,7 +187,3 @@ scatter (`df5117c3`). Verified 2026-09-23.
 
 The real-tool run against fixed inputs and the IMSS comparison remain
 the lead's gate before operational use, and that gate has not run.
-
-## Not decided here
-
-- A `pipelines` row for SFFT, which its registration needs.
