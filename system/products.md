@@ -192,10 +192,12 @@ meaning the team knows:
   0) + 1` over the whole table for the pair, global across every run,
   not scoped to the registering run; the run is still recorded on the
   row, just not part of the counter. Two attempts allocating for the
-  same pair at once are serialised by a database advisory lock keyed to
-  it, taken before the allocation and held for the registering
-  transaction (supervisor step 8, 2026-09-24, a Codex plan-review
-  finding, correcting this bullet's earlier "within the run" wording).
+  same pair at once are serialised by a transaction-level advisory
+  lock, `pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`
+  for `refimages`, taken before the allocation and released
+  automatically at the transaction's end (supervisor step 8, 2026-09-24,
+  a Codex plan-review finding, correcting this bullet's earlier "within
+  the run" wording).
 - **Legacy current flags are never set at registration.** `vbest` is 0
   on every row a run writes; custody lives on the instance row.
   Promotion maintains `vbest` on the `dev` tables for the team's
@@ -260,7 +262,7 @@ supervisor step 8, rulings R6-R7, 2026-09-24):
 | file path | manifest primary member | `refimages.filename` |
 | software version | allocation from the run's code revision | `refimages.svid`: one `swversions` row per code revision, made on first use, as `difference` allocates |
 | current flag, status | allocation; never current at registration | `refimages.vbest` 0, `status`: the block's `status`, 1 |
-| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` -- `psfs`, `diffimages` and `l2files` record the registering attempt instead, so `refimages` is the one exception (WP-B's finding, supervisor step 8, 2026-09-24) |
 
 For the reference catalog (`reference` makes it, `register` records it;
 supervisor step 8, rulings R6-R7, 2026-09-24):
