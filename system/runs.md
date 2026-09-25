@@ -145,8 +145,12 @@ invalid or unreadable for a non-network reason refuses the submission,
 exit 65, before anything is written; a network error refuses it with
 exit 75 instead. Binding is idempotent per (unit, instance): a retry
 and a seeded `--only-failed` re-run both re-read the manifest and bind
-nothing new. The deletion guard's basis is this binding (supervisor
-step 9, ruling R4, 2026-09-25).
+nothing new. Binding takes each producer instance's run row for share
+and refuses, exit 65, when that run is deleting or deleted, as
+`register_manifest` does; an uncommitted binding therefore holds the
+producer's run against deletion. The fence also covers `run inputs` and
+the loop's own binding. The deletion guard's basis is this binding
+(supervisor step 9, ruling R4, 2026-09-25).
 
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
