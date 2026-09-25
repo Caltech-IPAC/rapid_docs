@@ -131,7 +131,26 @@ input selection names that instance explicitly. The resolved binding is
 written to `unit_inputs` before execution, and the manifest a stage
 reads is generated from that binding; a hand-composed manifest is a
 test path, not how a production run assembles its inputs (lead,
-2026-09-23).
+2026-09-23). Before any write for a submission (`run submit`, `run
+start`, `run local`), the launcher reads `manifest.json` at the
+`--inputs` location, local or `s3://`; collects every output entry's
+`instance` and every `inputs.result_sets` entry -- not `inputs.products`,
+which are what the *upstream* attempt read, not this unit's own
+binding; creates the unit; binds, through `bind_unit_inputs`, the
+collected names that are registered product instances; commits both
+together; and only then allocates the attempt. A name that is not a
+registered instance -- a delivery manifest, a dev-era template entry --
+binds nothing and is logged, not refused. A manifest that is absent,
+invalid or unreadable for a non-network reason refuses the submission,
+exit 65, before anything is written; a network error refuses it with
+exit 75 instead. Binding is idempotent per (unit, instance): a retry
+and a seeded `--only-failed` re-run both re-read the manifest and bind
+nothing new. Binding takes each producer instance's run row for share
+and refuses, exit 65, when that run is deleting or deleted, as
+`register_manifest` does; an uncommitted binding therefore holds the
+producer's run against deletion. The fence also covers `run inputs` and
+the loop's own binding. The deletion guard's basis is this binding
+(supervisor step 9, ruling R4, 2026-09-25).
 
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
@@ -160,6 +179,24 @@ attempts remain under its allowance, or `failed` otherwise. This is how
 a job-less running attempt — the one `run start` used to exit 64 on
 without a way to move past it — is resolved rather than left open
 indefinitely (supervisor step 6, 2026-09-24).
+
+A retry's own `done_check` -- whether a database-writing stage reuses
+an already-complete result set instead of writing a new one -- reads an
+attempt's disposition, not only whether its result set is complete. The
+rule: a stage's done check reuses a complete, retained result set of
+this run with the same kind and logical key only when that set's
+producing attempt is the calling attempt or an attempt whose
+disposition is `succeeded`. A set left by an attempt that committed
+rows and then failed, or by another attempt still without a
+disposition, is not reused: the retry writes a new set under its own
+instance, and the orphaned set's rows stay the run's own rows, kept
+until the run is deleted, but unreachable because their producer is
+never the selected attempt. `load`'s, `crossmatch`'s, `statistics`' and
+`prune`'s `done_check` all resolve through this one rule,
+`db/sources.find_complete_source_set` and
+`db/objects.find_complete_result_set`, each joining `attempts` for the
+producing attempt's disposition (supervisor step 9, ruling R1,
+2026-09-25; the per-stage pages record each `done_check`'s own key).
 
 **Instances.** `register` preserves the instance ids and the producing
 run, stage and attempt recorded in the manifest, and records the
@@ -271,6 +308,23 @@ three in the cleanup set at all and so refused even a run's own
 reference) -- and marks the run deleting, in one transaction. Attempt
 allocation, input binding and result acceptance use the same run fence
 and refuse a deleting or deleted run.
+
+The guard's count of blocking consumers is live consumers only: it
+counts a `unit_inputs` binding from outside the run only when the
+binding unit's own run is in a state other than `deleted`, and a
+`dependencies` edge from outside the run only when the consumer
+instance's `deletion_state` is other than `deleted`. Tombstone rows are
+never removed; a consumer run that is still `deleting` still blocks,
+and only a consumer run that has finished deleting stops counting
+against the run that produced what it once consumed. The refusal itself
+is unchanged: `run delete` still exits 64 (supervisor step 9, ruling R3,
+2026-09-25). This is what makes the input binding above safe to write
+at submission rather than at output registration: a unit's frozen
+bindings, recorded through `bind_unit_inputs` before its attempt starts,
+make it a live consumer of its declared inputs from that point, and the
+guard now sees that consumer as soon as it exists, not only once it has
+produced something of its own to depend on (supervisor step 9,
+2026-09-25).
 
 Before touching storage, every attempt's output location must lie in
 the scratch bucket under `runs/<run-id>/`; otherwise the whole delete
@@ -420,7 +474,8 @@ step 6, 2026-09-24).
 | Function | Does |
 |---|---|
 | `create_run(conn, kind, owner, purpose, selected_stages, code_revision, image_digest, schema_version, settings_overlay_ref, input_selection_ref, lane, resource_profile, database_target, max_attempts_per_unit, auto_promote, check_policy_ref, seed_run=None, expires_at=None) -> run_id` | Inserts the run row and returns its id; validates that `check_policy_ref` names a real policy and refuses `auto_promote` unless that policy permits it (`CheckPolicyRefused`). |
-| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Starts one unit on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's; records the resolved `inputs_location`/`settings_location` on the attempt. |
+| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Binds the unit's inputs (`bind_unit_inputs`, below) before allocating the attempt, then starts it on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's; records the resolved `inputs_location`/`settings_location` on the attempt. |
+| `bind_unit_inputs(conn, *, unit_id, manifest) -> list[str]`, in `rapidpipe.runs.repository` | Writes a `unit_inputs` row for every `instance` the manifest names, in `inputs.products` and `inputs.result_sets`, that is a registered product instance; a name that resolves to no instance binds nothing and is logged, not refused; called by `submit_unit` and `run local` before allocating the attempt (supervisor step 9, 2026-09-25). |
 | `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
 | `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
 | `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, logical_key, expected_before, after)`, either instance nullable, validated under `check_policy` ([checks](checks) page). |

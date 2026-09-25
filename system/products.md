@@ -151,6 +151,32 @@ within their own run. Ruled by the lead 2026-09-21 as an amendment to
 the specification's sharing rule, so that production can accumulate a
 catalog across processing dates.
 
+"Readable by any run" is narrower than it sounds. The rule: a stage of
+run R may read a result set only when it is complete and retained and
+either (a) it belongs to R, or (b) its custody is `candidate` or
+`current` and its producing attempt is the selected attempt of its
+unit. Another run's scratch set, or a set from an unselected attempt,
+is refused, exit 65. The rule applies to every set a read traverses:
+each link of an association chain, and each source set a set names, not
+only the set named directly. A same-run read needs completeness and
+retention, not selection, so a run may still name its own orphaned set
+-- only a cross-run read of any set anywhere in the chain needs its
+producing attempt to be selected. A candidate set of a production run
+whose promotion was refused by checks is readable under (b): a failed
+or missing check leaves a candidate, not a scratch set, and this rule
+does not distinguish a checked candidate from an unchecked one.
+`register_manifest` applies the same rule to a dependency edge whose
+producer is another run's result set; one helper in `db/objects`
+enforces the read side for every reader -- `source_set_table`,
+`association_chain`, and the set resolution `statistics`, `prune`,
+`alerts` and `export` each do. This closes the gap the sharing rule
+above left open: which of another run's sets counts as "current"
+enough to read, and is what keeps a still-running scratch attempt's
+half-written set out of a production run's crossmatch. The rule is not
+yet applied to file products -- l2 images, references, PSFs -- consumed
+across runs; that needs its own ruling (supervisor step 9, ruling R2,
+2026-09-25).
+
 ## Registration metadata
 
 Each target column has exactly one source: a manifest value, a lookup
@@ -394,3 +420,20 @@ lookups and defaults. It does not read product files.
   output location.
 - The alert outbox shape and the per-alert record are fixed on the
   [alerts](alerts) page (supervisor step 2, 2026-09-24).
+- Derived products are keyed on the instance they derive from
+  (`difference-image` on its l2 and reference instances, `source-set`
+  on its difference instance, `association-set` on its base plus its
+  source sets), so a new production run's derived products sit beside
+  the previous date's as new logical products instead of superseding
+  them; only the `l2-image` key supersedes, which is why the loop's own
+  promotions carry as many changes as detector images each date, not
+  one. The keys stay as they are for the prototype. The logical key of
+  a derived product as a science identity -- exposure, detector,
+  filter, reference selection, settings hash -- is the design decision
+  to take before daily promotion of real deliveries, and it needs the
+  lead (supervisor step 9, ruling R6, 2026-09-25, recorded open;
+  carried from the residual step 6 raised the same way, 2026-09-24).
+- The cross-run result-set read rule ("Reading across runs", above)
+  is not yet applied to file products -- l2 images, references, PSFs --
+  consumed across runs; whether and how it should be needs its own
+  ruling (supervisor step 9, ruling R2, 2026-09-25, recorded open).

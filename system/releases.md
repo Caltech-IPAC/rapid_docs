@@ -156,11 +156,38 @@ steps stop at deploy and pins. Selftests run on Batch under the newly
 deployed revision afterwards, as evidence that the deployed image
 behaves, not as a gate the cut itself waits on (ruling R9, 2026-09-24).
 
+## A run never spans a release
+
+A run's release is fixed at its creation, by `run create --release`,
+and every attempt it submits reads that same release's recorded
+job-definition revision -- kept `ACTIVE` past its own release by
+`SkipDeregisterOnUpdate` -- so a run never picks up a later cut's
+revision mid-flight, and its execution records and `schema_version`
+all carry the one release it was created under. This is what makes
+cutting a release while other runs are still open safe, provided
+migrations stay additive (new tables and nullable columns; no drop or
+rename while an earlier release's runs are open) and compatible with
+the readers and writers of every release whose runs are still open.
+That additivity and compatibility are now a stated constraint of the
+migration rule above, not an assumption a concurrent cut could quietly
+violate (ruling R7, supervisor step 9, 2026-09-25, closing step 5's
+residual 1).
+
+## Concurrent cuts are serialised
+
+`cut` refuses to start, before any fetch or tag, while any `releases`
+row is in a state other than `complete`, unless `--resume` names that
+row; the message names the tag and its state, exit 1. The row itself is
+still written only after the tag is pushed, so two cuts started in the
+same instant can both pass the check before either has a row to be
+refused by: this rule serialises through the record once it exists, it
+is not a lock, and closing that window is recorded open, not part of
+this ruling. A `--resume` of the row already in flight is the way
+through a cut that failed partway, not a second `cut` (ruling R8,
+supervisor step 9, 2026-09-25, closing step 5's residual 2).
+
 ## Not decided here
 
 - Signing of tags or images.
 - The `v1` cutover and whether the production database becomes a
   release target.
-- Whether a release change overlaps for consumers mid-migration or
-  switches by pointer: the specification's own "Not decided here" list
-  carries this one.

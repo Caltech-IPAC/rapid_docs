@@ -301,31 +301,67 @@ that CI verifies and the lead merges. Proposed order, earliest first:
    the above have been exercised ([loop](loop) page).
 8. Slower pipelines and exports.
 
+Part 1 was partly done before the run of 2026-09-24 (the schema, glue
+and build recipe live in `rapid`); the `smdc` branch's inventory
+against `dev` and the triage of existing issues against this
+specification were not carried out as a discrete pass and remain open.
+Parts 2 through 8 landed as prototypes on the
+`rebuild` branch, each under one or more of releases rebuild-v0.1
+through rebuild-v0.6, cut 2026-09-24 and 2026-09-25: part 2 (stage
+entrypoints) on [stage-contract](stage-contract) and the per-stage
+pages [reference](reference), [difference](difference), [load](load),
+[maintain](maintain), [crossmatch](crossmatch), [statistics](statistics),
+[finalize](finalize), [alerts](alerts), [prune](prune),
+[photometry](photometry) (declared, not yet ported) and
+[export](export); part 3 (runs, attempts, the three output states) on
+[runs](runs); part 4 (the command-line tool) on [tool](tool); part 5
+(releases) on [releases](releases); part 6 (candidate checks, promotion
+and recovery by hand) on [checks](checks) and the recovery rulings on
+[runs](runs); part 7 (the scheduled processing-date loop) on
+[loop](loop), proved by one unattended trigger running two processing
+dates end to end; part 8 (slower pipelines and exports) on
+[reference](reference) and [export](export), with the light-curve HATS
+catalog and forced photometry still declared stubs on
+[photometry](photometry). Every part is a prototype pending the lead's
+review at the SMDC cutover; none is ADOPTED.
+
 ## Not decided here
 
-- The internal shape of the command-line tool.
-- Storage layout beneath the three states.
 - The checks that gate automatic promotion: their content is scientific
-  and the lead's.
+  and the lead's. The rebuild ships `rebuild-trial@1`, approved at trial
+  level by this supervisor step, under which a person can promote by
+  hand; a lead-approved policy, and whether it permits automatic
+  promotion, remain open ([checks](checks) page).
 - The boundary between mission-supplied data and RAPID-derived
   products, and what each side's retention and provenance owe.
 - Admission rules for duplicate, incomplete or corrected inputs,
-  including how a re-delivered observation supersedes the earlier one;
-  the science half of the input contract (discovery, completeness,
-  versioning); and the processing-date time convention.
+  including how a re-delivered observation supersedes the earlier one,
+  and the science half of the input contract (discovery, completeness,
+  versioning). The processing-date time convention is narrower than
+  before: the [loop](loop) page takes the processing date from the
+  spec that names it, one production run per date; the general rule for
+  a date's boundary in wall-clock or observatory time is still open.
 - Reference-image eligibility and selection rules, and where the
-  reference PSF is resolved from.
+  reference PSF is resolved from. The [reference](reference) page
+  records `dev`'s selection rule as the launcher's to implement; the
+  [loop](loop) page's own chain binds a field's reference by a fixed
+  template rather than by running that rule. Which reference a field
+  should use among several eligible ones is open on the [tool](tool)
+  page too.
 - Product identity under concurrent processing: collision, publication
   and replay semantics beyond the science identifier and context stamp.
-- Whether a release change overlaps for consumers mid-migration or
-  switches by pointer.
+  The [products](products) page now records, and leaves open, the
+  specific case a derived product's key embeds a per-run instance id
+  (ruling R6, supervisor step 9, 2026-09-25).
 - Recovery targets per storage family and the stance on failover read
   cost.
 - Whether alert payload bytes are split from delivery evidence after a
   retention horizon.
 - Churning reference data such as ephemerides: cached at run time or
   baked into the image.
-- External delivery protocols.
+- External delivery protocols. Kafka publication is designed in and off
+  by default in the shipped [alerts](alerts) stage; which protocol, if
+  any, replaces that default is still open.
 
 Stage contracts and the promotion rules must be approved before their
 implementations are accepted.

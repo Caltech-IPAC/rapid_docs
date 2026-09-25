@@ -91,6 +91,26 @@ admission fence: a run that is finished, deleting or already deleted
 admits no new input set. `run delete` removes a run's inputs prefix
 along with its attempt outputs.
 
+Every submission now binds its input set, not only one composed by this
+command. Before any write, `run submit`, `run start` and `run local`
+all read `manifest.json` at `--inputs`, whether it came from `run
+inputs`, a producing stage's own completion manifest, or a hand-composed
+one; collect every output entry's instance and every
+`inputs.result_sets` entry (not `inputs.products`, which name what the
+*upstream* attempt read, not this unit's own binding); create the unit;
+bind the collected names that are registered product instances through
+`bind_unit_inputs`; commit both together; and only then allocate the
+attempt. A name that is not a registered instance (a delivery manifest,
+a dev-era template entry) binds nothing and is logged, not refused. A
+manifest that is absent, invalid or unreadable for a non-network reason
+refuses the submission before anything is written, exit 65; a network
+error is exit 75 instead. Binding is idempotent per (unit, instance), so
+a retry or a seeded `--only-failed` re-run binds nothing new. This is
+what makes a unit a live consumer of its declared inputs from
+submission, not only once it has produced an output of its own to
+depend on ([runs](runs) page, "Units", "Deletion"; supervisor step 9,
+ruling R4, 2026-09-25).
+
 This is the explicit, whole-input-set form of resolution: which
 reference among several eligible ones a field should use is not decided
 here (below).
@@ -108,7 +128,8 @@ codes table carries.
 | 1 | A stage or unit failed or was cancelled (`start`, `status`); the two runs differ (`compare`) |
 | 2 | Still running: `status` without `--watch`, while a unit remains non-terminal |
 | 64 | Usage: bad arguments, or the tool refused rather than acting — for example `run inputs` onto a destination that already carries a manifest |
-| 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure — either is retryable |
+| 65 | `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) |
+| 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable |
 
 ## Personal submission from a workstation
 

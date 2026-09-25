@@ -44,7 +44,7 @@ Unit: detector-image. `--inputs` is an input-set manifest, stage
 |---|---|---|
 | `outputs[]` `difference-image`, exactly one | the finalized instance; its key `differencer` must equal `[alerts] diff_flavor`; member role `difference`, size and SHA-256 verified | `cutoutDifference`; the `diffimages` row (`pid`), looked up through `diffimages.instance` |
 | `outputs[]` `reference-catalog`, at most one | its primary member, a SExtractor catalog; this kind's registration block is not fixed yet, so none is required | `refStarMatches`/`refGalaxyMatches` when `[alerts] refcat` is set; absent means both stay null |
-| `inputs.result_sets` | instance ids, classified by looking up each one's kind in `product_instances`: exactly one `source-set`, one or more `association-set`, any number of `statistics-set`, each complete | the source, association and statistics rows, and each association set's lineage (below) |
+| `inputs.result_sets` | instance ids, classified by looking up each one's kind in `product_instances`: exactly one `source-set`, one or more `association-set`, any number of `statistics-set`, and any number of `pruned-set`, each complete | the source, association and statistics rows, each association set's lineage (below), and, where named, the pairs each pruned set excludes from history |
 
 A statistics set must describe exactly one of the named association
 sets, and at most one statistics set may describe any one association
@@ -55,6 +55,20 @@ set's instance id, and the fixture uses the key `{"membership": <set>}`.
 An association set with no describing statistics set falls back to
 `dev`'s own path when statistics have not run for an object: null
 sigmas, and a count of `merges` rows for `nDiaSources`.
+
+A pruned set must prune one of the named association sets: its logical
+key's base must equal that association set's instance id, and at most
+one pruned set may prune any one association set; either violation
+exits 65 (supervisor step 9, 2026-09-25, R5). A named pruned set's
+excluded pairs are left out of every read of its base association
+set's chain: a `merges` row whose `(aid, sid)` the pruned set lists in
+`prunedmerges` is neither a source's association, nor counted in the
+`nDiaSources` fallback, nor history. A trigger whose only `merges` rows
+are excluded is dropped as unassociated. An input set naming no pruned
+set reads every pair, as before, and the execution record's
+`notes.pruned_sets` is `"none"`; otherwise it lists the pruned sets
+applied. The pruned sets named are in `inputs.result_sets` and become
+dependencies of the alert container.
 
 A worked example, with two fields:
 
@@ -157,7 +171,9 @@ of one, else exit 65; a field with no such table also exits 65.
   count: a source counts as previous history down to
   `[alerts] prv_window_days` before its own `mjdobs`, with no upper
   bound, so a later detection of the same object also counts as
-  previous to it.
+  previous to it. A named pruned set's excluded pairs are left out of
+  this before the time window is applied, per the pruned-set rule above
+  (R5).
 
 An input product with no `product_instances` row, such as a reference
 catalog `dev` registered, is still read and cross-matched, but is left
@@ -205,9 +221,9 @@ the first of each list: `association_sets` and `association_set`,
 `statistics_sets` and `statistics_set`, the singular form null only
 when its list is empty. Dependencies are recorded for the difference
 instance, a registered reference-catalog instance, every named
-association and statistics set, and every base set a lineage chain
-pulled in; an unregistered reference catalog gets no edge, per "What it
-reads" above.
+association and statistics set, every base set a lineage chain pulled
+in, and every named pruned set; an unregistered reference catalog gets
+no edge, per "What it reads" above.
 
 On success the stage also sets `diffimages.nalertpackets = 1` on the
 run's own `diffimages` row for the finalized difference instance,
@@ -352,7 +368,7 @@ input set's `reference-catalog` entry is present.
 |---|---|
 | 0 | the container, summary, outbox rows and both registrations were written, including an empty container for zero alertable sources, a recovered rerun that regenerates identical bytes, and `--dry-run` |
 | 64 | an unknown or invalid setting, `[publish] kafka = true`, an unreadable `kona_file`, or a bad `RAPIDPIPE_ALERTS_DATABASE` |
-| 65 | the input manifest is not an `input-set` manifest or its unit is not `detector-image`; the difference-image entry is absent, duplicated, or its differencer is not `diff_flavor`; a member fails its size or SHA-256 check, or the difference image is unreadable; a named result set is unregistered, of an unknown kind, or incomplete; the input set does not name exactly one source set or no association set; a statistics set describes no named association set, or two describe one; a named association set's field is not a non-negative integer or has no field tables; a lineage chain is broken; the source set was loaded from a different difference instance; or the difference instance has no `diffimages` row |
+| 65 | the input manifest is not an `input-set` manifest or its unit is not `detector-image`; the difference-image entry is absent, duplicated, or its differencer is not `diff_flavor`; a member fails its size or SHA-256 check, or the difference image is unreadable; a named result set is unregistered, of an unknown kind, or incomplete; the input set does not name exactly one source set or no association set; a statistics set describes no named association set, or two describe one; a pruned set names a base association set not among the input's own association sets, or two pruned sets name the same base; a named association set's field is not a non-negative integer or has no field tables; a lineage chain is broken; the source set was loaded from a different difference instance; or the difference instance has no `diffimages` row |
 | 70 | a recovered rerun whose regenerated bytes or locators differ from what was registered, for example because `NED` is live and on; a registered record that reads back differently from what was written; or any unclassified error |
 | 75 | the database cannot be reached, or the connection is lost mid-transaction |
 

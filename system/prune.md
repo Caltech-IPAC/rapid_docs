@@ -88,7 +88,10 @@ another run, still `vbest = 0`), excludes them, as `dev`'s `vbest = 0`
 does once a newer image is promoted current. Ruling R6 depends on
 promotion maintaining `vbest` for difference images, not yet built (step
 1 Codex plan review; recorded there as a step 3/6 prerequisite) -- until
-then, only the own-run clause is exercised.
+then, only the own-run clause is exercised. Under that clause a
+production run never excludes its own images' pairs, so the exclusion
+bites only on pairs whose difference images were superseded (supervisor
+step 9, 2026-09-25).
 
 ## What lands in `prunedmerges`
 
@@ -125,12 +128,27 @@ base already names one). The manifest entry has no members; its
 
 `inputs.result_sets` names the association-set instance `prune` read.
 
-With `[prune] done_check` on (ruling R14, the default), a complete pruned
-set with the same key -- same base, same settings hash -- already written
-in this run is reused and nothing is written; `[prune] done_check = false`
-forces a fresh attempt, as a retry after the association set's sources'
-promotion state has changed needs. `dev` has no done file for this stage
-at all: `pruneNotBestMerges` always re-derives and re-deletes.
+With `[prune] done_check` on (ruling R14, the default), a complete,
+retained pruned set with the same key -- same base, same settings hash --
+already written in this run is reused and nothing is written, only when
+that set's producing attempt is the calling attempt or an attempt whose
+disposition is `succeeded`. A set left by an attempt that committed rows
+and then failed, or by another attempt still without a disposition, is
+not reused, so a retry after a failed commit writes a fresh set rather
+than adopting the orphaned one (`db/objects.find_complete_result_set`,
+joining `attempts`; supervisor step 9, ruling R1, 2026-09-25, the
+[runs](runs) page has the general rule). `[prune] done_check = false`
+forces a fresh attempt, as a
+retry after the association set's sources' promotion state has changed
+needs. `dev` has no done file for this stage at all:
+`pruneNotBestMerges` always re-derives and re-deletes.
+
+Alerts read it: the loop names each field's pruned set in every alerts
+input set touching that field, and the alerts history leaves out the
+pairs it lists (R5). The base's `merges_<field>` rows are unchanged.
+The [alerts](alerts) page has the binding (supervisor step 9, ruling
+R5, 2026-09-25); this is the only consumer named for `prunedmerges` so
+far.
 
 ## Settings
 

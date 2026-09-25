@@ -24,6 +24,16 @@ passing or failing check, it defines what running one means. Automatic
 promotion is built and tested, and stays off in production until the
 lead approves a policy for it.
 
+Plainly: `rebuild-trial@1`, the policy every promotion in this rebuild
+has run under so far, carries a trial approval this supervisor step
+recorded, not the lead's own sign-off. That trial approval is enough to
+gate a person's `run promote` by hand, which is what every demonstration
+on this page and the [runs](runs) page has done. It is not enough to
+gate an automatic promotion, and no policy the rebuild ships is. The
+lead's own approval of a policy, and whether any policy the lead
+approves also permits automatic promotion, are both still open
+(supervisor step 9, 2026-09-25).
+
 ## What a check is
 
 A check is a named, versioned Python function over one product
