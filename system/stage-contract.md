@@ -74,7 +74,9 @@ manifests; `load` loads source rows; `maintain` clusters and analyzes a
 named source sets but writing none of its own. `crossmatch`, `statistics`
 and `prune` read named, completed database result sets and write new
 run-scoped result sets; their manifests identify those input and output
-sets. No stage changes another run's results or the current selection.
+sets. `alerts` and `export` both read named, completed database result
+sets; `export` writes files only, with no database writes of its own
+(supervisor step 8, ruling R9, 2026-09-24). No stage changes another run's results or the current selection.
 
 The run records the catalog versions and epoch range crossmatch used.
 Each downstream stage names its exact predecessor result set. A
@@ -108,7 +110,11 @@ settings.
 `--dry-run` validates arguments, settings and the input manifest, then
 prints the planned inputs and outputs without executing science code or
 writing files or database rows. Exit 0 means validation passed; no
-completion manifest is written.
+completion manifest is written. The shared runner returns on `--dry-run`
+before a stage's own body runs, so a stage that needs to validate its
+kind-specific inputs before that return does so through the runner's
+pre-body validation hook, not inside the body (supervisor step 8,
+2026-09-24, a Codex plan-review finding).
 
 ### The manifest
 
@@ -141,8 +147,18 @@ attempt identity, completion or retry safety.
 | 0 | Success, manifest published | none |
 | 64 | Usage: bad arguments, invalid settings, missing environment | fail, no retry |
 | 65 | Declared input absent, corrupt or incompatible after its storage was reached | fail, no retry |
+| 69 | Declared, not implemented in this build | fail, no retry |
 | 70 | Unclassified stage error; stop for investigation | fail, no retry |
 | 75 | Recognised temporary dependency failure; repeating the same work may succeed | retry within the limit |
+
+Code 69 is `sysexits`' `EX_UNAVAILABLE`, chosen over 64 (which would
+misreport a correct invocation as a usage error) and 70 (which calls
+for investigation): a stub stage that validates its arguments and
+settings and then declines to run is neither of those things.
+`disposition_for` maps it to `failed`. `photometry` and `export` are
+declared stages that exit 69 for every invocation past validation in
+this build (supervisor step 8, ruling R9, 2026-09-24; see
+[photometry](photometry) and [export](export)).
 
 The entrypoint maps argument errors to 64 and unhandled exceptions to
 70. Forced termination is reported by the launcher, not the stage.

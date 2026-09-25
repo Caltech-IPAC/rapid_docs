@@ -75,7 +75,18 @@ but left unused is designed in, off by default (lead, 2026-09-22).
 The reference recipe names the reference pipeline and its settings, so
 two ways of building a reference for one field never share a version
 namespace. A reference's constituent inputs are `l2-image` instance
-ids, each fixing exposure, detector and delivered version.
+ids, each fixing exposure, detector and delivered version. The logical
+key's `version` is a selection digest: the full SHA-256 digest,
+hex-encoded, over the sorted constituent instance ids plus the resolved
+settings hash, so the same selection rebuilt is another instance of one
+logical product and a different selection is a new one.
+`refimages.version` is not this digest -- it is the legacy per-(field,
+fid, ppid) counter the table has always carried, allocated at
+registration like every other legacy version column below, globally
+across every run rather than scoped to one (supervisor step 8, ruling
+R5, 2026-09-24; corrected on scope by a Codex plan-review finding the
+same day -- see the reference-image field list and
+[reference](reference)).
 
 `finalize` reads an immutable input instance and writes a new instance
 of the same kind in its own attempt location. Its manifest records the
@@ -174,8 +185,17 @@ meaning the team knows:
   would need relaxing `l2files.checksum`'s NOT NULL constraint (lead,
   2026-09-22).
 - **Legacy version columns are allocated the way the team's procedures
-  allocated them**, the next number for the table's logical pair within
-  the run, except where the version is delivered (the l2 image).
+  allocated them**, the next number for the table's logical pair, except
+  where the version is delivered (the l2 image). Where registration
+  keeps a `dev` stored function unchanged, as `refimages` does through
+  `addRefImage`, that allocation is `dev`'s own `coalesce(max(version),
+  0) + 1` over the whole table for the pair, global across every run,
+  not scoped to the registering run; the run is still recorded on the
+  row, just not part of the counter. Two attempts allocating for the
+  same pair at once are serialised by a database advisory lock keyed to
+  it, taken before the allocation and held for the registering
+  transaction (supervisor step 8, 2026-09-24, a Codex plan-review
+  finding, correcting this bullet's earlier "within the run" wording).
 - **Legacy current flags are never set at registration.** `vbest` is 0
   on every row a run writes; custody lives on the instance row.
   Promotion maintains `vbest` on the `dev` tables for the team's
@@ -214,6 +234,48 @@ For the difference image (`difference` makes it, `register` records it):
 - bit 3: SFFT negative
 - bit 4: naive positive
 - bit 5: naive negative
+
+For the reference image (`reference` makes it, `register` records it;
+supervisor step 8, rulings R6-R7, 2026-09-24):
+
+| Field | Source | Column |
+|---|---|---|
+| constituent l2-image instances | manifest, `registration.constituents` | `refimimages`: one `(rfid, rid)` row per constituent whose `l2files.instance` matches; a constituent without a matching `l2files` row fails registration |
+| filter | manifest identity | `refimages.fid`: lookup in `filters` by name |
+| field | manifest, `registration.field` | `refimages.field` |
+| recipe | manifest identity, fixed `awaicgen` | `refimages.ppid`: 12, the `pipelines` row `dev` used |
+| selection digest (the key's `version`) | manifest identity, the instance's logical key only | no legacy column; `refimages.version` is the separate legacy counter, allocated globally per `(field, fid, ppid)` under an advisory lock, not scoped to the run (above) |
+| mosaic centre (RA, Dec) | manifest, `registration.ra_center`, `dec_center` | derived to `hp6`, `hp9` on `refimages` and `refimmeta` |
+| frame count | manifest, `registration.nframes` | `refimmeta.nframes` |
+| observation time range | manifest, `registration.mjdobs_min`, `mjdobs_max` | `refimmeta.mjdobsmin`, `mjdobsmax` |
+| JD range, total exposure time, zero point | manifest, `registration.jd_start`, `jd_end`, `total_exptime`, `zero_point` | carried into the header stamp (`JDSTART`, `JDEND`, `TOTEXPTM`, `MAGZP`), not registered: no matching `refimmeta` or `refimages` column |
+| coverage and pixel-uncertainty measures | manifest, `registration.cov5percent`, `medncov`, `medpixunc` | `refimmeta`, same names |
+| bad-pixel count | manifest, `registration.npixnan` | `refimmeta.npixnan` |
+| clipped image statistics | manifest, `registration.clmean`, `clstddev`, `clnoutliers`, `gmedian`, `datascale`, `gmin`, `gmax` | `refimmeta`, same names |
+| catalog FWHM | manifest, `registration.fwhmmedpix`, `fwhmminpix`, `fwhmmaxpix` | `refimmeta`, same names |
+| source counts | manifest, `registration.nsexcatsources`, `npucatsources` | `refimmeta.nsxcatsources` (`dev`'s column spelling; the block field is `nsexcatsources`), `npucatsources`: null when `[psfcat]` is off, needing migration `20260924-09` to drop that column's `NOT NULL` |
+| settings hash | manifest identity | the instance's logical key only; no legacy column |
+| infobits | manifest, `registration.infobits` | `refimages.infobits`: 0, `dev`'s TODO; no code sets bits |
+| checksum | manifest registration block, `md5` | `refimages.checksum` |
+| file path | manifest primary member | `refimages.filename` |
+| software version | allocation from the run's code revision | `refimages.svid`: one `swversions` row per code revision, made on first use, as `difference` allocates |
+| current flag, status | allocation; never current at registration | `refimages.vbest` 0, `status`: the block's `status`, 1 |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` |
+
+For the reference catalog (`reference` makes it, `register` records it;
+supervisor step 8, rulings R6-R7, 2026-09-24):
+
+| Field | Source | Column |
+|---|---|---|
+| catalog type | manifest identity, `key.catalog_type` | `refimcatalogs.cattype`: `sextractor` maps to 1, `psf` to 2 |
+| reference instance | manifest identity, `key.reference` | `refimcatalogs.rfid`, resolved from the reference instance: registered earlier in the same manifest, or already present in `refimages` |
+| field, filter | lookup on the `refimages` row | `field`, `hp6`, `hp9`, `fid`, copied from that row |
+| checksum | manifest registration block, `md5` | `refimcatalogs.checksum` |
+| file path | manifest primary member | `refimcatalogs.filename` |
+| status | manifest registration block | `status`: 1 |
+| differencer/recipe id | allocation | `ppid`: 12, the same row the reference image uses |
+| source count | manifest registration block, `source_count` | carried, not registered: `registerRefImCatalog` takes no such column, the same treatment the difference stage's `source-catalog` block gets until `load` |
+| run, attempt, instance ids | enclosing manifest and allocation | as `refimages` |
 
 For the l2 image (`admit` makes it, `register` records it; admission is
 the one stage that reads the delivered header, so every header value the
@@ -317,12 +379,13 @@ lookups and defaults. It does not read product files.
 
 ## Not decided here
 
-- The registration field lists for the remaining kinds (reference
-  image, reference catalog, source catalog, the exports); each is fixed
-  with its stage. The source set's rows and result-set record, and the
-  `psf` block, are on the [load](load) page. The `alert-container`
-  registration block and the `alert-set` result set are on the
-  [alerts](alerts) page.
+- The registration field lists for the remaining kinds (source catalog,
+  and the `light-curve` and `catalog-export` exports); each is fixed
+  with its stage. The exports' declared contracts, pending the real
+  port, are on the [photometry](photometry) and [export](export) pages.
+  The source set's rows and result-set record, and the `psf` block, are
+  on the [load](load) page. The `alert-container` registration block
+  and the `alert-set` result set are on the [alerts](alerts) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - The alert outbox shape and the per-alert record are fixed on the

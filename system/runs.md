@@ -201,13 +201,18 @@ binding, but that alone does not block its deletion (supervisor step 3,
 2026-09-24). It first locks the run, verifies the owner, refuses if any
 attempt is queued, running or unresolved, if any frozen input binding
 of unfinished work or any provenance dependency of a retained output
-outside the run points into it, or if a row in `refimimages`,
-`refimcatalogs`, `refimmeta` or `xsources` references one of the run's
-rows (those tables are not in the cleanup set below, so such a
-reference refuses the whole delete rather than leaving an orphan;
-supervisor step 3, 2026-09-24), and marks the run deleting, in one
-transaction. Attempt allocation, input binding and result acceptance
-use the same run fence and refuse a deleting or deleted run.
+outside the run points into it, or if a row in `xsources` references
+one of the run's rows (that table is not in the cleanup set below, so
+such a reference refuses the whole delete rather than leaving an orphan;
+supervisor step 3, 2026-09-24), or if a row in `refimimages`,
+`refimcatalogs` or `refimmeta` belonging to a *different* run's
+reference references one of the run's rows -- its own reference's
+satellite rows are removed by cleanup below, not refused (supervisor
+step 8, 2026-09-24, amending step 3's wording, which had none of the
+three in the cleanup set at all and so refused even a run's own
+reference) -- and marks the run deleting, in one transaction. Attempt
+allocation, input binding and result acceptance use the same run fence
+and refuse a deleting or deleted run.
 
 Before touching storage, every attempt's output location must lie in
 the scratch bucket under `runs/<run-id>/`; otherwise the whole delete
@@ -222,7 +227,15 @@ instance rows deleted (`deletion_state`) and marks the run deleted
 where the `run` column equals the run being deleted; `l2files` and
 `l2filemeta` join the set because a scratch run's admitted rows are
 its own, and the fence already refuses when another run binds them
-(supervisor step 3, 2026-09-24). Rows with `run` NULL, which is
+(supervisor step 3, 2026-09-24). `refimimages`, `refimcatalogs` and
+`refimmeta` carry no `run` column of their own -- they are reached only
+through the `refimages` row's `rfid` -- so the same transaction deletes
+them first, joined through this run's own `refimages` rows, before
+deleting those `refimages` rows; a reference belonging to another run is
+untouched, and the refusal check above already keeps this run's rows
+from being deleted out from under it (supervisor step 8, 2026-09-24,
+amending step 3, which left the three tables out of the cleanup set
+entirely). Rows with `run` NULL, which is
 everything `dev` wrote, are never touched (lead, 2026-09-23). Failure
 before the final transaction leaves the run deleting, and re-running
 cleanup on a deleting run resumes it from wherever it stopped
