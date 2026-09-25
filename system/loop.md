@@ -249,9 +249,13 @@ or a producer run that is deleting or deleted -- fails with that reason,
 and can fail before any unit exists, when nothing has run yet to give
 `--retry-failed` a failed or cancelled unit to seed. A later `loop run`
 reopens such a failed row -- one whose run has no failed or cancelled
-unit -- and resumes it with the same run, recording the reopen, rather
-than leaving it stuck failed with nothing for `--retry-failed` to act on
-(supervisor step 9, ruling R2, 2026-09-25).
+unit -- and resumes it with the same run: the row returns to `open`,
+its failure moves to `record.previous_failures`, and the reopen's time
+is appended to `record.reopened` (`loop plan` shows this as
+`action=reopen`). A row with a failed unit still takes `--retry-failed`'s
+seeded path instead, and a finished run's row is never reopened, since a
+finished run takes no new units (supervisor step 9, ruling R2,
+2026-09-25).
 
 `loop run` exits 0 when every date it processed reached `complete`, 1 on
 the first date that fails with no later date started, and 75 on a
