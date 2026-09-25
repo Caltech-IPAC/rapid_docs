@@ -33,6 +33,7 @@ remain in this repository's history.
 | [`export.md`](export) | DRAFT | The `export` stage as ported from `dev`'s `generateSourceHATSCatalog.py`: the named source sets it reads, the CSV dump and the `hats-import` build, the `catalog-export` bundle and registration, its settings and exit codes; the light-curve catalog is the next port |
 | [`releases.md`](releases) | DRAFT | The release tag and record, the `cut` command and its hook contract, migrations at release time, the launcher reading a release instead of a branch, promotion's released-image eligibility, deployed pins, and what is not yet decided |
 | [`tool.md`](tool) | DRAFT | The command-line tool `rapidpipe`, its operations mapped from the specification's Tools sentence onto subcommands, the input-set composer, the tool's own exit codes, personal submission from a workstation, and where it runs |
+| [`loop.md`](loop) | DRAFT | The processing-date loop: the operations-registry trigger, the venue and spec it runs from, the production run and stage chain per date, base-catalog binding across dates, promotion, its own records, and release binding |
 
 ```{toctree}
 :hidden:
@@ -54,4 +55,5 @@ photometry
 export
 releases
 tool
+loop
 ```
