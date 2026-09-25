@@ -382,12 +382,14 @@ lookups and defaults. It does not read product files.
 ## Not decided here
 
 - The registration field lists for the remaining kinds (source catalog,
-  and the `light-curve` and `catalog-export` exports); each is fixed
-  with its stage. The exports' declared contracts, pending the real
-  port, are on the [photometry](photometry) and [export](export) pages.
-  The source set's rows and result-set record, and the `psf` block, are
-  on the [load](load) page. The `alert-container` registration block
-  and the `alert-set` result set are on the [alerts](alerts) page.
+  and `light-curve`, `photometry`'s export); each is fixed with its
+  stage. `light-curve`'s declared contract, pending the real port, is on
+  the [photometry](photometry) page. `catalog-export`'s registration
+  field list is fixed with the `export` stage, on the [export](export)
+  page (supervisor step 8, 2026-09-24, ruling R12). The source set's
+  rows and result-set record, and the `psf` block, are on the
+  [load](load) page. The `alert-container` registration block and the
+  `alert-set` result set are on the [alerts](alerts) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - The alert outbox shape and the per-alert record are fixed on the
