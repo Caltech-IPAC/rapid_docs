@@ -24,11 +24,11 @@ deletes run data.
 
 | Table | One row per | Key columns |
 |---|---|---|
-| `runs` | run | id, kind (`scratch`, `production`), owner login, created, state (`open`, `finished`, `deleting`, `deleted`), purpose, selected stages, code revision, image digest, schema version, settings overlay ref, input selection ref, lane, resource profile, database target, max attempts per unit, auto-promote flag, check-policy ref, seed run, expires at, pinned, deleted at |
+| `runs` | run | id, kind (`scratch`, `production`), owner login, created, state (`open`, `finished`, `deleting`, `deleted`), purpose, selected stages, code revision, image digest, release, schema version, settings overlay ref, input selection ref, lane, resource profile, database target, max attempts per unit, auto-promote flag, check-policy ref, seed run, expires at, pinned, deleted at |
 | `units` | piece of work in a run | run, stage, unit kind, unit id, state (`pending`, `ready`, `running`, `complete`, `failed`, `cancelled`), selected attempt, cancel reason |
 | `unit_inputs` | frozen input binding | unit, producer instance |
 | `attempts` | execution of a unit | id, run, stage, unit, started, ended, exit code, disposition (null while queued or running; `succeeded`, `failed`, `transient`, `killed`, `lost`), output location, execution record, scheduler job id |
-| `execution_records` | attempt | attempt, source revision, working-copy patch, image digest, schema version, resolved settings, settings hash, scheduler metadata; contents stored, not referenced into the run prefix |
+| `execution_records` | attempt | attempt, source revision, working-copy patch, image digest, release, schema version, resolved settings, settings hash, scheduler metadata; contents stored, not referenced into the run prefix |
 | `product_instances` | product an attempt made, file or result set | instance id, kind, logical key, run, producing stage, producing attempt, registering attempt, custody (`scratch`, `candidate`, `current`), format version, primary location, manifest ref, published at, deletion state |
 | `product_members` | file in a bundle | instance, role, path, bytes, sha256 |
 | `result_sets` | one-to-one extension of an instance that is rows | instance, complete flag, row count |
@@ -151,10 +151,15 @@ required checks refuse promotion. Every provenance dependency must
 identify a complete, retained instance in project custody; a dependency
 need not be current. The replacement's kind and logical key must equal
 the requested pair, it must be retained, and a result set must be
-complete. Validation against a released image digest and the check
-policy is deferred to the releases and checks steps as a trial
-exception; until then their absence is recorded, not treated as passing
-(supervisor step 3, 2026-09-24). Automatic promotion stays disabled
+complete. Validation against a released image digest is now
+implemented, closing the trial exception recorded here for step 3: every
+deliverable's selected producing attempt must have an execution record
+whose image digest is a complete release's digest, or the promotion is
+refused unless the operator passes the explicit unreleased exception
+(the [releases](releases) page has the record and the check; supervisor
+step 5, 2026-09-24). Validation against the check-policy version above
+is unaffected by this and remains as stated. Automatic promotion stays
+disabled
 until the lead approves its policy; reprocessing is a production run
 with auto-promote off.
 
@@ -326,7 +331,10 @@ login's password in Secrets Manager under
 job definition, revision-pinned to an image digest. Practised
 2026-09-22/23: trial database `rapid_rebuild`, service login
 `rapid_rebuild_pipeline`, tree `/rapid/rebuild`, job definition
-`rapid-rebuild`.
+`rapid-rebuild`. A run created under a release submits to the revision
+that release's record deployed for the run's kind, not whatever
+revision the job definition currently pins (the [releases](releases)
+page has the mechanism; supervisor step 5, 2026-09-24).
 
 ## Python interface
 

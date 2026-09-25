@@ -208,7 +208,9 @@ supports; each run records the image digest and schema version it used.
 working copy. A candidate becomes current only if its recorded image is a
 released artifact; tagging related source afterwards is not enough.
 Schema deployment documents migration order, compatibility with active
-runs, and recovery, before operations move to a release.
+runs, and recovery, before operations move to a release. The release
+mechanism, its record and its command are on the [releases](releases)
+page (supervisor step 5, 2026-09-24).
 
 ## Edges
 
