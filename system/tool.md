@@ -40,6 +40,7 @@ names:
 | A stage directly | `stage run <name> …` (a synonym of `stage <name> …`, the frozen invocation form the container's entrypoint calls), `stage list`, `stage describe <name>` |
 | Fixtures | `selftest --stage` |
 | Releases | `release cut\|show\|list\|verify` ([releases](releases), supervisor step 5, 2026-09-24) |
+| The processing-date loop | `loop run\|plan\|show` ([loop](loop), supervisor step 7, 2026-09-24) |
 
 `run start <run> --unit <u> [--stage <s>]` walks the run's selected
 stages in order, or the one named stage: a complete unit is skipped; a
@@ -148,9 +149,9 @@ revisions this step touches are none (R8).
 ## Not decided here
 
 - The field-level input resolver — which reference a field should use
-  among several eligible ones — and the scheduler's own use of
-  `run start` for a processing-date loop: both the seventh supervisor
-  step's.
+  among several eligible ones: still open, and not resolved by the
+  seventh supervisor step's own field-level binding either (the
+  [loop](loop) page, supervisor step 7, 2026-09-24).
 - `--only-failed` on `run start`: the sixth supervisor step's.
 - The automatic check gate `run promote` consults: the sixth supervisor
   step's, and scientific content besides.

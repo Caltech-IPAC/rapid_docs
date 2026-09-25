@@ -121,6 +121,11 @@ new revision, and a run still reading the earlier release needs the
 earlier revision to still exist. Retention of superseded revisions is a
 systems-repository concern, not a pipeline one.
 
+The processing-date loop's binding to a release is resolved on the
+[loop](loop) page: the loop's spec names the release, and the scheduled
+operation checks that tag out before running each date (supervisor step
+7, 2026-09-24).
+
 ## Promotion eligibility
 
 Promotion checks executed provenance, not a tag on a commit: every
@@ -156,8 +161,6 @@ behaves, not as a gate the cut itself waits on (ruling R9, 2026-09-24).
 - Signing of tags or images.
 - The `v1` cutover and whether the production database becomes a
   release target.
-- The scheduler's binding of a processing-date loop to a release,
-  deferred to the specification's sequencing step 7.
 - Whether a release change overlaps for consumers mid-migration or
   switches by pointer: the specification's own "Not decided here" list
   carries this one.

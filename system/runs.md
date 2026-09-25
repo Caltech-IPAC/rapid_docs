@@ -60,7 +60,11 @@ becomes eligible to finish once every unit is terminal, but finishing
 is an explicit `finish` and not automatic; a finished run is never
 reopened (supervisor step 3, 2026-09-24). Seeding a new run copies
 configuration and permitted input selections; it does not authorise
-reuse of another run's scratch outputs.
+reuse of another run's scratch outputs. A run the processing-date loop
+creates carries its spec's owner as its own owner and the spec's
+location as its `input_selection_ref`; a promotion the loop performs
+records `who = scheduler` (the [loop](loop) page, supervisor step 7,
+2026-09-24).
 
 Scratch runs receive a default `expires_at` of fourteen days after
 creation. `pinned` holds a run past that date. An expiry sweep deletes

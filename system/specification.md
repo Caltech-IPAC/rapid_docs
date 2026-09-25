@@ -298,7 +298,7 @@ that CI verifies and the lead merges. Proposed order, earliest first:
 5. Releases: tagging, image build, the move of operations to a tag.
 6. Candidate checks, promotion and recovery, exercised by hand.
 7. The scheduled processing-date loop as self-running production, once
-   the above have been exercised.
+   the above have been exercised ([loop](loop) page).
 8. Slower pipelines and exports.
 
 ## Not decided here
