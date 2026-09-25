@@ -25,9 +25,9 @@ deletes run data.
 | Table | One row per | Key columns |
 |---|---|---|
 | `runs` | run | id, kind (`scratch`, `production`), owner login, created, state (`open`, `finished`, `deleting`, `deleted`), purpose, selected stages, code revision, image digest, release, schema version, settings overlay ref, input selection ref, lane, resource profile, database target, max attempts per unit, auto-promote flag, check-policy ref, seed run, expires at, pinned, deleted at |
-| `units` | piece of work in a run | run, stage, unit kind, unit id, state (`pending`, `ready`, `running`, `complete`, `failed`, `cancelled`), selected attempt, cancel reason |
+| `units` | piece of work in a run | run, stage, unit kind, unit id, state (`pending`, `ready`, `running`, `complete`, `failed`, `cancelled`), selected attempt, cancel reason, seeded-from unit |
 | `unit_inputs` | frozen input binding | unit, producer instance |
-| `attempts` | execution of a unit | id, run, stage, unit, started, ended, exit code, disposition (null while queued or running; `succeeded`, `failed`, `transient`, `killed`, `lost`), output location, execution record, scheduler job id |
+| `attempts` | execution of a unit | id, run, stage, unit, started, ended, exit code, disposition (null while queued or running; `succeeded`, `failed`, `transient`, `killed`, `lost`), output location, inputs location, settings location, execution record, scheduler job id |
 | `execution_records` | attempt | attempt, source revision, working-copy patch, image digest, release, schema version, resolved settings, settings hash, scheduler metadata; contents stored, not referenced into the run prefix |
 | `product_instances` | product an attempt made, file or result set | instance id, kind, logical key, run, producing stage, producing attempt, registering attempt, custody (`scratch`, `candidate`, `current`), format version, primary location, manifest ref, published at, deletion state |
 | `product_members` | file in a bundle | instance, role, path, bytes, sha256 |
@@ -66,6 +66,32 @@ location as its `input_selection_ref`; a promotion the loop performs
 records `who = scheduler` (the [loop](loop) page, supervisor step 7,
 2026-09-24).
 
+`run create --seed <run> --only-failed` is the recovery form of
+seeding, and what it copies
+depends on the seed's own kind, since a scratch run's outputs are
+usable only within their own run and a production run's are not. A
+production seed's recovery run copies the seed's release (or code
+revision and image digest), settings and input refs, lane, resource
+profile, database target, max attempts and check-policy ref, sets
+`purpose` to name the seed it recovers, and takes `selected_stages`
+from the seed's own list starting at the earliest stage holding a
+non-complete unit — one in state `failed` or `cancelled`, or `running`
+with a job-less or `lost` attempt. From that position it creates one
+new `pending` unit for every non-complete unit anywhere in the seed, at
+that stage or any later one, each carrying `units.seeded_from_unit` and
+the seed unit's own frozen `unit_inputs` bindings copied across — a
+copied binding points at the same producer instance the seed unit
+already depended on, so the existing deletion fence already protects
+it, the same as any other frozen input binding of unfinished work.
+`run start` skips a stage the seed already completed and walks straight
+to the seeded units. A scratch seed's recovery run instead recreates
+every unit from the first stage, carrying over only the first stage's
+inputs and settings from the seed, since later stages must regenerate
+their inputs within the new run exactly as a fresh run does. It
+refuses, exit 64, when the seed
+has no non-complete unit or is deleting or deleted; `--only-failed`
+without `--seed` is a usage error (supervisor step 6, 2026-09-24).
+
 Scratch runs receive a default `expires_at` of fourteen days after
 creation. `pinned` holds a run past that date. An expiry sweep deletes
 unpinned scratch runs past their `expires_at`, through the same
@@ -89,7 +115,11 @@ own unit id is `<producing stage>/<producing unit id>` (for example
 derived from the manifest `register` reads: one `register` unit follows
 every producer, with no occurrence counter, and it is runnable singly
 for one producer at a time (lead, 2026-09-23). This applies from the
-next run; rows a run wrote before it stay as they are.
+next run; rows a run wrote before it stay as they are. A unit created
+by `run create --seed <run> --only-failed` carries
+`units.seeded_from_unit`, the seed run's unit it re-runs; it enters the
+state machine above as an ordinary new `pending` unit, with no separate
+path (supervisor step 6, 2026-09-24).
 
 **Input-set composition.** A stage declares its input set by product
 kind and role. The launcher resolves each entry from this run's own
@@ -114,7 +144,22 @@ attempt. The run records the maximum attempts per unit, counting the
 first attempt and all Batch retries; only code 75 and explicitly
 approved infrastructure failures are retried; an exhausted allowance
 fails the unit. `lost` means the scheduler lost the job: unresolved
-execution, treated as a possible writer until resolved.
+execution, treated as a possible writer until resolved. `submit_unit`
+records the input-set and settings locations it resolved for the
+attempt on `attempts.inputs_location` and `attempts.settings_location`,
+alongside the frozen bindings `unit_inputs` already carries (supervisor
+step 6, 2026-09-24). `run reconcile --resolve-jobless [--older-than
+SECONDS]`, default 600 seconds, first looks for a scheduler job under
+the attempt's own deterministic job name; exactly one match repairs the
+attempt, recording that job id rather than treating it as job-less, and
+an ambiguous match is left alone. Only once an attempt has no
+disposition, no scheduler job and no repair, past that age, does
+reconcile lock it and record it `lost`, with a null exit code and a
+reconcile note explaining why; the unit returns to `ready` while
+attempts remain under its allowance, or `failed` otherwise. This is how
+a job-less running attempt — the one `run start` used to exit 64 on
+without a way to move past it — is resolved rather than left open
+indefinitely (supervisor step 6, 2026-09-24).
 
 **Instances.** `register` preserves the instance ids and the producing
 run, stage and attempt recorded in the manifest, and records the
@@ -149,9 +194,13 @@ snapshot.
 
 **Promotion eligibility.** Automatic and manual promotion require
 completed, selected outputs, a recorded image digest identifying a
-released artifact, and passing results for every required check in the
-applicable lead-approved check-policy version. Missing or failed
-required checks refuse promotion. Every provenance dependency must
+released artifact, and passing results for every required check under
+the resolved check-policy version — an explicit `--check-policy`, then
+the run's own `check_policy_ref`, then the default `rebuild-trial@1`;
+no unchecked exception exists, so a deliverable of a kind the policy
+covers always goes through the gate ([checks](checks) page, supervisor
+step 6, 2026-09-24). Missing or failed required checks refuse
+promotion. Every provenance dependency must
 identify a complete, retained instance in project custody; a dependency
 need not be current. The replacement's kind and logical key must equal
 the requested pair, it must be retained, and a result set must be
@@ -356,25 +405,35 @@ page has the mechanism; supervisor step 5, 2026-09-24).
 
 ## Python interface
 
-`rapidpipe.runs`, in its `repository` and `cleanup` modules, and
-`rapidpipe.launch.batch` are the interface the command-line tool and
-the scheduler build on, as the specification's Tools section names them
-(supervisor step 3, 2026-09-24).
+`rapidpipe.runs`, in its `repository` and `cleanup` modules,
+`rapidpipe.launch.batch`, and `rapidpipe.checks`, in its `policy` and
+`runner` modules, are the interface the command-line tool and the
+scheduler build on, as the specification's Tools section names them
+(supervisor step 3, 2026-09-24; the `checks` package added supervisor
+step 6, 2026-09-24).
 
 | Function | Does |
 |---|---|
-| `create_run(conn, kind, owner, purpose, selected_stages, code_revision, image_digest, schema_version, settings_overlay_ref, input_selection_ref, lane, resource_profile, database_target, max_attempts_per_unit, auto_promote, check_policy_ref, seed_run=None, expires_at=None) -> run_id` | Inserts the run row and returns its id. |
-| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Starts one unit on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's. |
+| `create_run(conn, kind, owner, purpose, selected_stages, code_revision, image_digest, schema_version, settings_overlay_ref, input_selection_ref, lane, resource_profile, database_target, max_attempts_per_unit, auto_promote, check_policy_ref, seed_run=None, expires_at=None) -> run_id` | Inserts the run row and returns its id; validates that `check_policy_ref` names a real policy and refuses `auto_promote` unless that policy permits it (`CheckPolicyRefused`). |
+| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Starts one unit on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's; records the resolved `inputs_location`/`settings_location` on the attempt. |
 | `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
 | `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
-| `promote(conn, who, reason, changes, check_policy_version=None, check_result_ids=(), request_context=None) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, logical_key, expected_before, after)`, either instance nullable. |
-| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy_version=None) -> promotion_id` | Builds the run's default deliverable list, optionally narrowed to `kinds`, and calls `promote` with it. |
+| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, logical_key, expected_before, after)`, either instance nullable, validated under `check_policy` ([checks](checks) page). |
+| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy: Policy \| str \| None = None, allow_unreleased=False) -> promotion_id` | Builds the run's default deliverable list, optionally narrowed to `kinds`, and calls `promote` with it. |
 | `rollback_promotion(conn, promotion_id, who, reason) -> promotion_id` | Submits a past promotion's inverse mapping as a new promotion. |
 | `finish_run(conn, run_id) -> None` | Marks a run finished; refuses unless every unit is terminal. |
 | `mark_run_deleting(conn, run_id, requested_by, *, expiry=False) -> None` | The deletion fence: locks the run, runs the pre-deletion checks, and marks it deleting. `delete_run` calls it first; `expiry=True` marks the caller as the expiry sweep rather than the run's owner. |
 | `delete_run(conn, run_id, requested_by, *, s3_client=None, scratch_bucket=None, expiry=False) -> DeletionReport` | Runs guarded deletion on a scratch run, committing internally rather than inside the caller's transaction; the report lists the objects, versions and per-table rows removed and the instances marked deleted. |
 | `expire_runs(conn, *, now=None, s3_client=None) -> list[DeletionReport]` | Calls `delete_run` with `expiry=True` for every unpinned scratch run past its `expires_at`. |
 | `pin_run(conn, run_id, pinned) -> None` | Sets or clears a run's `pinned` flag. |
+| `resolve_run_policy(conn, run_id, explicit=None) -> Policy`, in `rapidpipe.checks.runner` | Resolves the policy `run promote` and `run start`'s auto-promote validate against: an explicit ref, then the run's `check_policy_ref`, then `rebuild-trial@1`. |
+| `run_policy_checks(conn, run_id, policy, *, instance=None, check=None, param_overrides=None, who=None) -> list[RecordedCheck]`, in `rapidpipe.checks.runner` | Runs every applicable policy check over the run's candidate instances from their selected attempts, or one named instance or check, and records a `checks` row for each; `check run` builds on it. |
+| `recorded_checks(conn, run_id, *, instance=None) -> list[RecordedCheck]`, in `rapidpipe.checks.runner` | Returns the run's recorded check results, newest first; `check show` prints them. |
+| `maybe_auto_promote(conn, run_id, *, who="auto-promote") -> AutoPromoteOutcome`, in `rapidpipe.checks.runner` | Called at the end of a `run start` walk once every unit is complete; with the run's `auto_promote` flag true, resolves the policy, runs its checks over the run's candidates and calls `promote_run` on a pass; the outcome's status is `off`, `skipped`, `refused` or `promoted`. |
+| `failed_rerun_plan(conn, seed_run) -> FailedRerunPlan`, in `rapidpipe.runs.repository` | Computes the recovery plan `run create --seed --only-failed` executes: the earliest non-complete position, the seed's stage list, and the non-complete units to seed — or, for a scratch seed, the first stage's units to recreate. |
+| `seed_failed_units(conn, *, seed_run, new_run) -> list[str]`, in `rapidpipe.runs.repository` | Creates the new run's seeded units from a `FailedRerunPlan`, copying each seed unit's `unit_inputs` bindings, and returns the created unit ids. |
+| `record_attempt_locations(conn, attempt_id, inputs_location, settings_location) -> None`, in `rapidpipe.runs.repository` | Records the input-set and settings locations `submit_unit` resolved for an attempt, on `attempts.inputs_location` and `attempts.settings_location`. |
+| `resolve_jobless(conn, *, run_id, older_than_seconds, client=None) -> list[Reconciled]`, in `rapidpipe.launch.batch` | Implements `run reconcile --resolve-jobless`: for each job-less attempt, looks first for a scheduler job under its deterministic job name and repairs the attempt on exactly one match, otherwise records it `lost` once past the age threshold. |
 
 The command-line tool's `run create`, `submit`, `reconcile`, `cancel`,
 `promote`, `rollback`, `delete`, `finish`, `pin` and `unpin` are thin
@@ -385,5 +444,4 @@ step 4, 2026-09-24).
 
 ## Not decided here
 
-- The approved check policy that turns auto-promote on.
 - The scratch expiry warning mechanics.

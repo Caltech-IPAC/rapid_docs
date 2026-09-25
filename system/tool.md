@@ -28,15 +28,16 @@ names:
 
 | Operation | Subcommand |
 |---|---|
-| Create a run | `run create` (`--seed <run>` records lineage only — it inherits no settings and no input references from the seeding run; `--release <tag>` is the [releases](releases) page's) |
+| Create a run | `run create` (`--seed <run>` records lineage only — it inherits no settings and no input references from the seeding run, unless paired with `--only-failed`, which makes it a recovery run over the seed's non-complete units instead — the [runs](runs) page has the mechanics; `--release <tag>` is the [releases](releases) page's; `--auto-promote --check-policy P` is refused unless P permits automatic promotion — the [checks](checks) page has the gate; supervisor step 6, 2026-09-24) |
 | Start a stage or the whole loop | `run start` |
 | Rerun part of a run | `run start --stage <stage>` |
 | Watch progress | `run status [--watch]`, `run show` |
 | Cancel and restart from failure | `run cancel <attempt>`, then `run start` |
 | List and compare runs | `run list`, `run compare <a> <b>` |
-| Promote a candidate | `run promote`, `run rollback` |
+| Promote a candidate | `run promote --check-policy P` (defaults to the run's own `check_policy_ref`, then `rebuild-trial@1`), `run rollback` ([checks](checks) page has the gate; supervisor step 6, 2026-09-24) |
 | Delete scratch | `run delete`, `run expire`, `run pin` / `run unpin` |
-| One unit by hand | `run submit`, `run reconcile`, `run local` |
+| One unit by hand | `run submit`, `run reconcile` (`--resolve-jobless [--older-than SECONDS]` records a job-less attempt `lost` — the [runs](runs) page has the mechanics; supervisor step 6, 2026-09-24), `run local` |
+| Verify a candidate | `check list`, `check run <run> [--policy P] [--instance I] [--check NAME@V]`, `check show <run>` ([checks](checks), supervisor step 6, 2026-09-24) |
 | A stage directly | `stage run <name> …` (a synonym of `stage <name> …`, the frozen invocation form the container's entrypoint calls), `stage list`, `stage describe <name>` |
 | Fixtures | `selftest --stage` |
 | Releases | `release cut\|show\|list\|verify` ([releases](releases), supervisor step 5, 2026-09-24) |
@@ -152,8 +153,8 @@ revisions this step touches are none (R8).
   among several eligible ones: still open, and not resolved by the
   seventh supervisor step's own field-level binding either (the
   [loop](loop) page, supervisor step 7, 2026-09-24).
-- `--only-failed` on `run start`: the sixth supervisor step's.
-- The automatic check gate `run promote` consults: the sixth supervisor
-  step's, and scientific content besides.
+- The automatic check gate `run promote` consults is on the
+  [checks](checks) page; the lead-approved policy content behind it is
+  scientific and stays undecided there (supervisor step 6, 2026-09-24).
 - Removal of the transitional direct cleanup attachment on the
   workstation role, once the assumed-role path is proven.
