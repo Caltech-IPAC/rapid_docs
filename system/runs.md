@@ -178,19 +178,21 @@ indefinitely (supervisor step 6, 2026-09-24).
 
 A retry's own `done_check` -- whether a database-writing stage reuses
 an already-complete result set instead of writing a new one -- reads an
-attempt's disposition, not only whether its result set is complete: a
-set is reused only when its producing attempt is the retrying attempt
-itself or an attempt whose disposition is `succeeded`. A set an earlier
-attempt committed and then failed after, or one left by an attempt with
-no disposition that is not the one asking, is never reused; the retry
-writes a fresh set under its own instance, and the orphaned set's rows
-stay the run's own rows, kept until the run is deleted, but unreachable
-because their producer is never the selected attempt. `load`'s and
-`crossmatch`'s, `statistics`' and `prune`'s `done_check` all resolve
-through this one rule, `db/sources.find_complete_source_set` and
+attempt's disposition, not only whether its result set is complete. The
+rule: a stage's done check reuses a complete, retained result set of
+this run with the same kind and logical key only when that set's
+producing attempt is the calling attempt or an attempt whose
+disposition is `succeeded`. A set left by an attempt that committed
+rows and then failed, or by another attempt still without a
+disposition, is not reused: the retry writes a new set under its own
+instance, and the orphaned set's rows stay the run's own rows, kept
+until the run is deleted, but unreachable because their producer is
+never the selected attempt. `load`'s, `crossmatch`'s, `statistics`' and
+`prune`'s `done_check` all resolve through this one rule,
+`db/sources.find_complete_source_set` and
 `db/objects.find_complete_result_set`, each joining `attempts` for the
-producing attempt's disposition (supervisor step 9, 2026-09-25; the
-per-stage pages record each `done_check`'s own key).
+producing attempt's disposition (supervisor step 9, ruling R1,
+2026-09-25; the per-stage pages record each `done_check`'s own key).
 
 **Instances.** `register` preserves the instance ids and the producing
 run, stage and attempt recorded in the manifest, and records the

@@ -164,16 +164,18 @@ informational:
 `source-catalog/positive` and `source-catalog/negative`.
 
 `dev` skips a job whose `source_dbload_jid<jid>.done` file exists. The
-rebuild's form is `[load] done_check`: a complete source set with the same
-key already loaded in the same run, whose producing attempt is this
-attempt or one whose disposition is `succeeded`, is reused, nothing is
-written, and the manifest names that instance. A set left by an attempt
-that loaded rows and then failed is not reused: the retry loads a fresh
-set under its own instance instead, and the earlier set's rows remain
-the run's own rows, unreachable because no later stage selects an
-unsucceeded attempt's output (`db/sources.find_complete_source_set`,
-joining `attempts`; supervisor step 9, ruling R1, 2026-09-25, the
-[runs](runs) page has the general rule).
+rebuild's form is `[load] done_check`: a complete, retained source set of
+this run with the same key is reused, nothing is written, and the
+manifest names that instance, only when that set's producing attempt is
+the calling attempt or an attempt whose disposition is `succeeded`. A
+set left by an attempt that committed rows and then failed, or by
+another attempt still without a disposition, is not reused: the retry
+loads a fresh set under its own instance instead, and the earlier set's
+rows remain the run's own rows, unreachable because no later stage
+selects an unsucceeded attempt's output
+(`db/sources.find_complete_source_set`, joining `attempts`; supervisor
+step 9, ruling R1, 2026-09-25, the [runs](runs) page has the general
+rule).
 
 ## Settings
 

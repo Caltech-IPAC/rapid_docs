@@ -151,28 +151,31 @@ within their own run. Ruled by the lead 2026-09-21 as an amendment to
 the specification's sharing rule, so that production can accumulate a
 catalog across processing dates.
 
-"Readable by any run" is narrower than it sounds: a stage may read a
-result set (`source-set`, `association-set`, `statistics-set`,
-`pruned-set`) only when it is complete and retained, and either it
-belongs to the reading run, or its custody is `candidate` or `current`
--- a production run's own output -- and its producing attempt is the
-selected attempt of its unit. Another run's scratch set, or a set left
-by an attempt that was not selected, is refused as InputRejected (65),
-not silently skipped. One helper in `db/objects` enforces this for
-every reader: `source_set_table`, `association_chain`, and the set
-resolution `statistics`, `prune`, `alerts` and `export` each do;
+"Readable by any run" is narrower than it sounds. The rule: a stage of
+run R may read a result set only when it is complete and retained and
+either (a) it belongs to R, or (b) its custody is `candidate` or
+`current` and its producing attempt is the selected attempt of its
+unit. Another run's scratch set, or a set from an unselected attempt,
+is refused, exit 65. The rule applies to every set a read traverses:
+each link of an association chain, and each source set a set names, not
+only the set named directly. A same-run read needs completeness and
+retention, not selection, so a run may still name its own orphaned set
+-- only a cross-run read of any set anywhere in the chain needs its
+producing attempt to be selected. A candidate set of a production run
+whose promotion was refused by checks is readable under (b): a failed
+or missing check leaves a candidate, not a scratch set, and this rule
+does not distinguish a checked candidate from an unchecked one.
 `register_manifest` applies the same rule to a dependency edge whose
-producer lies outside the registering run. This closes the gap the
-sharing rule above left open -- which of another run's sets counts as
-"current" enough to read -- and is what keeps a still-running scratch
-attempt's half-written set out of a production run's crossmatch. The
-rule applies to every set a read traverses, not only the set named
-directly: each base an association chain walks, and each source set a
-set in that chain names, is checked the same way as the set that named
-it -- a same-run read needs only completeness and retention, never
-selection, but a cross-run read of any set anywhere in the chain still
-needs its producing attempt to be selected (supervisor step 9, ruling
-R2, 2026-09-25).
+producer is another run's result set; one helper in `db/objects`
+enforces the read side for every reader -- `source_set_table`,
+`association_chain`, and the set resolution `statistics`, `prune`,
+`alerts` and `export` each do. This closes the gap the sharing rule
+above left open: which of another run's sets counts as "current"
+enough to read, and is what keeps a still-running scratch attempt's
+half-written set out of a production run's crossmatch. The rule is not
+yet applied to file products -- l2 images, references, PSFs -- consumed
+across runs; that needs its own ruling (supervisor step 9, ruling R2,
+2026-09-25).
 
 ## Registration metadata
 
@@ -430,3 +433,7 @@ lookups and defaults. It does not read product files.
   to take before daily promotion of real deliveries, and it needs the
   lead (supervisor step 9, ruling R6, 2026-09-25, recorded open;
   carried from the residual step 6 raised the same way, 2026-09-24).
+- The cross-run result-set read rule ("Reading across runs", above)
+  is not yet applied to file products -- l2 images, references, PSFs --
+  consumed across runs; whether and how it should be needs its own
+  ruling (supervisor step 9, ruling R2, 2026-09-25, recorded open).
