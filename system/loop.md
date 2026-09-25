@@ -157,7 +157,11 @@ source set plus the base association set, below) → statistics
 (crossmatch's output) → prune (crossmatch's output). Then alerts per
 detector image, its input set the finalized difference image plus the
 template's reference catalog plus the source set, the field association
-sets and the field statistics sets, the recipe `compose-alerts-inputs.py`
+sets, the field statistics sets and, per field, the pruned set that
+field's own `prune` unit just wrote -- the [alerts](alerts) page's
+`pruned-set` binding (ruling R5), applied here as the loop's own
+composition step, so a date's alerts already exclude the pairs that
+date's `prune` found not-best -- the recipe `compose-alerts-inputs.py`
 already scripts. Submission and polling go through `submit_unit` and
 `reconcile`, as `run start` uses them for one unit at a time.
 

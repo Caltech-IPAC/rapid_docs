@@ -127,10 +127,22 @@ base already names one). The manifest entry has no members; its
 
 With `[prune] done_check` on (ruling R14, the default), a complete pruned
 set with the same key -- same base, same settings hash -- already written
-in this run is reused and nothing is written; `[prune] done_check = false`
-forces a fresh attempt, as a retry after the association set's sources'
-promotion state has changed needs. `dev` has no done file for this stage
-at all: `pruneNotBestMerges` always re-derives and re-deletes.
+in this run, whose producing attempt is this attempt or one whose
+disposition is `succeeded`, is reused and nothing is written; a set
+left by an attempt that committed and then failed is not reused, so a
+retry after a failed commit writes a fresh set rather than adopting the
+orphaned one (`db/objects.find_complete_result_set`, joining `attempts`;
+supervisor step 9, ruling R1, 2026-09-25, the [runs](runs) page has the
+general rule). `[prune] done_check = false` forces a fresh attempt, as a
+retry after the association set's sources' promotion state has changed
+needs. `dev` has no done file for this stage at all:
+`pruneNotBestMerges` always re-derives and re-deletes.
+
+Alerts may read a pruned set alongside the association set it excludes
+pairs from, at most one pruned set per association set, to exclude
+those pairs from the history it assembles for each alert; the
+[alerts](alerts) page has the binding (supervisor step 9, ruling R5,
+2026-09-25). This is the only consumer named for `prunedmerges` so far.
 
 ## Settings
 

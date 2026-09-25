@@ -90,7 +90,13 @@ In order, inside one transaction:
    chain names no source sets at all, exit 65; `dev` exits 7 when it
    finds no source tables.
 2. With `[statistics] done_check` on, reuse a complete statistics set
-   with the same key already written in this run (ruling R14).
+   with the same key already written in this run, whose producing
+   attempt is this attempt or one whose disposition is `succeeded`
+   (ruling R14; the attempt-disposition join is supervisor step 9,
+   ruling R1, 2026-09-25, `db/objects.find_complete_result_set` -- the
+   [runs](runs) page has the general rule). A set an earlier attempt
+   committed and then failed after is not reused; a fresh attempt
+   writes its own set instead.
 3. Make `astroobjectsmeta_<field>` if it does not exist, through
    `create_astroobjectsmeta_child_table`. The function applies `dev`'s
    fillfactor 70, unlogged storage, its `nsources` and Q3C `meanradec`

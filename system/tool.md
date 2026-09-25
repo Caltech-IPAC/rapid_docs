@@ -91,6 +91,19 @@ admission fence: a run that is finished, deleting or already deleted
 admits no new input set. `run delete` removes a run's inputs prefix
 along with its attempt outputs.
 
+Every submission now binds its input set, not only one composed by this
+command: `run submit`, `run start` and `run local` all bind the
+manifest at `--inputs` through `bind_unit_inputs` before allocating the
+attempt, whether that manifest came from `run inputs`, a producing
+stage's own completion manifest, or a hand-composed one. A name in the
+manifest that is not a registered product instance — a delivery
+manifest, a dev-era template entry — binds nothing and is logged rather
+than refused; a manifest that cannot be read refuses the submission.
+This is what makes a unit a live consumer of its declared inputs from
+submission, not only once it has produced an output of its own to
+depend on ([runs](runs) page, "Units", "Deletion"; supervisor step 9,
+ruling R4, 2026-09-25).
+
 This is the explicit, whole-input-set form of resolution: which
 reference among several eligible ones a field should use is not decided
 here (below).

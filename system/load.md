@@ -165,8 +165,15 @@ informational:
 
 `dev` skips a job whose `source_dbload_jid<jid>.done` file exists. The
 rebuild's form is `[load] done_check`: a complete source set with the same
-key already loaded in the same run is reused, nothing is written, and
-the manifest names that instance.
+key already loaded in the same run, whose producing attempt is this
+attempt or one whose disposition is `succeeded`, is reused, nothing is
+written, and the manifest names that instance. A set left by an attempt
+that loaded rows and then failed is not reused: the retry loads a fresh
+set under its own instance instead, and the earlier set's rows remain
+the run's own rows, unreachable because no later stage selects an
+unsucceeded attempt's output (`db/sources.find_complete_source_set`,
+joining `attempts`; supervisor step 9, ruling R1, 2026-09-25, the
+[runs](runs) page has the general rule).
 
 ## Settings
 

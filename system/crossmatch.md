@@ -216,12 +216,21 @@ The manifest entry has no members. Its `registration` block:
 
 A retry is a new attempt with a new instance. `[crossmatch] done_check`
 is the rebuild's form of a done file (ruling R14). A complete set with the
-same logical key already written in the same run is reused, nothing is
-written, and the manifest names that instance. Its `row_counts` then
-carries `astroobjects` and `merges` only. A retry can follow a failure
-after the rows committed but before the manifest was published. The done
-check then names the existing set instead of writing a second one. The
-gap itself is a stage-contract matter and is not closed here.
+same logical key already written in the same run, whose producing
+attempt is this attempt or one whose disposition is `succeeded`, is
+reused, nothing is written, and the manifest names that instance. Its
+`row_counts` then carries `astroobjects` and `merges` only. A retry can
+follow a failure after the rows committed but before the manifest was
+published; against this attempt's own prior try the done check names
+the existing set instead of writing a second one, since the earlier try
+is "this attempt" even with no disposition recorded yet. Against a
+different attempt that committed rows and then failed, the done check
+does not reuse it: that set's rows stay the run's own, but a fresh
+attempt writes a fresh set (`db/objects.find_complete_result_set`,
+joining `attempts`; supervisor step 9, ruling R1, 2026-09-25, the
+[runs](runs) page has the general rule). The gap between a committed
+write and a published manifest itself is a stage-contract matter and is
+not closed here.
 
 ## Settings
 

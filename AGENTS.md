@@ -192,3 +192,39 @@ on anything outside it.
   A practitioner's rules for writing agent instruction files: positive
   examples over negative ones, options shown in examples rather than
   reference lists restated, several small files over one kitchen sink.
+
+## The system section, as landed (2026-09-25)
+
+`system/` holds one page per register: `specification.md` is the design
+authority; `products.md`, `runs.md` and `stage-contract.md` are the
+three model pages everything else builds on; each pipeline stage has
+its own page (`reference`, `difference`, `load`, `maintain`,
+`crossmatch`, `statistics`, `finalize`, `alerts`, `prune`,
+`photometry`, `export`); and `releases.md`, `tool.md`, `loop.md` and
+`checks.md` cover the mechanisms that run stages rather than a stage
+itself. `index.md`'s table is the map: its Scope column names what each
+page owns, and a page's own content should never drift from that line.
+
+A ruling lands on the one page that governs the decision it makes, as a
+dated, attributed sentence or paragraph, not a changelog entry: dated
+with the day it was made, attributed to the supervisor step that made
+it (or "the lead", "the general", when that is who made it) and worded
+into the page's own prose, in the same pull request as the code it
+rules on. A page that only points at where a ruling lives, without the
+ruling's own content, has not recorded it.
+
+The specification's "Not decided here" list, and each page's own, hold
+open questions, not permanent fixtures. A bullet leaves the list only
+when some page states the decision that closes it, with its own dated
+ruling; removing a bullet without a page deciding it is not maintenance,
+it is losing the question. A page may narrow a bullet it does not fully
+close, and should say so, pointing at the page and ruling that narrowed
+it, rather than leave the specification's wording stale beside a page
+that has moved past it.
+
+Status lines: **DRAFT** is a page under iteration, current with the
+code as landed but not yet reviewed as a whole; **STUB** is a page for
+a stage that is declared, with its contract and settings fixed, but not
+yet ported; **ADOPTED** is normative and used for nothing in this
+rebuild yet, since the team's review at the SMDC cutover is what grants
+it, page by page.

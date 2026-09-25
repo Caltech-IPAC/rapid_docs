@@ -131,7 +131,16 @@ input selection names that instance explicitly. The resolved binding is
 written to `unit_inputs` before execution, and the manifest a stage
 reads is generated from that binding; a hand-composed manifest is a
 test path, not how a production run assembles its inputs (lead,
-2026-09-23).
+2026-09-23). `submit_unit` and `run local` now perform this binding
+before allocating the attempt, not only after the stage's output is
+registered: every `instance` the input-set manifest names, in
+`inputs.products` and `inputs.result_sets`, that is a registered
+product instance becomes a `unit_inputs` row through
+`bind_unit_inputs`; a name that is not a registered instance -- a
+delivery manifest, or a dev-era template entry -- binds nothing and is
+logged, and a manifest that cannot be read refuses the submission,
+since the deletion guard's basis is this binding (supervisor step 9,
+2026-09-25).
 
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
@@ -160,6 +169,22 @@ attempts remain under its allowance, or `failed` otherwise. This is how
 a job-less running attempt — the one `run start` used to exit 64 on
 without a way to move past it — is resolved rather than left open
 indefinitely (supervisor step 6, 2026-09-24).
+
+A retry's own `done_check` -- whether a database-writing stage reuses
+an already-complete result set instead of writing a new one -- reads an
+attempt's disposition, not only whether its result set is complete: a
+set is reused only when its producing attempt is the retrying attempt
+itself or an attempt whose disposition is `succeeded`. A set an earlier
+attempt committed and then failed after, or one left by an attempt with
+no disposition that is not the one asking, is never reused; the retry
+writes a fresh set under its own instance, and the orphaned set's rows
+stay the run's own rows, kept until the run is deleted, but unreachable
+because their producer is never the selected attempt. `load`'s and
+`crossmatch`'s, `statistics`' and `prune`'s `done_check` all resolve
+through this one rule, `db/sources.find_complete_source_set` and
+`db/objects.find_complete_result_set`, each joining `attempts` for the
+producing attempt's disposition (supervisor step 9, 2026-09-25; the
+per-stage pages record each `done_check`'s own key).
 
 **Instances.** `register` preserves the instance ids and the producing
 run, stage and attempt recorded in the manifest, and records the
@@ -271,6 +296,20 @@ three in the cleanup set at all and so refused even a run's own
 reference) -- and marks the run deleting, in one transaction. Attempt
 allocation, input binding and result acceptance use the same run fence
 and refuse a deleting or deleted run.
+
+The guard's count of blocking consumers is live consumers only: a
+`dependencies` edge whose consumer instance is itself `deleted`, or a
+`unit_inputs` row whose unit belongs to a run that is itself `deleted`,
+does not block. A deleted run's own dependency and input-binding rows
+therefore stay as history -- they are never removed -- but stop
+counting against the run that produced what it once consumed, once that
+consuming run is gone (supervisor step 9, 2026-09-25). This is what
+makes the input binding above safe to write at submission rather than
+at output registration: a unit's frozen bindings, recorded through
+`bind_unit_inputs` before its attempt starts, make it a live consumer of
+its declared inputs from that point, and the guard now sees that
+consumer as soon as it exists, not only once it has produced something
+of its own to depend on (supervisor step 9, 2026-09-25).
 
 Before touching storage, every attempt's output location must lie in
 the scratch bucket under `runs/<run-id>/`; otherwise the whole delete
@@ -420,7 +459,8 @@ step 6, 2026-09-24).
 | Function | Does |
 |---|---|
 | `create_run(conn, kind, owner, purpose, selected_stages, code_revision, image_digest, schema_version, settings_overlay_ref, input_selection_ref, lane, resource_profile, database_target, max_attempts_per_unit, auto_promote, check_policy_ref, seed_run=None, expires_at=None) -> run_id` | Inserts the run row and returns its id; validates that `check_policy_ref` names a real policy and refuses `auto_promote` unless that policy permits it (`CheckPolicyRefused`). |
-| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Starts one unit on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's; records the resolved `inputs_location`/`settings_location` on the attempt. |
+| `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Binds the unit's inputs (`bind_unit_inputs`, below) before allocating the attempt, then starts it on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's; records the resolved `inputs_location`/`settings_location` on the attempt. |
+| `bind_unit_inputs(conn, *, unit_id, manifest) -> list[str]`, in `rapidpipe.runs.repository` | Writes a `unit_inputs` row for every `instance` the manifest names, in `inputs.products` and `inputs.result_sets`, that is a registered product instance; a name that resolves to no instance binds nothing and is logged, not refused; called by `submit_unit` and `run local` before allocating the attempt (supervisor step 9, 2026-09-25). |
 | `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
 | `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
 | `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, logical_key, expected_before, after)`, either instance nullable, validated under `check_policy` ([checks](checks) page). |

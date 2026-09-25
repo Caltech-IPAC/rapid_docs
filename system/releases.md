@@ -156,11 +156,34 @@ steps stop at deploy and pins. Selftests run on Batch under the newly
 deployed revision afterwards, as evidence that the deployed image
 behaves, not as a gate the cut itself waits on (ruling R9, 2026-09-24).
 
+## A run never spans a release
+
+A run's release is fixed at its creation, by `run create --release`,
+and every attempt it submits reads that same release's recorded
+job-definition revision -- kept `ACTIVE` past its own release by
+`SkipDeregisterOnUpdate` -- so a run never picks up a later cut's
+revision mid-flight, and its execution records and `schema_version`
+all carry the one release it was created under. This is what makes
+cutting a release while other runs are still open safe, provided
+migrations stay additive: new tables and nullable columns only, never a
+drop or rename of anything an earlier release's still-open runs read.
+That additivity is now a stated constraint of the migration rule above,
+not an assumption a concurrent cut could quietly violate (ruling R7,
+supervisor step 9, 2026-09-25, closing step 5's residual 1).
+
+## Concurrent cuts are serialised
+
+`release cut` refuses to start -- before it tags anything -- while any
+`releases` row is in a state other than `complete`, unless `--resume`
+names that row; the refusal names the row holding up the new cut. Two
+cuts racing each other on the same repository would otherwise both
+tag, migrate and deploy against a moving record; the record itself is
+now the lock; a `--resume` of the row already in flight is the way
+through it, not a second `cut` (ruling R8, supervisor step 9,
+2026-09-25, closing step 5's residual 2).
+
 ## Not decided here
 
 - Signing of tags or images.
 - The `v1` cutover and whether the production database becomes a
   release target.
-- Whether a release change overlaps for consumers mid-migration or
-  switches by pointer: the specification's own "Not decided here" list
-  carries this one.
