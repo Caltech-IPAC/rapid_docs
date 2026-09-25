@@ -75,7 +75,15 @@ but left unused is designed in, off by default (lead, 2026-09-22).
 The reference recipe names the reference pipeline and its settings, so
 two ways of building a reference for one field never share a version
 namespace. A reference's constituent inputs are `l2-image` instance
-ids, each fixing exposure, detector and delivered version.
+ids, each fixing exposure, detector and delivered version. The logical
+key's `version` is a selection digest: the first 16 hex characters of
+the SHA-256 over the sorted constituent instance ids plus the resolved
+settings hash, so the same selection rebuilt is another instance of one
+logical product and a different selection is a new one.
+`refimages.version` is not this digest -- it is the legacy per-(field,
+fid, ppid) counter the table has always carried, allocated at
+registration like every other legacy version column below (supervisor
+step 8, ruling R5, 2026-09-24).
 
 `finalize` reads an immutable input instance and writes a new instance
 of the same kind in its own attempt location. Its manifest records the
@@ -215,6 +223,48 @@ For the difference image (`difference` makes it, `register` records it):
 - bit 4: naive positive
 - bit 5: naive negative
 
+For the reference image (`reference` makes it, `register` records it;
+supervisor step 8, rulings R6-R7, 2026-09-24):
+
+| Field | Source | Column |
+|---|---|---|
+| constituent l2-image instances | manifest, `registration.constituents` | `refimimages`: one `(rfid, rid)` row per constituent whose `l2files.instance` matches; a constituent without a matching `l2files` row fails registration |
+| filter | manifest identity | `refimages.fid`: lookup in `filters` by name |
+| field | manifest, `registration.field` | `refimages.field` |
+| recipe | manifest identity, fixed `awaicgen` | `refimages.ppid`: 12, the `pipelines` row `dev` used |
+| selection digest (the key's `version`) | manifest identity, the instance's logical key only | no legacy column; `refimages.version` is the separate legacy counter (above) |
+| mosaic centre (RA, Dec) | manifest, `registration.ra_center`, `dec_center` | derived to `hp6`, `hp9` on `refimages` and `refimmeta` |
+| frame count | manifest, `registration.nframes` | `refimmeta.nframes` |
+| observation time range | manifest, `registration.mjdobs_min`, `mjdobs_max` | `refimmeta.mjdobsmin`, `mjdobsmax` |
+| JD range, total exposure time, zero point | manifest, `registration.jd_start`, `jd_end`, `total_exptime`, `zero_point` | carried into the header stamp (`JDSTART`, `JDEND`, `TOTEXPTM`, `MAGZP`), not registered: no matching `refimmeta` or `refimages` column |
+| coverage and pixel-uncertainty measures | manifest, `registration.cov5percent`, `medncov`, `medpixunc` | `refimmeta`, same names |
+| bad-pixel count | manifest, `registration.npixnan` | `refimmeta.npixnan` |
+| clipped image statistics | manifest, `registration.clmean`, `clstddev`, `clnoutliers`, `gmedian`, `datascale`, `gmin`, `gmax` | `refimmeta`, same names |
+| catalog FWHM | manifest, `registration.fwhmmedpix`, `fwhmminpix`, `fwhmmaxpix` | `refimmeta`, same names |
+| source counts | manifest, `registration.nsexcatsources`, `npucatsources` | `refimmeta.nsxcatsources`, `npucatsources`: null when `[psfcat]` is off |
+| settings hash | manifest identity | the instance's logical key only; no legacy column |
+| infobits | manifest, `registration.infobits` | `refimages.infobits`: 0, `dev`'s TODO; no code sets bits |
+| checksum | manifest registration block, `md5` | `refimages.checksum` |
+| file path | manifest primary member | `refimages.filename` |
+| software version | allocation from the run's code revision | `refimages.svid`: one `swversions` row per code revision, made on first use, as `difference` allocates |
+| current flag, status | allocation; never current at registration | `refimages.vbest` 0, `status`: the block's `status`, 1 |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added |
+
+For the reference catalog (`reference` makes it, `register` records it;
+supervisor step 8, rulings R6-R7, 2026-09-24):
+
+| Field | Source | Column |
+|---|---|---|
+| catalog type | manifest identity, `key.catalog_type` | `refimcatalogs.cattype`: `sextractor` maps to 1, `psf` to 2 |
+| reference instance | manifest identity, `key.reference` | `refimcatalogs.rfid`, resolved from the reference instance: registered earlier in the same manifest, or already present in `refimages` |
+| field, filter | lookup on the `refimages` row | `field`, `hp6`, `hp9`, `fid`, copied from that row |
+| checksum | manifest registration block, `md5` | `refimcatalogs.checksum` |
+| file path | manifest primary member | `refimcatalogs.filename` |
+| status | manifest registration block | `status`: 1 |
+| differencer/recipe id | allocation | `ppid`: 12, the same row the reference image uses |
+| source count | manifest registration block, `source_count` | carried, not registered: `registerRefImCatalog` takes no such column, the same treatment the difference stage's `source-catalog` block gets until `load` |
+| run, attempt, instance ids | enclosing manifest and allocation | as `refimages` |
+
 For the l2 image (`admit` makes it, `register` records it; admission is
 the one stage that reads the delivered header, so every header value the
 tables need travels in its manifest entry). `admit` has no upstream
@@ -317,12 +367,13 @@ lookups and defaults. It does not read product files.
 
 ## Not decided here
 
-- The registration field lists for the remaining kinds (reference
-  image, reference catalog, source catalog, the exports); each is fixed
-  with its stage. The source set's rows and result-set record, and the
-  `psf` block, are on the [load](load) page. The `alert-container`
-  registration block and the `alert-set` result set are on the
-  [alerts](alerts) page.
+- The registration field lists for the remaining kinds (source catalog,
+  and the `light-curve` and `catalog-export` exports); each is fixed
+  with its stage. The exports' declared contracts, pending the real
+  port, are on the [photometry](photometry) and [export](export) pages.
+  The source set's rows and result-set record, and the `psf` block, are
+  on the [load](load) page. The `alert-container` registration block
+  and the `alert-set` result set are on the [alerts](alerts) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - The alert outbox shape and the per-alert record are fixed on the
