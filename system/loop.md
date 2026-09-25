@@ -154,16 +154,17 @@ output). Then `maintain`, whose `detector-date` unit id,
 child-table name. Then, per distinct
 `field` read from that table: crossmatch (input set the load manifest's
 source set plus the base association set, below) → statistics
-(crossmatch's output) → prune (crossmatch's output). Then alerts per
-detector image, its input set the finalized difference image plus the
-template's reference catalog plus the source set, the field association
-sets, the field statistics sets and, per field, the pruned set that
-field's own `prune` unit just wrote -- the [alerts](alerts) page's
-`pruned-set` binding (ruling R5), applied here as the loop's own
-composition step, so a date's alerts already exclude the pairs that
-date's `prune` found not-best -- the recipe `compose-alerts-inputs.py`
-already scripts. Submission and polling go through `submit_unit` and
-`reconcile`, as `run start` uses them for one unit at a time.
+(crossmatch's output) → prune (crossmatch's output). After a field's
+prune, the loop reads the selected prune attempt's manifest: exactly
+one pruned set, whose base must be the association set the same date's
+crossmatch produced for the field, else the date fails. Each detector
+image's alerts input set names, per field it touches, the association
+set, its statistics set and that pruned set, in that order after the
+source set (the [alerts](alerts) page's `pruned-set` binding, ruling
+R5), the recipe `compose-alerts-inputs.py` already scripts. The date
+record gains `pruned_sets {field: instance}` (see Records, below).
+Submission and polling go through `submit_unit` and `reconcile`, as
+`run start` uses them for one unit at a time.
 
 ## Base catalog
 
@@ -246,8 +247,10 @@ promotion id, and a `record` JSON column, granted to
 grants (ruling R7). `record` carries the spec's location and release,
 each unit's selected attempt and job id, the field list, the base sets
 each field bound and, per field, `base_promoted` (above, Base catalog),
-the alert container's instance and location, and the promotion id or
-refusal reason. `loop show <schedule>` prints these rows.
+`pruned_sets` (per field, the pruned-set instance that field's `prune`
+wrote and alerts read, ruling R5), the alert container's instance and
+location, and the promotion id or refusal reason. `loop show <schedule>`
+prints these rows.
 
 ## Release binding
 

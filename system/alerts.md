@@ -44,7 +44,7 @@ Unit: detector-image. `--inputs` is an input-set manifest, stage
 |---|---|---|
 | `outputs[]` `difference-image`, exactly one | the finalized instance; its key `differencer` must equal `[alerts] diff_flavor`; member role `difference`, size and SHA-256 verified | `cutoutDifference`; the `diffimages` row (`pid`), looked up through `diffimages.instance` |
 | `outputs[]` `reference-catalog`, at most one | its primary member, a SExtractor catalog; this kind's registration block is not fixed yet, so none is required | `refStarMatches`/`refGalaxyMatches` when `[alerts] refcat` is set; absent means both stay null |
-| `inputs.result_sets` | instance ids, classified by looking up each one's kind in `product_instances`: exactly one `source-set`, one or more `association-set`, any number of `statistics-set`, at most one `pruned-set` per named association set, each complete | the source, association and statistics rows, each association set's lineage (below), and, where named, the pairs its pruned set excludes from history |
+| `inputs.result_sets` | instance ids, classified by looking up each one's kind in `product_instances`: exactly one `source-set`, one or more `association-set`, any number of `statistics-set`, and any number of `pruned-set`, each complete | the source, association and statistics rows, each association set's lineage (below), and, where named, the pairs each pruned set excludes from history |
 
 A statistics set must describe exactly one of the named association
 sets, and at most one statistics set may describe any one association
@@ -55,6 +55,20 @@ set's instance id, and the fixture uses the key `{"membership": <set>}`.
 An association set with no describing statistics set falls back to
 `dev`'s own path when statistics have not run for an object: null
 sigmas, and a count of `merges` rows for `nDiaSources`.
+
+A pruned set must prune one of the named association sets: its logical
+key's base must equal that association set's instance id, and at most
+one pruned set may prune any one association set; either violation
+exits 65 (supervisor step 9, 2026-09-25, R5). A named pruned set's
+excluded pairs are left out of every read of its base association
+set's chain: a `merges` row whose `(aid, sid)` the pruned set lists in
+`prunedmerges` is neither a source's association, nor counted in the
+`nDiaSources` fallback, nor history. A trigger whose only `merges` rows
+are excluded is dropped as unassociated. An input set naming no pruned
+set reads every pair, as before, and the execution record's
+`notes.pruned_sets` is `"none"`; otherwise it lists the pruned sets
+applied. The pruned sets named are in `inputs.result_sets` and become
+dependencies of the alert container.
 
 A worked example, with two fields:
 
@@ -157,17 +171,9 @@ of one, else exit 65; a field with no such table also exits 65.
   count: a source counts as previous history down to
   `[alerts] prv_window_days` before its own `mjdobs`, with no upper
   bound, so a later detection of the same object also counts as
-  previous to it. When the input set names a `pruned-set` for that
-  object's association set, every `(aid, sid)` pair the pruned set
-  excludes (its `prunedmerges` rows) is dropped from history before the
-  time window is applied; a pruned-set's own logical key names its base
-  association set, so at most one may be named per association set,
-  and naming two, or one for a set not among the input's own
-  `association-set` entries, exits 65. An input set naming no pruned
-  set for a given association set behaves exactly as before this
-  ruling: history is unfiltered for that set, and the execution
-  record's `notes` say so explicitly rather than leaving the omission
-  silent (supervisor step 9, ruling R5, 2026-09-25).
+  previous to it. A named pruned set's excluded pairs are left out of
+  this before the time window is applied, per the pruned-set rule above
+  (R5).
 
 An input product with no `product_instances` row, such as a reference
 catalog `dev` registered, is still read and cross-matched, but is left
@@ -215,9 +221,9 @@ the first of each list: `association_sets` and `association_set`,
 `statistics_sets` and `statistics_set`, the singular form null only
 when its list is empty. Dependencies are recorded for the difference
 instance, a registered reference-catalog instance, every named
-association and statistics set, and every base set a lineage chain
-pulled in; an unregistered reference catalog gets no edge, per "What it
-reads" above.
+association and statistics set, every base set a lineage chain pulled
+in, and every named pruned set; an unregistered reference catalog gets
+no edge, per "What it reads" above.
 
 On success the stage also sets `diffimages.nalertpackets = 1` on the
 run's own `diffimages` row for the finalized difference instance,

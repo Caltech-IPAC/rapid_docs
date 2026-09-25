@@ -175,14 +175,15 @@ residual 1).
 
 ## Concurrent cuts are serialised
 
-`release cut` refuses to start -- before it tags anything -- while any
-`releases` row is in a state other than `complete`, unless `--resume`
-names that row; the refusal names the row holding up the new cut. Two
-cuts racing each other on the same repository would otherwise both
-tag, migrate and deploy against a moving record; the record itself is
-now the lock; a `--resume` of the row already in flight is the way
-through it, not a second `cut` (ruling R8, supervisor step 9,
-2026-09-25, closing step 5's residual 2).
+`cut` records the release row in state `tagged` as soon as the tag is
+pushed, and refuses to start -- before it tags anything -- while any
+`releases` row is not `complete`, unless `--resume` names it; the
+refusal names the row holding up the new cut. Two cuts racing each
+other on the same repository would otherwise both tag, migrate and
+deploy against a moving record; the record itself is now the lock; a
+`--resume` of the row already in flight is the way through it, not a
+second `cut` (ruling R8, supervisor step 9, 2026-09-25, closing step
+5's residual 2).
 
 ## Not decided here
 

@@ -301,11 +301,11 @@ that CI verifies and the lead merges. Proposed order, earliest first:
    the above have been exercised ([loop](loop) page).
 8. Slower pipelines and exports.
 
-Part 1 landed partly: the repository boundaries, schema and build
-recipe moved into `rapid` and the two-branch arrangement ended, but the
-`smdc` branch's inventory against `dev` and the triage of existing
-issues against this specification were not carried out as a discrete
-pass and remain open. Parts 2 through 8 landed as prototypes on the
+Part 1 was partly done before the run of 2026-09-24 (the schema, glue
+and build recipe live in `rapid`); the `smdc` branch's inventory
+against `dev` and the triage of existing issues against this
+specification were not carried out as a discrete pass and remain open.
+Parts 2 through 8 landed as prototypes on the
 `rebuild` branch, each under one or more of releases rebuild-v0.1
 through rebuild-v0.6, cut 2026-09-24 and 2026-09-25: part 2 (stage
 entrypoints) on [stage-contract](stage-contract) and the per-stage

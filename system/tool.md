@@ -96,8 +96,8 @@ command: `run submit`, `run start` and `run local` all bind the
 manifest at `--inputs` through `bind_unit_inputs` before allocating the
 attempt, whether that manifest came from `run inputs`, a producing
 stage's own completion manifest, or a hand-composed one. A name in the
-manifest that is not a registered product instance — a delivery
-manifest, a dev-era template entry — binds nothing and is logged rather
+manifest that is not a registered product instance (a delivery
+manifest, a dev-era template entry) binds nothing and is logged rather
 than refused; a manifest that cannot be read refuses the submission.
 This is what makes a unit a live consumer of its declared inputs from
 submission, not only once it has produced an output of its own to
