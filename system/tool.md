@@ -28,7 +28,7 @@ names:
 
 | Operation | Subcommand |
 |---|---|
-| Create a run | `run create` (`--seed <run>` copies a previous run's settings and input references; `--release <tag>` is the [releases](releases) page's) |
+| Create a run | `run create` (`--seed <run>` records lineage only — it inherits no settings and no input references from the seeding run; `--release <tag>` is the [releases](releases) page's) |
 | Start a stage or the whole loop | `run start` |
 | Rerun part of a run | `run start --stage <stage>` |
 | Watch progress | `run status [--watch]`, `run show` |
@@ -42,10 +42,18 @@ names:
 | Releases | `release cut\|show\|list\|verify` ([releases](releases), supervisor step 5, 2026-09-24) |
 
 `run start <run> --unit <u> [--stage <s>]` walks the run's selected
-stages in order, or the one named stage: a complete unit is skipped, a
-failed unit with retry allowance left gets a new attempt — this is what
-"restart from failure" means for the loop as a whole, alongside
-`run cancel` followed by `run start` for one attempt. Each stage's
+stages in order, or the one named stage: a complete unit is skipped; a
+unit already terminal `failed` or `cancelled` is not re-attempted —
+`start` prints its state and exits 1, and recovering it is the sixth
+supervisor step's `--seed`/`--only-failed`, not this step's; a unit with
+an attempt still running is attached to and polled, never resubmitted;
+and a unit reconcile returns to `ready` after a transient result (exit
+75, or a lost job) gets another attempt within its allowance. `run
+cancel` followed by `run start` is how a person restarts one attempt by
+hand. A run created with `--release <tag>` submits to that release's
+recorded job-definition revisions rather than whatever a job definition
+currently pins, and its outputs are promotable without the
+unreleased-image exception ([releases](releases) page). Each stage's
 inputs resolve in this order: an explicit `--inputs` on the command
 line, then a `--template` composed through `run inputs` (below), then
 the nearest preceding non-`register` stage's selected output (`register`
@@ -68,10 +76,18 @@ is the input-set composer the third supervisor step scripted, promoted
 to a tool operation (R4). It reads the template's manifest, replaces or
 adds the entry of the producer's output kind with that producer's
 selected output, copies that member and the template's other members to
-`<dest>` (default a path under the run's own outputs, by run, stage and
-unit), writes the composed manifest there, prints the location, and
+`<dest>`, writes the composed manifest there, prints the location, and
 binds it to the unit when the unit already exists. It refuses to
 overwrite a manifest already at `<dest>`.
+
+An input set is a staged working copy, not a product, so `<dest>`
+defaults to, and `--dest` is refused outside,
+`<scratch root>/runs/<run>/inputs/<stage>/<unit>/` — the scratch outputs
+root, for every run kind, since the launcher host has no write access to
+the products bucket. Before copying, the composer checks the run's
+admission fence: a run that is finished, deleting or already deleted
+admits no new input set. `run delete` removes a run's inputs prefix
+along with its attempt outputs.
 
 This is the explicit, whole-input-set form of resolution: which
 reference among several eligible ones a field should use is not decided
@@ -90,7 +106,7 @@ codes table carries.
 | 1 | A stage or unit failed or was cancelled (`start`, `status`); the two runs differ (`compare`) |
 | 2 | Still running: `status` without `--watch`, while a unit remains non-terminal |
 | 64 | Usage: bad arguments, or the tool refused rather than acting — for example `run inputs` onto a destination that already carries a manifest |
-| 75 | `run start --timeout` expired before a unit reached a terminal state |
+| 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure — either is retryable |
 
 ## Personal submission from a workstation
 
@@ -117,10 +133,14 @@ direct attachment is a recorded follow-up, not done by this step.
 
 The tool runs launcher-side: on a fleet host, under that host's instance
 role, exactly where it runs today. Deployment-specific locations,
-connection settings and credentials — for example `RAPID_PARAMETER_PATH`
-and `RAPIDPIPE_CLEANUP_ROLE_ARN` — reach it through named environment
-variables; the pipeline repository's README carries the full list. A
-launcher-side change, including everything on this page, needs no image
+connection settings and credentials reach it through named environment
+variables — for example `RAPIDPIPE_BATCH_JOB_QUEUE`,
+`RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH` and `_PRODUCTION`,
+`RAPIDPIPE_OUTPUTS_ROOT_SCRATCH` and `_PRODUCTION`,
+`RAPIDPIPE_SCRATCH_BUCKET`, `RAPIDPIPE_CLEANUP_ROLE_ARN`, and the
+database connection variables (`PG*`, `RAPID_DB_SECRET_ID`) — the
+pipeline repository's README, "Running on Batch", carries the full
+list. A launcher-side change, including everything on this page, needs no image
 rebuild and no job-definition deployment: the container's own
 `stage <name>` invocation is unchanged, and the live job-definition
 revisions this step touches are none (R8).
