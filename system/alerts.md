@@ -175,6 +175,17 @@ of one, else exit 65; a field with no such table also exits 65.
   this before the time window is applied, per the pruned-set rule above
   (R5).
 
+The history and association reads are restricted to the source sets the
+named association sets' chains name (each key's `source_sets`), not to
+"any result set" without qualification: every one of those source sets
+must pass the reading rule of the [products](products) page for the
+alerts run (complete, retained, and either the alerts run's own or
+`candidate`/`current` from a selected attempt); a chain naming a scratch
+or unselected source set exits 65. Those chain source sets are not
+recorded as dependency edges of the alert container; only the named
+sets and their bases are (open item) (supervisor step 9, ruling R2,
+2026-09-25).
+
 An input product with no `product_instances` row, such as a reference
 catalog `dev` registered, is still read and cross-matched, but is left
 out of `inputs.products` and gets no dependency edge; it is named
