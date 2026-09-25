@@ -31,17 +31,26 @@ no database; `register` records both afterwards, the same division
 ## Inputs
 
 Stage `reference`, unit kind `field`, unit id `<rtid>/<filter>` (for
-example `4711398/F146`): one reference per (field, filter) per run, the
+example `4711398/W146`): one reference per (field, filter) per run, the
 filter part of the logical key so a run may build several filters of
 one field. `reference` is a transform stage and declares no database
 access (supervisor step 8, ruling R1, 2026-09-24).
 
+Filter names are RAPID's own spelling, `W146` not `F146`: FITS `FILTER`
+headers and the `filters` table carry `W146`, and lookups against
+`filters` match that name exactly. A unit id or manifest may give the
+Roman spelling instead; it is normalised to the RAPID spelling with
+`dev`'s own `roman_to_rapid_filter_names` map before any comparison or
+lookup, so `4711398/F146` and `4711398/W146` name the same unit
+(supervisor step 8, 2026-09-24, a Codex plan-review finding).
+
 `--inputs` is an input-set manifest listing N `l2-image` entries,
 member role `image`, the delivered `.fits.gz`, all of one filter. The
-stage checks each frame's `FILTER` header value against the unit's
-filter, checks `N >= [selection] min_frames` (`dev` 2) and coadds at
-most `[selection] max_frames` (`dev` 25) frames in manifest order;
-any violation of those three checks exits 65 (ruling R2, 2026-09-24).
+stage checks each frame's `FILTER` header value, normalised, against
+the unit's filter, checks `N >= [selection] min_frames` (`dev` 2) and
+coadds at most `[selection] max_frames` (`dev` 25) frames in manifest
+order; any violation of those three checks exits 65 (ruling R2,
+2026-09-24).
 
 Which frames overlap the field is not this stage's decision: it is the
 launcher's selection rule, `dev`'s `get_overlapping_l2files` --
@@ -127,15 +136,30 @@ does not produce; and fake-source injection is not ported at all
 
 The reference-image logical key is `{"field": "<rtid>", "filter":
 "<name>", "recipe": "awaicgen", "version": "<selection digest>"}`. The
-selection digest is the first 16 hex characters of the SHA-256 over the
+selection digest is the full SHA-256 digest, hex-encoded, over the
 sorted constituent `l2-image` instance ids, joined by newlines, plus the
 resolved settings hash: rebuilding the same selection makes another
 instance of the same logical product, and a different selection makes a
-new one. `refimages.version` is not this digest -- it is the legacy
-per-(`field`, `fid`, `ppid`) counter the table has always carried,
-allocated at registration the way [products](products) describes for
-every legacy version column, and it keeps counting instances of the
-logical product the way `dev`'s schema expects (ruling R5, 2026-09-24).
+new one; the full digest is kept rather than a truncated prefix, since
+truncating buys nothing here and only adds collision risk (supervisor
+step 8, 2026-09-24, a Codex plan-review finding). `refimages.version` is
+not this digest -- it is the legacy per-(`field`, `fid`, `ppid`) counter
+the table has always carried, allocated at registration the way
+[products](products) describes for every legacy version column.
+
+Because registration keeps `dev`'s `addRefImage` unchanged, that counter
+is allocated globally across every run, `coalesce(max(version), 0) + 1`
+over the whole `refimages` table for the triple, not scoped to the
+registering run; the run is still recorded on the row, on `run`,
+`attempt` and `instance`, but does not bound the counter (supervisor
+step 8, 2026-09-24, correcting the plan's earlier "within the run"
+wording). Two attempts racing to register a reference for the same
+`(field, fid, ppid)` are serialised by a database advisory lock keyed to
+that triple, taken before the allocation and held for the registering
+transaction, rather than left to race on `MAX(version) + 1`; registered
+under the plan review's concurrency finding (supervisor step 8,
+2026-09-24) and still not decided beyond that lock (see Not decided
+here).
 
 ## Registration
 
@@ -150,9 +174,13 @@ instance ids), `nframes`, `mjdobs_min`, `mjdobs_max`, `jd_start`,
 `jd_end`, `total_exptime`, `zero_point` (`zprefimg`), `cov5percent`,
 `medncov`, `medpixunc`, `npixnan`, `clmean`, `clstddev`, `clnoutliers`,
 `gmedian`, `datascale`, `gmin`, `gmax`, `fwhmmedpix`, `fwhmminpix`,
-`fwhmmaxpix`, `nsexcatsources`, `npucatsources` (null when `[psfcat]` is
-off; its nullability is checked against the baseline and recorded),
-`settings_hash`. `dev`'s `refimmeta` names are kept for the measurements
+`fwhmmaxpix`, `nsexcatsources`, `npucatsources`, `settings_hash`. The
+block's `nsexcatsources` field maps to `refimmeta.nsxcatsources` --
+`dev`'s column, not the block's spelling. `npucatsources` is null when
+`[psfcat]` is off; `refimmeta.npucatsources` is `NOT NULL` in the
+baseline schema, so a new migration, `20260924-09`, drops that
+constraint before a null can be written (supervisor step 8, 2026-09-24,
+a Codex plan-review finding). `dev`'s `refimmeta` names are kept for the measurements
 because they are the target columns. The `reference-catalog` block:
 `md5`, `status` 1, `catalog_type` (`sextractor` maps to `cattype` 1,
 `psf` to 2), `source_count` (ruling R6, 2026-09-24).
@@ -162,9 +190,13 @@ Registration writes four tables:
 - `refimages`, one row, through `dev`'s unchanged `addRefImage`: `field`,
   `hp6`/`hp9` from the centre, `fid` from the `filters` table by name,
   `ppid` 12, `status`, `filename` (the primary member's location),
-  `checksum` (`md5`), `infobits`, `svid`, then `run`/`attempt`/`instance`
-  set the way `psfs.py` sets them. `vbest` stays 0; promotion is the
-  step 3 ruling's job, not registration's.
+  `checksum` (`md5`), `infobits`, `svid`, then `run` and `instance` set
+  the way `psfs.py` sets them. `attempt` is the *producing* attempt --
+  the `reference` attempt that wrote the manifest, carried in it -- not
+  the attempt running `register`; `psfs.py`'s own exemplar passes the
+  registering attempt there, a mismatch this stage does not repeat
+  (supervisor step 8, 2026-09-24, a Codex plan-review finding). `vbest`
+  stays 0; promotion is the step 3 ruling's job, not registration's.
 - `refimmeta`, one row, through `registerRefImMeta` with the block's
   measurements.
 - `refimimages`, one `(rfid, rid)` row per constituent whose
@@ -177,14 +209,24 @@ Registration writes four tables:
   manifest, or already present in `refimages`), `ppid` 12, `cattype`,
   and `field`/`hp6`/`hp9`/`fid` copied from the `refimages` row.
 
-An instance already registered is a no-op on replay, `register_manifest`'s
-usual rule; conflicting content for an existing instance id is an error.
-No new migration is needed: `20260923-02-refimages-instance.sql` already
-covers `refimages`, and the three satellite tables are reached by `rfid`
-and carry no run columns of their own, so the existing FK cleanup map
-already handles them. Where a stored function the trial database lacks
-is needed, it is ported inline into the register code, as `sources.py`
-already does, and recorded (ruling R7, 2026-09-24).
+Replay is checked against the registration block, not only against
+`register_manifest`'s identity and member-metadata comparison: an
+instance already registered whose stored block matches the manifest's is
+a no-op, and writes no satellite row a second time; a block that
+differs from what is already stored is an error, since `addRefImage`
+and `registerRefImCatalog` would otherwise silently update an existing
+row (supervisor step 8, 2026-09-24, a Codex plan-review finding). Two
+migrations are needed, not none: `20260923-02-refimages-instance.sql`
+already covers `refimages`, and `20260924-09` drops `npucatsources`'s
+`NOT NULL` constraint (above). The three satellite tables carry no run
+column of their own and are reached only through their owning
+`refimages` row's `rfid`; deletion does not already handle them on that
+account alone -- what cleanup does with a scratch run's own reference is
+fixed on the [runs](runs) page's deletion section, amending its
+cleanup-set sentence (supervisor step 8, 2026-09-24). Where a stored
+function the trial database lacks is needed, it is ported inline into
+the register code, as `sources.py` already does, and recorded (ruling
+R7, 2026-09-24).
 
 ## Settings
 
@@ -206,7 +248,7 @@ on `dev` (ruling R3, 2026-09-24):
 | `[awaicgen] simple_coadd_flag` | 1 | `dev`'s value |
 | `[awaicgen] num_threads` | 2 | `dev`'s value |
 | `[awaicgen]` list and output file names | `dev`'s names | `awaicgen_output_mosaic_image_file`, `_cov_map_file`, `_uncert_image_file` and the input list file names, `dev`'s values |
-| `[awaicgen] zprefimg_<filter>` | per filter, `dev`'s ini | the zero point for gain matching and normalisation; a filter with no entry falls back to `zprefimg` 17.0, `dev`'s scalar default |
+| `[awaicgen] zprefimg_<filter>` | per filter, `dev`'s ini | the zero point this stage normalises frames to before coadding; a filter with no entry falls back to `zprefimg` 17.0, `dev`'s scalar default. `difference.toml` carries its own, separate `[awaicgen] zprefimg` (default 17.0) that gain matching reads directly; nothing ties the two together (see Not decided here) |
 | `[sextractor]` | `dev`'s `SEXTRACTOR_REFIMAGE` section | params, filter and star/galaxy classifier files, the packaged `cdf/rapidSexParamsRefImage.inp`, `cdf/rapidSexRefImageFilter.conv`, `cdf/rapidSexRefImageStarGalaxyClassifier.nnw` |
 | `[psfcat] enabled` | false | `dev`'s Photutils reference catalog; designed in, off, since it needs a PSF input this step does not produce |
 | `[paths]` | as `difference.toml` | `rapid_sw`, `cfg_path`, and the external tools (`awaicgen`, `sextractor`) on `PATH` |
@@ -252,3 +294,17 @@ stage's fixture follows (ruling R8, 2026-09-24).
   is not decided.
 - `reference_sets`: whether a named, reusable grouping of reference
   instances is needed beyond the logical key's own identity.
+- The zero-point handoff to `difference`: this stage normalises to its
+  own `[awaicgen] zprefimg_<filter>` and stamps the result in `MAGZP`
+  and `refimmeta.zero_point` (carried, not registered), but `difference`
+  reads its own, separate `[awaicgen] zprefimg` setting for gain
+  matching and never reads the reference instance's declared zero point.
+  The two are meant to agree and nothing enforces it; a demo run must
+  freeze matching values by hand until the interface is fixed
+  (supervisor step 8, 2026-09-24, a Codex plan-review finding).
+- Concurrency of registration beyond the advisory lock: the lock
+  serialises the `(field, fid, ppid)` version allocation, but `svid`
+  allocation (the latest global software-revision row) and the general
+  question of two runs registering references for the same field and
+  filter at once are not otherwise addressed here (supervisor step 8,
+  2026-09-24, a Codex plan-review finding).

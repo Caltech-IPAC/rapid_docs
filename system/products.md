@@ -76,14 +76,17 @@ The reference recipe names the reference pipeline and its settings, so
 two ways of building a reference for one field never share a version
 namespace. A reference's constituent inputs are `l2-image` instance
 ids, each fixing exposure, detector and delivered version. The logical
-key's `version` is a selection digest: the first 16 hex characters of
-the SHA-256 over the sorted constituent instance ids plus the resolved
+key's `version` is a selection digest: the full SHA-256 digest,
+hex-encoded, over the sorted constituent instance ids plus the resolved
 settings hash, so the same selection rebuilt is another instance of one
 logical product and a different selection is a new one.
 `refimages.version` is not this digest -- it is the legacy per-(field,
 fid, ppid) counter the table has always carried, allocated at
-registration like every other legacy version column below (supervisor
-step 8, ruling R5, 2026-09-24).
+registration like every other legacy version column below, globally
+across every run rather than scoped to one (supervisor step 8, ruling
+R5, 2026-09-24; corrected on scope by a Codex plan-review finding the
+same day -- see the reference-image field list and
+[reference](reference)).
 
 `finalize` reads an immutable input instance and writes a new instance
 of the same kind in its own attempt location. Its manifest records the
@@ -182,8 +185,17 @@ meaning the team knows:
   would need relaxing `l2files.checksum`'s NOT NULL constraint (lead,
   2026-09-22).
 - **Legacy version columns are allocated the way the team's procedures
-  allocated them**, the next number for the table's logical pair within
-  the run, except where the version is delivered (the l2 image).
+  allocated them**, the next number for the table's logical pair, except
+  where the version is delivered (the l2 image). Where registration
+  keeps a `dev` stored function unchanged, as `refimages` does through
+  `addRefImage`, that allocation is `dev`'s own `coalesce(max(version),
+  0) + 1` over the whole table for the pair, global across every run,
+  not scoped to the registering run; the run is still recorded on the
+  row, just not part of the counter. Two attempts allocating for the
+  same pair at once are serialised by a database advisory lock keyed to
+  it, taken before the allocation and held for the registering
+  transaction (supervisor step 8, 2026-09-24, a Codex plan-review
+  finding, correcting this bullet's earlier "within the run" wording).
 - **Legacy current flags are never set at registration.** `vbest` is 0
   on every row a run writes; custody lives on the instance row.
   Promotion maintains `vbest` on the `dev` tables for the team's
@@ -232,7 +244,7 @@ supervisor step 8, rulings R6-R7, 2026-09-24):
 | filter | manifest identity | `refimages.fid`: lookup in `filters` by name |
 | field | manifest, `registration.field` | `refimages.field` |
 | recipe | manifest identity, fixed `awaicgen` | `refimages.ppid`: 12, the `pipelines` row `dev` used |
-| selection digest (the key's `version`) | manifest identity, the instance's logical key only | no legacy column; `refimages.version` is the separate legacy counter (above) |
+| selection digest (the key's `version`) | manifest identity, the instance's logical key only | no legacy column; `refimages.version` is the separate legacy counter, allocated globally per `(field, fid, ppid)` under an advisory lock, not scoped to the run (above) |
 | mosaic centre (RA, Dec) | manifest, `registration.ra_center`, `dec_center` | derived to `hp6`, `hp9` on `refimages` and `refimmeta` |
 | frame count | manifest, `registration.nframes` | `refimmeta.nframes` |
 | observation time range | manifest, `registration.mjdobs_min`, `mjdobs_max` | `refimmeta.mjdobsmin`, `mjdobsmax` |
@@ -241,14 +253,14 @@ supervisor step 8, rulings R6-R7, 2026-09-24):
 | bad-pixel count | manifest, `registration.npixnan` | `refimmeta.npixnan` |
 | clipped image statistics | manifest, `registration.clmean`, `clstddev`, `clnoutliers`, `gmedian`, `datascale`, `gmin`, `gmax` | `refimmeta`, same names |
 | catalog FWHM | manifest, `registration.fwhmmedpix`, `fwhmminpix`, `fwhmmaxpix` | `refimmeta`, same names |
-| source counts | manifest, `registration.nsexcatsources`, `npucatsources` | `refimmeta.nsxcatsources`, `npucatsources`: null when `[psfcat]` is off |
+| source counts | manifest, `registration.nsexcatsources`, `npucatsources` | `refimmeta.nsxcatsources` (`dev`'s column spelling; the block field is `nsexcatsources`), `npucatsources`: null when `[psfcat]` is off, needing migration `20260924-09` to drop that column's `NOT NULL` |
 | settings hash | manifest identity | the instance's logical key only; no legacy column |
 | infobits | manifest, `registration.infobits` | `refimages.infobits`: 0, `dev`'s TODO; no code sets bits |
 | checksum | manifest registration block, `md5` | `refimages.checksum` |
 | file path | manifest primary member | `refimages.filename` |
 | software version | allocation from the run's code revision | `refimages.svid`: one `swversions` row per code revision, made on first use, as `difference` allocates |
 | current flag, status | allocation; never current at registration | `refimages.vbest` 0, `status`: the block's `status`, 1 |
-| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` |
 
 For the reference catalog (`reference` makes it, `register` records it;
 supervisor step 8, rulings R6-R7, 2026-09-24):
