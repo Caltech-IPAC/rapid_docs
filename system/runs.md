@@ -360,8 +360,10 @@ the scheduler build on, as the specification's Tools section names them
 
 The command-line tool's `run create`, `submit`, `reconcile`, `cancel`,
 `promote`, `rollback`, `delete`, `finish`, `pin` and `unpin` are thin
-wrappers over these (supervisor step 3, 2026-09-24); the tool's final
-shape is the next step's.
+wrappers over these (supervisor step 3, 2026-09-24). Its shape is on the
+[tool](tool) page, which adds `run start`, `run status`, `run inputs`,
+`run compare` and `run expire` over these same functions (supervisor
+step 4, 2026-09-24).
 
 ## Not decided here
 
