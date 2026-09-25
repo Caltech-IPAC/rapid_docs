@@ -165,8 +165,14 @@ resolution `statistics`, `prune`, `alerts` and `export` each do;
 producer lies outside the registering run. This closes the gap the
 sharing rule above left open -- which of another run's sets counts as
 "current" enough to read -- and is what keeps a still-running scratch
-attempt's half-written set out of a production run's crossmatch
-(supervisor step 9, ruling R2, 2026-09-25).
+attempt's half-written set out of a production run's crossmatch. The
+rule applies to every set a read traverses, not only the set named
+directly: each base an association chain walks, and each source set a
+set in that chain names, is checked the same way as the set that named
+it -- a same-run read needs only completeness and retention, never
+selection, but a cross-run read of any set anywhere in the chain still
+needs its producing attempt to be selected (supervisor step 9, ruling
+R2, 2026-09-25).
 
 ## Registration metadata
 

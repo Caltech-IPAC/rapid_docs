@@ -165,11 +165,13 @@ job-definition revision -- kept `ACTIVE` past its own release by
 revision mid-flight, and its execution records and `schema_version`
 all carry the one release it was created under. This is what makes
 cutting a release while other runs are still open safe, provided
-migrations stay additive: new tables and nullable columns only, never a
-drop or rename of anything an earlier release's still-open runs read.
-That additivity is now a stated constraint of the migration rule above,
-not an assumption a concurrent cut could quietly violate (ruling R7,
-supervisor step 9, 2026-09-25, closing step 5's residual 1).
+migrations stay additive (new tables and nullable columns; no drop or
+rename while an earlier release's runs are open) and compatible with
+the readers and writers of every release whose runs are still open.
+That additivity and compatibility are now a stated constraint of the
+migration rule above, not an assumption a concurrent cut could quietly
+violate (ruling R7, supervisor step 9, 2026-09-25, closing step 5's
+residual 1).
 
 ## Concurrent cuts are serialised
 
