@@ -110,10 +110,13 @@ settings.
 `--dry-run` validates arguments, settings and the input manifest, then
 prints the planned inputs and outputs without executing science code or
 writing files or database rows. Exit 0 means validation passed; no
-completion manifest is written. The shared runner returns on `--dry-run`
-before a stage's own body runs, so a stage that needs to validate its
-kind-specific inputs before that return does so through the runner's
-pre-body validation hook, not inside the body (supervisor step 8,
+completion manifest is written. The shared runner, `run_stage` in
+`rapidpipe/stages/contract.py`, returns on `--dry-run` before a stage's
+own body runs, so a stage that needs to validate its kind-specific
+inputs before that return passes a `validate_inputs` callable to
+`run_stage(..., validate_inputs=<callable>)`; the runner calls it with
+the built `StageContext` after its own generic validation and before
+the `--dry-run` return, not inside the body (supervisor step 8,
 2026-09-24, a Codex plan-review finding).
 
 ### The manifest

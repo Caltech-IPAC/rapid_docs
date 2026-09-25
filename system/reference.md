@@ -154,12 +154,13 @@ registering run; the run is still recorded on the row, on `run`,
 `attempt` and `instance`, but does not bound the counter (supervisor
 step 8, 2026-09-24, correcting the plan's earlier "within the run"
 wording). Two attempts racing to register a reference for the same
-`(field, fid, ppid)` are serialised by a database advisory lock keyed to
-that triple, taken before the allocation and held for the registering
-transaction, rather than left to race on `MAX(version) + 1`; registered
-under the plan review's concurrency finding (supervisor step 8,
-2026-09-24) and still not decided beyond that lock (see Not decided
-here).
+`(field, fid, ppid)` are serialised by a transaction-level advisory
+lock, `pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`,
+taken before `addRefImage` allocates the version and released
+automatically at the transaction's end, rather than left to race on
+`MAX(version) + 1`; registered under the plan review's concurrency
+finding (supervisor step 8, 2026-09-24) and still not decided beyond
+that lock (see Not decided here).
 
 ## Registration
 
@@ -191,11 +192,12 @@ Registration writes four tables:
   `hp6`/`hp9` from the centre, `fid` from the `filters` table by name,
   `ppid` 12, `status`, `filename` (the primary member's location),
   `checksum` (`md5`), `infobits`, `svid`, then `run` and `instance` set
-  the way `psfs.py` sets them. `attempt` is the *producing* attempt --
-  the `reference` attempt that wrote the manifest, carried in it -- not
-  the attempt running `register`; `psfs.py`'s own exemplar passes the
-  registering attempt there, a mismatch this stage does not repeat
-  (supervisor step 8, 2026-09-24, a Codex plan-review finding). `vbest`
+  the way `psfs.py` sets them. `attempt` departs from that pattern: it
+  is the *producing* attempt, the `reference` attempt that wrote the
+  manifest and is carried in it, not the attempt running `register`.
+  `psfs.py`, `diffimages` and `l2files` all record the *registering*
+  attempt in their own `attempt` columns instead; `refimages` is the one
+  exception (WP-B's finding, supervisor step 8, 2026-09-24). `vbest`
   stays 0; promotion is the step 3 ruling's job, not registration's.
 - `refimmeta`, one row, through `registerRefImMeta` with the block's
   measurements.
@@ -308,3 +310,7 @@ stage's fixture follows (ruling R8, 2026-09-24).
   question of two runs registering references for the same field and
   filter at once are not otherwise addressed here (supervisor step 8,
   2026-09-24, a Codex plan-review finding).
+- The Roman-to-RAPID filter map exists twice, once in
+  `rapidpipe/science/reference/prep.py` and once in
+  `rapidpipe/products/refimage.py`; unifying the two into one place is
+  left for later (WP-B's finding, supervisor step 8, 2026-09-24).
