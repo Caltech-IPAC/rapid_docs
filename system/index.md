@@ -29,6 +29,7 @@ remain in this repository's history.
 | [`alerts.md`](alerts) | DRAFT | The `alerts` stage as ported from `dev`'s alert production: the input-set manifest, what it reads from the source, association and statistics sets, the container and the alert outbox, its registration, settings and exit codes |
 | [`prune.md`](prune) | DRAFT | The `prune` stage: the not-best merge exclusion ported from `dev`'s `pruneNotBestMerges`, its `pruned-set` result set and `prunedmerges` rows, the run model's own-run exclusion clause, its settings and exit codes |
 | [`releases.md`](releases) | DRAFT | The release tag and record, the `cut` command and its hook contract, migrations at release time, the launcher reading a release instead of a branch, promotion's released-image eligibility, deployed pins, and what is not yet decided |
+| [`tool.md`](tool) | DRAFT | The command-line tool `rapidpipe`, its operations mapped from the specification's Tools sentence onto subcommands, the input-set composer, the tool's own exit codes, personal submission from a workstation, and where it runs |
 
 ```{toctree}
 :hidden:
@@ -46,4 +47,5 @@ finalize
 alerts
 prune
 releases
+tool
 ```

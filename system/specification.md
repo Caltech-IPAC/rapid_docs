@@ -175,7 +175,8 @@ failure, list and compare runs, promote a candidate, delete scratch. Each operat
 affected run identifier and a meaningful exit status. Each stage is also
 a plain script that the tool calls and a person can call directly.
 Design the interface around these operations and the stage contracts;
-the previous tool is not the starting point.
+the previous tool is not the starting point. The tool's subcommands are
+on the [tool](tool) page (supervisor step 4, 2026-09-24).
 
 ## Repositories
 
