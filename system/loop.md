@@ -7,8 +7,10 @@ the loop, the host it runs on, the spec it reads, the production run it
 creates for each processing date, how a date's fields bind to the
 previous date's catalog, promotion, and what each date leaves in the
 database. Written 2026-09-24 from supervisor step 7's rulings (R1
-through R10). The [specification](specification)'s Sequencing item 7
-states the requirement; this page records how the rebuild meets it.
+through R10), with the stage chain, base-catalog rule, concurrency and
+the IAM grant amended after a Codex plan review the same day. The
+[specification](specification)'s Sequencing item 7 states the
+requirement; this page records how the rebuild meets it.
 
 ## In plain terms
 
@@ -33,7 +35,11 @@ recurring fleet operations through an SSM Maintenance Window and an
 Automation runbook per row (ruling R1). The row's fields: trigger
 `window:at(<UTC>)`, target `Name=rapid-admin`, runbook
 `rapid-op-processing-date-loop-runbook`, concurrency 1, error cutoff 1,
-owner `rapid-alerts`, freshness `P7D`, freshness actions `quiet`.
+owner `rapid-alerts`, freshness `P7D`, freshness actions `quiet`. The
+runbook's shell step sets `executionTimeout` to 21600 seconds, about two
+control dates at roughly 4.5 hours each, so SSM kills a stalled run
+rather than letting it run past the window (supervisor step 7,
+2026-09-24, after the Codex plan review).
 
 The loop has no EventBridge rule and no Batch driver job of its own. The
 registry's `event:` trigger class is reactive only, never an
@@ -60,10 +66,13 @@ row already runs; `rapid-rusholme`, the workstation, idle-stops fifteen
 minutes after its last session, and an unattended loop polling Batch
 over hours would be stopped mid-run there. `rapid-admin-instance-role`
 already holds `batch:SubmitJob`/`DescribeJobs` on the `rapid-*`
-definitions and reads the rebuild database secret; it joins
-`WorkstationSubmitterRoleNames` (one parameter value, [tool](tool)
-page's R7) for input-set write access, product read access and the
-cleanup-role trust the loop's own runs need.
+definitions and reads the rebuild database secret. For the input-set
+write access its own runs need, it joins a new parameter,
+`LoopLauncherRoleNames`, rather than [tool](tool) page's R7
+`WorkstationSubmitterRoleNames`: the role already carries 22 of the 25
+policies an instance role can hold, so the loop's grant is scoped to
+`ScratchSubmitter` alone, not the workstation role's fuller set
+(supervisor step 7, 2026-09-24, after the Codex plan review).
 
 The operation script, `op-processing-date-loop.sh`, is embedded in the
 runbook like every other registry row. It reads one SSM parameter,
@@ -120,12 +129,8 @@ set for its field; the evidence is the second date's statistics rows and
 its crossmatch row counts.
 
 `loop run` processes, in spec order, every date whose `loop_dates` row is
-absent or `open`, serially, and is idempotent: an `open` row's date is
-resumed rather than restarted, with complete units skipped, running
-attempts attached, and ready units re-attempted, through the same code
-path `run start` uses for one run, not a copy of it. It exits 0 when
-every processed date is complete, 1 on the first date that fails, with
-no later date started, and 75 on a timeout.
+absent or `open`; concurrency, retries and exit codes are below
+(Concurrency and recovery).
 
 ## Per date
 
@@ -134,14 +139,19 @@ CLI's `run create --release` path: owner and lane from the spec, purpose
 `"processing date <D> (schedule <S>)"`, `input_selection_ref` the spec's
 location, `check_policy_ref` the spec's policy, `max_attempts_per_unit`
 the spec's, and `selected_stages` the loop's own chain: admit, register,
-difference, register, finalize, register, load, maintain, crossmatch,
-statistics, prune, alerts (ruling R4).
+difference, finalize, register, load, maintain, crossmatch, statistics,
+prune, alerts — one `register` fewer than first ruled, since the landed
+`finalize` contract never registers the raw difference instance, and
+promoting two candidates for the same kind and logical key is refused
+(ruling R4, amended, supervisor step 7, 2026-09-24, after the Codex plan
+review).
 
 Per detector image, the chain runs as the tool's own stages do:
 admit(delivery) → register → difference (input set composed from the
-template) → register(raw) → finalize → register(finalized) → load. Then
-`maintain`, whose `detector-date` unit id, `<yyyymmdd>/SCA<nn>`, the loop
-derives from the load attempt's own child-table name. Then, per distinct
+template) → finalize → register(finalize's output) → load(finalize's
+output). Then `maintain`, whose `detector-date` unit id,
+`<yyyymmdd>/SCA<nn>`, the loop derives from the load attempt's own
+child-table name. Then, per distinct
 `field` read from that table: crossmatch (input set the load manifest's
 source set plus the base association set, below) → statistics
 (crossmatch's output) → prune (crossmatch's output). Then alerts per
@@ -155,9 +165,21 @@ already scripts. Submission and polling go through `submit_unit` and
 
 A field's base catalog is the association-set instance its crossmatch
 produced in the most recent earlier `loop_dates` row of the same
-schedule that reached `complete` — that row's run's selected attempt for
-the field's unit — or none, on a schedule's first date (ruling R5).
-Input-set manifests for crossmatch and alerts are written under
+schedule that is `complete` and has an association set for that field —
+that row's run's selected attempt for the field's unit — or none, if no
+earlier complete row has one, on a schedule's first date or a field new
+to a later one. A failed or still-open date has no association set to
+offer, so the search steps back past it to the most recent complete
+one: one date's failure does not stall base-catalog binding for the
+dates that follow it. The base date need not itself be promoted:
+association sets bind by instance, not by current custody, so an
+unpromoted complete date is still an eligible base, and `prune`'s own
+not-best exclusion, not promotion, is what keeps an inferior instance
+out of the chain a later date reads. Each field's entry in the date's
+record notes `base_promoted` — whether the date that supplied its base
+had itself been promoted at bind time (ruling R5, amended, supervisor
+step 7, 2026-09-24, after the Codex plan review). Input-set manifests
+for crossmatch and alerts are written under
 `<scratch root>/runs/<run>/inputs/<stage>/<unit>/`, the same layout the
 [tool](tool) page's composer uses. This is the loop's own instance of the
 field-level input selection the tool page leaves open; which reference a
@@ -178,6 +200,38 @@ date's crossmatch binds this date's association set by instance whether
 or not it was promoted. `finish_run` follows promotion or refusal either
 way, and the date exits 0.
 
+## Concurrency and recovery
+
+`loop run` takes one PostgreSQL advisory lock scoped to the spec's
+schedule for its whole run; a second launcher for the same schedule — a
+stray retry, an overlapping Maintenance Window — exits 75 without
+touching any date, rather than racing the first (supervisor step 7,
+2026-09-24, after the Codex plan review).
+
+Within the lock, dates are processed in spec order. A `complete` row is
+skipped, and an `open` row is resumed as described above (The loop
+spec): complete units skipped, running attempts attached, ready units
+re-attempted. A `failed` row is also skipped by default; `loop run
+--retry-failed` reopens it to `open` and resumes the same run rather
+than creating a new one, walking its units the same way. A date's move
+to `complete` and its run's `finish_run` commit in one transaction, so a
+crash between the two cannot leave a `loop_dates` row claiming
+completion for a run that never finished, or a finished run with no row
+to show for it (supervisor step 7, 2026-09-24, after the Codex plan
+review).
+
+`reconcile` marks an attempt `lost` the same way it always does when its
+Batch job is gone. From there the unit's own retry-safe recovery
+applies, the [stage contract](stage-contract) page's rule that a retry
+recovers a completed-but-unconfirmed write rather than duplicating it,
+or discards an incomplete one and tries again within the run's attempt
+allowance; a unit with no attempts left fails, and that fails the date
+(supervisor step 7, 2026-09-24, after the Codex plan review).
+
+`loop run` exits 0 when every date it processed reached `complete`, 1 on
+the first date that fails with no later date started, and 75 on a
+timeout or a lock already held.
+
 ## Records
 
 Each schedule and date is one row of `loop_dates` (migration
@@ -187,8 +241,9 @@ promotion id, and a `record` JSON column, granted to
 `rapid_rebuild_pipeline` under the same guard as the rebuild's other
 grants (ruling R7). `record` carries the spec's location and release,
 each unit's selected attempt and job id, the field list, the base sets
-each field bound, the alert container's instance and location, and the
-promotion id or refusal reason. `loop show <schedule>` prints these rows.
+each field bound and, per field, `base_promoted` (above, Base catalog),
+the alert container's instance and location, and the promotion id or
+refusal reason. `loop show <schedule>` prints these rows.
 
 ## Release binding
 
@@ -203,7 +258,7 @@ the laptop, by the [releases](releases) page's own recipe.
 
 | Command | Does |
 |---|---|
-| `loop run --spec <loc> [--date D]… [--dry-run] [--interval N] [--timeout N]` | Runs every date in the spec whose `loop_dates` row is absent or `open`, in spec order; `--date` restricts to named dates |
+| `loop run --spec <loc> [--date D]… [--retry-failed] [--dry-run] [--interval N] [--timeout N]` | Runs every date in the spec whose `loop_dates` row is absent or `open`, in spec order, under the schedule's advisory lock; `--date` restricts to named dates; `--retry-failed` also reopens and resumes `failed` dates |
 | `loop plan --spec <loc>` | Prints what `run` would do: the dates it would process and the runs it would create, without creating them |
 | `loop show <schedule>` | Prints the schedule's `loop_dates` rows |
 
@@ -217,4 +272,3 @@ the laptop, by the [releases](releases) page's own recipe.
 - The steady-state cadence, once real deliveries exist to advance
   against.
 - Publishing the alerts a date's run produces.
-- What a failed date does to the next date's base catalog.
