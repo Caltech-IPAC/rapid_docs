@@ -131,6 +131,13 @@ workstation role also carries the cleanup permission directly, so a
 failure of the assumed path cannot strand a deletion; removing that
 direct attachment is a recorded follow-up, not done by this step.
 
+`run cancel` needs `batch:TerminateJob` on whichever identity issues
+it. The workstation instance role (`rapid-rusholme-instance-role`) does
+not carry that permission yet, so a cancel issued from a workstation
+fails `AccessDenied` until the systems repository grants it; the
+launcher's own fleet-host role is unaffected (supervisor step 6
+finding, 2026-09-24).
+
 ## Where it runs
 
 The tool runs launcher-side: on a fleet host, under that host's instance
@@ -158,3 +165,6 @@ revisions this step touches are none (R8).
   scientific and stays undecided there (supervisor step 6, 2026-09-24).
 - Removal of the transitional direct cleanup attachment on the
   workstation role, once the assumed-role path is proven.
+- Granting the workstation instance role `batch:TerminateJob`, so
+  `run cancel` from a workstation stops needing an operator's own
+  elevated credentials.

@@ -252,7 +252,12 @@ after-selection is no longer current (supervisor step 3, 2026-09-24).
 finished or not: a finished run admits no new unit, attempt or input
 binding, but that alone does not block its deletion (supervisor step 3,
 2026-09-24). It first locks the run, verifies the owner, refuses if any
-attempt is queued, running or unresolved, if any frozen input binding
+attempt is queued, running or unresolved — meaning it carries no
+disposition at all; `lost` is itself a recorded resolution of that
+uncertainty, written only once reconcile finds the scheduler no longer
+returns the job, or once `run reconcile --resolve-jobless` finds no job
+under the attempt's name, so a `lost` attempt does not by itself block
+deletion (supervisor step 6, 2026-09-24) — if any frozen input binding
 of unfinished work or any provenance dependency of a retained output
 outside the run points into it, or if a row in `xsources` references
 one of the run's rows (that table is not in the cleanup set below, so

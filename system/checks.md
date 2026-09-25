@@ -146,11 +146,14 @@ approval, so neither permits it. At the end
 of a `run start` walk, once every unit is complete, the tool calls
 `maybe_auto_promote(conn, run_id)`: with the run's `auto_promote` flag
 true, it runs the resolved policy's checks over the run's candidates and
-promotes on a pass; otherwise it prints that auto-promote is off for
-that policy and does nothing further. The path is exercised end to end
-against a fixture policy in tests; in production it can currently only
-print, because no policy carries the approval that would let it act
-(R5, 2026-09-24).
+promotes on a pass; otherwise it prints `auto-promote off (policy
+<ref>)` and does nothing further, immediately before `start`'s own
+final `run=<id> state=complete` line. Every run created so far prints
+this line, since no shipped policy permits automatic promotion (live
+evidence, supervisor step 6, 2026-09-24). The path is exercised end to
+end against a fixture policy in tests; in production it can currently
+only print, because no policy carries the approval that would let it
+act (R5, 2026-09-24).
 
 ## The check commands
 
