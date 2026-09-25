@@ -191,6 +191,17 @@ field-level input selection the tool page leaves open; which reference a
 field should use among several eligible ones is still not decided
 (below).
 
+Field discovery and base selection both go through the [products](products)
+page's cross-run reading rule, not around it. Field discovery reads a
+source set only after that rule passes; an unreadable own source set
+fails the date. A candidate base association set that fails the rule --
+another run's scratch set, or one from an unselected attempt -- is
+skipped, and the search continues to the next earlier complete date of
+the schedule, the same stepping-back the paragraph above already does
+for a failed or open date; each skip is recorded in the date's record as
+`bases_skipped` (per field, the run, processing date, instance and
+reason skipped) (supervisor step 9, ruling R2, 2026-09-25).
+
 ## Promotion
 
 Once every unit of a date's run is complete, the loop promotes it under
@@ -233,6 +244,15 @@ or discards an incomplete one and tries again within the run's attempt
 allowance; a unit with no attempts left fails, and that fails the date
 (supervisor step 7, 2026-09-24, after the Codex plan review).
 
+A date whose input set cannot be read -- an absent or invalid manifest,
+or a producer run that is deleting or deleted -- fails with that reason,
+and can fail before any unit exists, when nothing has run yet to give
+`--retry-failed` a failed or cancelled unit to seed. A later `loop run`
+reopens such a failed row -- one whose run has no failed or cancelled
+unit -- and resumes it with the same run, recording the reopen, rather
+than leaving it stuck failed with nothing for `--retry-failed` to act on
+(supervisor step 9, ruling R2, 2026-09-25).
+
 `loop run` exits 0 when every date it processed reached `complete`, 1 on
 the first date that fails with no later date started, and 75 on a
 timeout or a lock already held.
@@ -247,10 +267,11 @@ promotion id, and a `record` JSON column, granted to
 grants (ruling R7). `record` carries the spec's location and release,
 each unit's selected attempt and job id, the field list, the base sets
 each field bound and, per field, `base_promoted` (above, Base catalog),
-`pruned_sets` (per field, the pruned-set instance that field's `prune`
-wrote and alerts read, ruling R5), the alert container's instance and
-location, and the promotion id or refusal reason. `loop show <schedule>`
-prints these rows.
+`bases_skipped` (per field, the bases the reading rule refused before an
+eligible one was found, ruling R2), `pruned_sets` (per field, the
+pruned-set instance that field's `prune` wrote and alerts read, ruling
+R5), the alert container's instance and location, and the promotion id
+or refusal reason. `loop show <schedule>` prints these rows.
 
 ## Release binding
 
