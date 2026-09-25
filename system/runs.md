@@ -131,16 +131,22 @@ input selection names that instance explicitly. The resolved binding is
 written to `unit_inputs` before execution, and the manifest a stage
 reads is generated from that binding; a hand-composed manifest is a
 test path, not how a production run assembles its inputs (lead,
-2026-09-23). `submit_unit` and `run local` now perform this binding
-before allocating the attempt, not only after the stage's output is
-registered: every `instance` the input-set manifest names, in
-`inputs.products` and `inputs.result_sets`, that is a registered
-product instance becomes a `unit_inputs` row through
-`bind_unit_inputs`; a name that is not a registered instance -- a
-delivery manifest, or a dev-era template entry -- binds nothing and is
-logged, and a manifest that cannot be read refuses the submission,
-since the deletion guard's basis is this binding (supervisor step 9,
-2026-09-25).
+2026-09-23). Before any write for a submission (`run submit`, `run
+start`, `run local`), the launcher reads `manifest.json` at the
+`--inputs` location, local or `s3://`; collects every output entry's
+`instance` and every `inputs.result_sets` entry -- not `inputs.products`,
+which are what the *upstream* attempt read, not this unit's own
+binding; creates the unit; binds, through `bind_unit_inputs`, the
+collected names that are registered product instances; commits both
+together; and only then allocates the attempt. A name that is not a
+registered instance -- a delivery manifest, a dev-era template entry --
+binds nothing and is logged, not refused. A manifest that is absent,
+invalid or unreadable for a non-network reason refuses the submission,
+exit 65, before anything is written; a network error refuses it with
+exit 75 instead. Binding is idempotent per (unit, instance): a retry
+and a seeded `--only-failed` re-run both re-read the manifest and bind
+nothing new. The deletion guard's basis is this binding (supervisor
+step 9, ruling R4, 2026-09-25).
 
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
@@ -297,19 +303,22 @@ reference) -- and marks the run deleting, in one transaction. Attempt
 allocation, input binding and result acceptance use the same run fence
 and refuse a deleting or deleted run.
 
-The guard's count of blocking consumers is live consumers only: a
-`dependencies` edge whose consumer instance is itself `deleted`, or a
-`unit_inputs` row whose unit belongs to a run that is itself `deleted`,
-does not block. A deleted run's own dependency and input-binding rows
-therefore stay as history -- they are never removed -- but stop
-counting against the run that produced what it once consumed, once that
-consuming run is gone (supervisor step 9, 2026-09-25). This is what
-makes the input binding above safe to write at submission rather than
-at output registration: a unit's frozen bindings, recorded through
-`bind_unit_inputs` before its attempt starts, make it a live consumer of
-its declared inputs from that point, and the guard now sees that
-consumer as soon as it exists, not only once it has produced something
-of its own to depend on (supervisor step 9, 2026-09-25).
+The guard's count of blocking consumers is live consumers only: it
+counts a `unit_inputs` binding from outside the run only when the
+binding unit's own run is in a state other than `deleted`, and a
+`dependencies` edge from outside the run only when the consumer
+instance's `deletion_state` is other than `deleted`. Tombstone rows are
+never removed; a consumer run that is still `deleting` still blocks,
+and only a consumer run that has finished deleting stops counting
+against the run that produced what it once consumed. The refusal itself
+is unchanged: `run delete` still exits 64 (supervisor step 9, ruling R3,
+2026-09-25). This is what makes the input binding above safe to write
+at submission rather than at output registration: a unit's frozen
+bindings, recorded through `bind_unit_inputs` before its attempt starts,
+make it a live consumer of its declared inputs from that point, and the
+guard now sees that consumer as soon as it exists, not only once it has
+produced something of its own to depend on (supervisor step 9,
+2026-09-25).
 
 Before touching storage, every attempt's output location must lie in
 the scratch bucket under `runs/<run-id>/`; otherwise the whole delete
