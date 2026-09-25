@@ -89,17 +89,27 @@ else (`partition_info.csv`, `skymap*.fits`, `point_map.fits`,
 `dataset/_metadata`, `dataset/_common_metadata`). The primary member is
 the root `properties` file.
 
-Key: `{"field": <rtid>, "export_type": "sources", "result_set": <the
-first named source set>, "settings_hash": <resolved settings hash>}`.
+Key: `{"field": <rtid>, "export_type": "sources", "selection": <selection
+digest>, "settings_hash": <resolved settings hash>}`. The selection
+digest is the full SHA-256 hex digest over the sorted, distinct named
+`source-set` instance ids, joined by newlines -- the same rule the
+reference-image's selection digest uses (ruling R5): the same set of
+source sets rebuilt, in any input order, is another instance of one
+logical product, and a different set of source sets is a new one. This
+replaces an earlier "result_set" key component naming only the first
+named source set, which let two exports over different sets that
+happened to share a first element collide (ruling R13, supervisor step
+8, 2026-09-24, a Codex export-review finding).
+
 Registration block: `row_count` (the rows dumped, checked against the
 catalog's own `properties` file), `export_type` (must equal the key's),
 `hats_version` (the installed `hats` package version), `source_sets`
-(every named source set, in input order, the first equal to the key's
-`result_set`), `healpix_order` (the highest partition order
-`hats-import` actually wrote), `partition_count` (the number of
-`partition` members), `md5` (of the primary member). `register`
-validates the entry and writes nothing beyond the instance row: no
-`catalog-export`-specific table exists, the same treatment
+(every named source set, in input order -- provenance, kept even though
+the key's `selection` sorts them), `healpix_order` (the highest
+partition order `hats-import` actually wrote), `partition_count` (the
+number of `partition` members), `md5` (of the primary member).
+`register` validates the entry and writes nothing beyond the instance
+row: no `catalog-export`-specific table exists, the same treatment
 `source-catalog` and `alert-container` get.
 
 ## Settings
@@ -167,3 +177,9 @@ unnamed one or the association set.
   settings profile; how two exports of the same field and export type,
   or a real deployment serving several catalogs, would be named apart is
   not decided.
+- A catalog labelled by the unit's field can hold rows of another field:
+  the stage restricts what it reads by the named source sets, never by
+  field, and nothing stops a manifest from naming source sets whose rows
+  carry a different `field` than the unit's. This is deliberate, not an
+  oversight (supervisor step 8, 2026-09-24, ruling R13): whether it
+  should be checked is left open.
