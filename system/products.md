@@ -52,7 +52,7 @@ instance id, never a bare version number.
 | `source-catalog` | detector-image | difference instance, catalog type, sign | table | `difference` | none until `load` |
 | `alert-container` | detector-image | difference instance, alert schema version | Avro object container plus JSON summary | `alerts` | the outbox |
 | `light-curve` | field | field, object set instance, request id | Parquet | `photometry` | none; exported |
-| `catalog-export` | field | field, export type, result-set instance | HATS | `export` | none; exported |
+| `catalog-export` | field | field, export type, selection digest of the named source sets | HATS | `export` | none; exported |
 
 A bundle is one product with several member files. The manifest entry
 names the primary member and lists every member with its role, size and
