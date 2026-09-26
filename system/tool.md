@@ -131,6 +131,28 @@ codes table carries.
 | 65 | `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) |
 | 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable |
 
+The other command families report their own codes, recorded here so a
+script that drives several of them can read one table (direction pass,
+2026-09-26; the codes are as the code returns them today, and the
+unification is a proposal on the direction pass's findings page):
+
+| Family | Codes |
+|---|---|
+| `release cut\|show\|list\|verify` | 0 success, 1 refused or mismatch, 2 usage, 75 database unavailable |
+| `loop run\|plan\|show` | 0 every processed date complete, 1 a date failed, 64 refused, 75 timeout or the schedule's lock already held ([loop](loop)) |
+| `check run\|show\|list` | 0 every result passed, 1 any failed, 64 usage or refused ([checks](checks)) |
+| `run create` | 0 with the run id on stdout, 64 usage or refused, 2 when `--release` names a release whose record is not `complete` |
+| `run show` | 0, or 1 when no such run exists |
+| `run submit`, `run start` and the other `run` subcommands | as the table above; a release whose recorded job-definition revision is refused (not `ACTIVE`) exits 1 |
+
+An argument the parser itself rejects, an unknown flag or a missing
+required one, exits 2 in every family: that is Python's `argparse`, which
+exits before any of the codes above applies, so the 64 in the first table
+is the tool's own refusal of arguments it parsed, not a parse failure.
+Two consequences a script should know: 2 means "still running" from `run
+status` and "could not parse" from any command, and `release` spells its
+own usage refusal 2 where the other families spell it 64.
+
 ## Personal submission from a workstation
 
 A person can run the same commands from a workstation that the launcher
