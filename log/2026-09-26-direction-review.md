@@ -17,6 +17,13 @@ review found, ranked, and what it changed. Mechanical fixes landed as
 pull requests; anything that renames, drops or changes behaviour a
 caller could depend on is a proposal here, with its cost, for the lead.
 
+The pages this review produced are [operations](../system/operations)
+(live processing, reprocessing and development together, a proposal) and
+[observability](../system/observability) (logging, monitoring and job
+timing). A read-only Codex review of the combined merged changes found
+five code defects and three test or wording faults; all were fixed in one
+round (rapid #157, rapid_systems #88).
+
 The review read `rapid` at `rebuild` 31bd8a39, `rapid_docs` at b3ce2b2
 and `rapid_systems` at 227ffb1. Codex Astra co-reviewed the
 consolidation candidates; its answers are folded in below and attributed
