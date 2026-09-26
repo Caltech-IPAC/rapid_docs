@@ -35,6 +35,7 @@ remain in this repository's history.
 | [`tool.md`](tool) | DRAFT | The command-line tool `rapidpipe`, its operations mapped from the specification's Tools sentence onto subcommands, the input-set composer, the tool's own exit codes, personal submission from a workstation, and where it runs |
 | [`loop.md`](loop) | DRAFT | The processing-date loop: the operations-registry trigger, the venue and spec it runs from, the production run and stage chain per date, base-catalog binding across dates, promotion, its own records, and release binding |
 | [`checks.md`](checks) | DRAFT | What a check is, the two candidate checks and their measurements and bounds, check policies as versioned TOML files, the promotion gate they validate, automatic promotion's design, and the check commands |
+| [`operations.md`](operations) | DRAFT | Live survey processing, bulk reprocessing and development running together: the use cases, three shapes of the run model traced concurrently, the recommended named stream of batch runs, replacement scope by science slot, the chain switch, closure and latency, dependency eligibility, the loop's five calls, a proposed production check policy, reference eligibility, the product-identity mechanism and its cost |
 
 ```{toctree}
 :hidden:
@@ -58,4 +59,5 @@ releases
 tool
 loop
 checks
+operations
 ```
