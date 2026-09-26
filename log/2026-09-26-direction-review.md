@@ -17,9 +17,9 @@ review found, ranked, and what it changed. Mechanical fixes landed as
 pull requests; anything that renames, drops or changes behaviour a
 caller could depend on is a proposal here, with its cost, for the lead.
 
-The pages this review produced are [operations](../system/operations)
+The pages this review produced are [operations](../system/operations.md)
 (live processing, reprocessing and development together, a proposal) and
-[observability](../system/observability) (logging, monitoring and job
+[observability](../system/observability.md) (logging, monitoring and job
 timing). A read-only Codex review of the combined merged changes found
 five code defects and three test or wording faults; all were fixed in one
 round (rapid #157, rapid_systems #88).
@@ -33,7 +33,7 @@ where they changed a finding.
 
 | Rank | Finding | Where | Disposition |
 |---|---|---|---|
-| 1 | Four exit-code vocabularies in one binary: the stage contract's, the tool page's, `release`'s (usage is 2), and a private tuple in `launch/loop.py`; and `argparse` exits 2 on any parse failure from the top-level CLI, where `run status` also uses 2 for "still running" | `stages/contract.py`, `release/hooks.py`, `launch/loop.py`, `cli/main.py` `main()` | Documented as they are ([tool](../system/tool)); one vocabulary proposed below |
+| 1 | Four exit-code vocabularies in one binary: the stage contract's, the tool page's, `release`'s (usage is 2), and a private tuple in `launch/loop.py`; and `argparse` exits 2 on any parse failure from the top-level CLI, where `run status` also uses 2 for "still running" | `stages/contract.py`, `release/hooks.py`, `launch/loop.py`, `cli/main.py` `main()` | Documented as they are ([tool](../system/tool.md)); one vocabulary proposed below |
 | 2 | Two input-set binding implementations with the same subtle invariant (bind, commit, then write the manifest last) and different binding rules: the CLI composer binds a manifest's outputs only, the loop's binds outputs and result sets | `cli/runctl.py` `compose_inputs`, `launch/loop.py` `_bind_and_write` | Proposal below |
 | 3 | Logs go to stdout, so `run local` interleaves a stage's log lines with its one data line | `log.py` | Fixed: logs on stderr (rapid #154) |
 | 4 | Three drifting copies of "find the host, start it, wait for SSM" and two of the account guard, each with bugs the others fixed; `lib.sh`'s `resolve_and_wake` reported success when the host never came online | `rapid_systems` `bin/rapid`, `cloudformation/lib.sh` | Bug fixed with a fixture (rapid_systems #87); one source proposed below |
@@ -152,16 +152,16 @@ These go beyond consistency: each removes a mechanism.
 - **One notion of "current".** `vbest` on the `dev` tables and
   `current_selection` both answer "which one do consumers see", and
   promotion maintains both. Consumers moving to `current_selection` is
-  already the recorded direction ([products](../system/products));
+  already the recorded direction ([products](../system/products.md));
   retiring `vbest` maintenance waits for the team's existing queries to
   move.
 - **The transitional cleanup grant.** The workstation role still carries
   the scratch-cleanup permission directly beside the assumed cleanup
-  role ([tool](../system/tool)); the assumed path is proven, so the
+  role ([tool](../system/tool.md)); the assumed path is proven, so the
   direct attachment can go.
 - **Chain switch as the only non-extending catalog promotion.** The
   operations page proposes it for both reprocessing and corrections
-  ([operations](../system/operations)).
+  ([operations](../system/operations.md)).
 
 ## Open questions on the pages
 
@@ -170,13 +170,13 @@ repeat across pages are grouped.
 
 | Question | Pages | Disposition |
 |---|---|---|
-| Lead sign-off on a check policy; automatic promotion | checks, specification, tool | Proposed: `rebuild-production@1` on [operations](../system/operations); the approval stays the lead's |
+| Lead sign-off on a check policy; automatic promotion | checks, specification, tool | Proposed: `rebuild-production@1` on [operations](../system/operations.md); the approval stays the lead's |
 | Checks that read S3 | checks | Frozen: no check needs file contents yet |
 | Light-curve HATS port, and where exports and light curves are read from | export, photometry | Frozen: a scheduled port; the reader is the delivery adapter, undefined |
 | Naming two exports of one field apart; checking a field-versus-source-set mismatch | export | Frozen: no second export exists to name |
-| Real deliveries per date; cadence; publishing alerts | loop, specification | Proposed on [operations](../system/operations) (discovery, cadence); publishing frozen on the undefined delivery protocol |
-| Parallel dates; loop lanes | loop | Proposed on [operations](../system/operations) (batches, lanes on the two queues) |
-| Reference eligibility, selection, and the field-level resolver | reference, specification, tool | Proposed on [operations](../system/operations) |
+| Real deliveries per date; cadence; publishing alerts | loop, specification | Proposed on [operations](../system/operations.md) (discovery, cadence); publishing frozen on the undefined delivery protocol |
+| Parallel dates; loop lanes | loop | Proposed on [operations](../system/operations.md) (batches, lanes on the two queues) |
+| Reference eligibility, selection, and the field-level resolver | reference, specification, tool | Proposed on [operations](../system/operations.md) |
 | Reference PSF source; Photutils reference catalog wiring; `reference_sets` | reference | Frozen: `dev` never wired these either; no caller needs them yet |
 | Zero-point handoff from `reference` to `difference` | reference | Closed by the lead's 2026-09-26 ruling, landed with the `difference` change |
 | Signing tags or images | releases | Frozen: no consumer verifies signatures |
@@ -184,9 +184,9 @@ repeat across pages are grouped.
 | The concurrent-cut window | releases | Frozen: one person cuts; the record serialises every other case |
 | Registration field lists for remaining kinds | products, stage contract | Narrowed: only `light-curve` remains, with its port |
 | Storage layout beneath the attempt | products | Frozen: per-stage member paths are recorded in each manifest, which is what readers use |
-| Derived-product logical keys | products, specification | Proposed: identity key and slot on [operations](../system/operations), with cost |
-| The cross-run reading rule for file products | products | Proposed: the dependency-eligibility table on [operations](../system/operations) |
-| Mission/RAPID data boundary; admission of duplicate or corrected inputs; a date's boundary | specification | Admission proposed on [operations](../system/operations) under stated mission assumptions; the boundary frozen on the mission interface |
+| Derived-product logical keys | products, specification | Proposed: identity key and slot on [operations](../system/operations.md), with cost |
+| The cross-run reading rule for file products | products | Proposed: the dependency-eligibility table on [operations](../system/operations.md) |
+| Mission/RAPID data boundary; admission of duplicate or corrected inputs; a date's boundary | specification | Admission proposed on [operations](../system/operations.md) under stated mission assumptions; the boundary frozen on the mission interface |
 | SMDC platform facts; recovery targets; alert payload split; ephemerides | specification | Frozen: SMDC's or the lead's, none blocks the prototype |
 | The `smdc` branch inventory and issue triage | specification | Frozen: a discrete pass the specification already schedules |
 | Before or after pruning for delivered statistics | stage contract | Frozen: the lead's science call |
@@ -265,9 +265,9 @@ is consistent with the artifact-repair step `dev` added on 2026-08-20,
 which the rebuild ports and `dev`'s 2026-08-09 run predates. Stamping a
 field per source changes no row count: it writes one column's value. The
 lead's approval of that stamping (2026-09-26) is recorded on
-[load](../system/load).
+[load](../system/load.md).
 
-Two consequences for the pages. [products](../system/products) says ZOGY
+Two consequences for the pages. [products](../system/products.md) says ZOGY
 registers "as in `dev`", but `dev`'s own run of 2026-08-09 registered its
 SFFT difference for this exposure; which differencer `dev` registers is a
 question for the lead. And the rebuild's execution records hold `{}` for
