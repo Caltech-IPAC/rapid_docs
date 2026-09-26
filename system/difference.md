@@ -18,9 +18,12 @@ The stage takes one detector image and the reference for its field,
 subtracts one from the other with ZOGY exactly as the `dev` science
 pipeline does, and writes the difference image, its uncertainty and
 significance images, and four source catalogs. SFFT and a plain
-subtraction also run, as in `dev`, but only ZOGY's result is registered
-unless a setting says otherwise. The stage touches no database;
-`register` records its manifest afterwards.
+subtraction also run, as in `dev`. Both ZOGY's and SFFT's results are
+registered, each its own `difference-image` instance; a setting turns
+SFFT's registration off. Which instance is current downstream is a
+promotion choice, not this stage's job (lead, 2026-09-26). The naive
+subtraction's files stay diagnostics, never registered. The stage
+touches no database; `register` records its manifest afterwards.
 
 ## Inputs
 
@@ -76,12 +79,13 @@ entries naming it: SExtractor positive and negative, Photutils positive
 and negative. A Photutils catalog that could not be made has no entry;
 its bit in the catalog-outcome mask says so.
 
-With `[sfft] register_sfft` on and SFFT successful, a second
-`difference-image` instance carries SFFT's result, with members
-`difference`, `uncertainty`, and `psf` and `kernel` where SFFT wrote
-them, and its own four catalogs. A failed SFFT run adds nothing: never a
-partial bundle. The naive subtraction's files are diagnostics and never
-an instance.
+`[sfft] register_sfft` is on by default (lead, 2026-09-26): when SFFT
+succeeds, a second `difference-image` instance carries its result, with
+members `difference`, `uncertainty`, and `psf` and `kernel` where SFFT
+wrote them, and its own four catalogs. Turning the setting off keeps
+SFFT's files as diagnostics only. A failed SFFT run adds nothing either
+way: never a partial bundle. The naive subtraction's files are
+diagnostics and never an instance.
 
 Every working file stays under `diff/` in the attempt's output location,
 as `dev` uploads its intermediates for diagnosis.
@@ -152,7 +156,7 @@ are not repeated here. Settings new with the port are marked.
 | `[sfft] sfft_bsmask_value`, `sfft_bsmask_radius`, `sfft_use_gainmatch_catalogs`, `sfft_use_segmentation` | `20000.0`, `30.0`, false, false | the socsims block; an empty `sfft_bsmask_value` selects `dev`'s file-name fallback |
 | `[sfft] sfft_code` | `/code/modules/sfft/sfft_rapid_rimtimsim.py` | hard-coded in `dev` |
 | `[sfft] python_cmd`, `activate_cmd` | empty, empty | new: empty `python_cmd` selects the stage's own interpreter, the same convention as `[paths] python`; empty `activate_cmd` runs SFFT in the stage's own environment rather than activating one. Neither is a venv gap: the base image resolves sfft 1.7.3 into the main conda environment, `/sfft_env` exists nowhere, and `dev`'s `python3.11` is an smdc-layer alias for 3.14. `dev`'s values, `python3.11` and `source /sfft_env/bin/activate`, remain selectable (lead, 2026-09-23). |
-| `[sfft] register_sfft` | false | new: register SFFT's result as its own instance (lead, 2026-09-22) |
+| `[sfft] register_sfft` | true | new: register SFFT's result as its own instance, alongside ZOGY's (lead, 2026-09-26) |
 | `[sfft] detection_role` | `difference` | new: the member SFFT's catalogs detect on (the cross-convolved image with `crossconv_flag`, as in `dev`) |
 | `[naive_diffimage] naive_diffimage_flag`, `naive_output_diffimage_file` | true, `naive_diffimage_masked.fits` | the naive subtraction, a diagnostic |
 | `[bkgest]` | `dev`'s values | bkgest's options and output names |
