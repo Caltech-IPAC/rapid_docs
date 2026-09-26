@@ -65,7 +65,11 @@ Without CloudWatch, three things hold everything about an attempt:
 - **The per-stage log file**: the same lines, at `log/<stage>.log`
   under the attempt's output location, published with the attempt,
   including when it fails (a failed upload logs a warning and never
-  changes the exit code). It is not a manifest member, in the same way
+  changes the exit code). For outputs in S3 the file is closed and
+  uploaded before the stage's final success line is written, so that one
+  line (exit code, manifest, timing) is in the console stream and not in
+  the S3 copy; the same timing is in the execution record. A `--dry-run`
+  writes no file. It is not a manifest member, in the same way
   `exec/<attempt>.json` is not.
 - **The database**: `attempts` (started, ended, exit code, disposition,
   output, inputs and settings locations, scheduler job id) and
@@ -105,7 +109,7 @@ reason, log stream and queue. From those:
 
 | Measure | Derived as | What it tells you |
 |---|---|---|
-| Submission latency | Batch created minus attempt allocated | The tool's own overhead before Batch knows the job |
+| Submission latency | Batch created minus attempt allocated | The tool's own overhead before Batch knows the job; derivable by query, not printed by `run timings` |
 | Queue time | Batch started minus Batch created | Waiting for capacity, including instance start-up |
 | Execution time | Batch stopped minus Batch started | The container's run, the thing the 30-minute target is about |
 | Reconcile lag | attempt ended minus Batch stopped | How long until `run start` or the loop noticed; mostly the poll interval |
@@ -115,6 +119,10 @@ its last line and in its execution record's `timing`: `fetch_s` (copying
 inputs and settings from storage), `body_s` (the stage's own work) and
 `publish_s` (writing outputs back), with `elapsed_s` the total. So a slow
 job answers "was it the science or the storage" from its own log line.
+`fetch_s` and `body_s` also go into the execution record's `timing`,
+which `reconcile` copies into `scheduler_metadata.stage` for a
+successful attempt, so `run timings` prints them; `publish_s` happens
+after the record is written and is on the log line only.
 
 None of this needed a new column. Attempts recorded before 2026-09-26
 have no Batch timestamps and print `-`.
