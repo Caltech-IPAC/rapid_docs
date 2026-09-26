@@ -44,11 +44,11 @@ the prefix either way. The level is INFO for a
 stage and WARNING for the CLI by default; `RAPIDPIPE_LOG_LEVEL` overrides
 either.
 
-Output a wrapped tool prints for itself, SExtractor's banner or a
-library's own warning written straight to stderr, passes through
-unprefixed. The stage logs each tool's command line and return code in
-the line shape, so the unprefixed output always sits between two
-prefixed lines that say which tool it came from.
+A wrapped tool's own output (SExtractor, SWarp, awaicgen) is captured
+and logged after it returns, as prefixed lines naming the command, its
+return code and what it printed. Only what a library writes straight to
+stderr, a warning from Photutils or Astropy for example, passes through
+unprefixed.
 
 The console handler moved from stdout to stderr on 2026-09-26 (the
 direction pass). Nothing in the pipeline read log lines from stdout; `run
