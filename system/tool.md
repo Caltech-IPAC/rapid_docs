@@ -146,9 +146,12 @@ unification is a proposal on the direction pass's findings page):
 | `run submit`, `run start` and the other `run` subcommands | as the table above; a release whose recorded job-definition revision is refused (not `ACTIVE`) exits 1 |
 
 An argument the parser itself rejects, an unknown flag or a missing
-required one, exits 2 in every family: that is Python's `argparse`, which
-exits before any of the codes above applies, so the 64 in the first table
-is the tool's own refusal of arguments it parsed, not a parse failure.
+required one, exits 2 from every `rapidpipe` command family: that is
+Python's `argparse`, which exits before any of the codes above applies,
+so the 64 in the first table is the tool's own refusal of arguments it
+parsed, not a parse failure. A stage's own invocation (`stage run <name>
+...`, the form Batch runs) is the exception: the stage runner translates
+a parse failure to 64, as the [stage contract](stage-contract) says.
 Two consequences a script should know: 2 means "still running" from `run
 status` and "could not parse" from any command, and `release` spells its
 own usage refusal 2 where the other families spell it 64.
