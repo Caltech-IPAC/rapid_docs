@@ -217,7 +217,6 @@ started by this review.
   the IMSS reference, has not run; the control image's catalogs differ
   from `dev`'s (below).
 - A lead-approved production check policy.
-- `batch:TerminateJob` for the workstation role.
 
 ## Two images kept
 
