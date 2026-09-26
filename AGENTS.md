@@ -193,16 +193,19 @@ on anything outside it.
   examples over negative ones, options shown in examples rather than
   reference lists restated, several small files over one kitchen sink.
 
-## The system section, as landed (2026-09-25)
+## The system section, as landed (2026-09-26)
 
 `system/` holds one page per register: `specification.md` is the design
 authority; `products.md`, `runs.md` and `stage-contract.md` are the
 three model pages everything else builds on; each pipeline stage has
 its own page (`reference`, `difference`, `load`, `maintain`,
 `crossmatch`, `statistics`, `finalize`, `alerts`, `prune`,
-`photometry`, `export`); and `releases.md`, `tool.md`, `loop.md` and
-`checks.md` cover the mechanisms that run stages rather than a stage
-itself. `index.md`'s table is the map: its Scope column names what each
+`photometry`, `export`); `releases.md`, `tool.md`, `loop.md`,
+`checks.md` and `observability.md` cover the mechanisms that run stages
+rather than a stage itself; and `operations.md` is a proposal, the
+direction pass's operations-readiness design (2026-09-26), which the
+lead has not yet ruled on. Dated reviews go in the log, not in
+`system/`. `index.md`'s table is the map: its Scope column names what each
 page owns, and a page's own content should never drift from that line.
 
 A ruling lands on the one page that governs the decision it makes, as a

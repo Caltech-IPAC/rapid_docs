@@ -140,7 +140,7 @@ CLI's `run create --release` path: owner and lane from the spec, purpose
 location, `check_policy_ref` the spec's policy, `max_attempts_per_unit`
 the spec's, and `selected_stages` the loop's own chain: admit, register,
 difference, finalize, register, load, maintain, crossmatch, statistics,
-prune, alerts — one `register` fewer than first ruled, since the landed
+prune, alerts: one `register` fewer than first ruled, since the landed
 `finalize` contract never registers the raw difference instance, and
 promoting two candidates for the same kind and logical key is refused
 (ruling R4, amended, supervisor step 7, 2026-09-24, after the Codex plan
@@ -170,8 +170,8 @@ Submission and polling go through `submit_unit` and `reconcile`, as
 
 A field's base catalog is the association-set instance its crossmatch
 produced in the most recent earlier `loop_dates` row of the same
-schedule that is `complete` and has an association set for that field —
-that row's run's selected attempt for the field's unit — or none, if no
+schedule that is `complete` and has an association set for that field
+(that row's run's selected attempt for the field's unit), or none, if no
 earlier complete row has one, on a schedule's first date or a field new
 to a later one. A failed or still-open date has no association set to
 offer, so the search steps back past it to the most recent complete
@@ -181,7 +181,7 @@ association sets bind by instance, not by current custody, so an
 unpromoted complete date is still an eligible base, and `prune`'s own
 not-best exclusion, not promotion, is what keeps an inferior instance
 out of the chain a later date reads. Each field's entry in the date's
-record notes `base_promoted` — whether the date that supplied its base
+record notes `base_promoted`: whether the date that supplied its base
 had itself been promoted at bind time (ruling R5, amended, supervisor
 step 7, 2026-09-24, after the Codex plan review). Input-set manifests
 for crossmatch and alerts are written under
@@ -219,17 +219,26 @@ way, and the date exits 0.
 ## Concurrency and recovery
 
 `loop run` takes one PostgreSQL advisory lock scoped to the spec's
-schedule for its whole run; a second launcher for the same schedule — a
-stray retry, an overlapping Maintenance Window — exits 75 without
+schedule for its whole run; a second launcher for the same schedule (a
+stray retry, an overlapping Maintenance Window) exits 75 without
 touching any date, rather than racing the first (supervisor step 7,
 2026-09-24, after the Codex plan review).
 
 Within the lock, dates are processed in spec order. A `complete` row is
 skipped, and an `open` row is resumed as described above (The loop
 spec): complete units skipped, running attempts attached, ready units
-re-attempted. A `failed` row is also skipped by default; `loop run
---retry-failed` reopens it to `open` and resumes the same run rather
-than creating a new one, walking its units the same way. A date's move
+re-attempted. A `failed` row is also skipped by default. `loop run --retry-failed`
+recovers a failed date whose run has a failed or cancelled unit by
+seeding a replacement run, the `run create --seed <run> --only-failed`
+recovery the [runs](runs) page describes: the row is repointed to the
+new run, the old run's id is kept in `record.previous_runs`, and the
+date is walked again against the new run, which re-runs only the
+seed's non-complete units. Only a
+failed date with no failed or cancelled unit resumes the same run,
+the reopen described below (direction pass, 2026-09-26, correcting
+this paragraph's earlier "resumes the same run rather than creating a
+new one", which the code, `rapidpipe/launch/loop.py` `retry_date`, has
+not done since the seeded path landed). A date's move
 to `complete` and its run's `finish_run` commit in one transaction, so a
 crash between the two cannot leave a `loop_dates` row claiming
 completion for a run that never finished, or a finished run with no row
@@ -290,7 +299,7 @@ the laptop, by the [releases](releases) page's own recipe.
 
 | Command | Does |
 |---|---|
-| `loop run --spec <loc> [--date D]… [--retry-failed] [--dry-run] [--interval N] [--timeout N]` | Runs every date in the spec whose `loop_dates` row is absent or `open`, in spec order, under the schedule's advisory lock; `--date` restricts to named dates; `--retry-failed` also reopens and resumes `failed` dates |
+| `loop run --spec <loc> [--date D]… [--retry-failed] [--dry-run] [--interval N] [--timeout N]` | Runs every date in the spec whose `loop_dates` row is absent or `open`, in spec order, under the schedule's advisory lock; `--date` restricts to named dates; `--retry-failed` also recovers `failed` dates, through a seeded replacement run when the date has a failed or cancelled unit |
 | `loop plan --spec <loc>` | Prints what `run` would do: the dates it would process and the runs it would create, without creating them |
 | `loop show <schedule>` | Prints the schedule's `loop_dates` rows |
 

@@ -186,6 +186,12 @@ because they are the target columns. The `reference-catalog` block:
 `md5`, `status` 1, `catalog_type` (`sextractor` maps to `cattype` 1,
 `psf` to 2), `source_count` (ruling R6, 2026-09-24).
 
+The zero-point handoff to `difference` is settled: gain matching reads
+`zero_point` from the reference image it is given, by its `MAGZP`
+header keyword, rather than from a setting of its own (the lead,
+2026-09-26). The stage's `[awaicgen] zprefimg` setting still exists, but
+only as an explicit override of the header value.
+
 Registration writes four tables:
 
 - `refimages`, one row, through `dev`'s unchanged `addRefImage`: `field`,
@@ -250,7 +256,7 @@ on `dev` (ruling R3, 2026-09-24):
 | `[awaicgen] simple_coadd_flag` | 1 | `dev`'s value |
 | `[awaicgen] num_threads` | 2 | `dev`'s value |
 | `[awaicgen]` list and output file names | `dev`'s names | `awaicgen_output_mosaic_image_file`, `_cov_map_file`, `_uncert_image_file` and the input list file names, `dev`'s values |
-| `[awaicgen] zprefimg_<filter>` | per filter, `dev`'s ini | the zero point this stage normalises frames to before coadding; a filter with no entry falls back to `zprefimg` 17.0, `dev`'s scalar default. `difference.toml` carries its own, separate `[awaicgen] zprefimg` (default 17.0) that gain matching reads directly; nothing ties the two together (see Not decided here) |
+| `[awaicgen] zprefimg_<filter>` | per filter, `dev`'s ini | the zero point this stage normalises frames to before coadding; a filter with no entry falls back to `zprefimg` 17.0, `dev`'s scalar default. Stamped as `MAGZP` on the coadd, which `difference`'s gain matching reads by default (the lead, 2026-09-26; see [difference](difference)); `difference.toml`'s own, separate `[awaicgen] zprefimg` is now an override of that header, not a second source of truth |
 | `[sextractor]` | `dev`'s `SEXTRACTOR_REFIMAGE` section | params, filter and star/galaxy classifier files, the packaged `cdf/rapidSexParamsRefImage.inp`, `cdf/rapidSexRefImageFilter.conv`, `cdf/rapidSexRefImageStarGalaxyClassifier.nnw` |
 | `[psfcat] enabled` | false | `dev`'s Photutils reference catalog; designed in, off, since it needs a PSF input this step does not produce |
 | `[paths]` | as `difference.toml` | `rapid_sw`, `cfg_path`, and the external tools (`awaicgen`, `sextractor`) on `PATH` |
@@ -296,14 +302,6 @@ stage's fixture follows (ruling R8, 2026-09-24).
   is not decided.
 - `reference_sets`: whether a named, reusable grouping of reference
   instances is needed beyond the logical key's own identity.
-- The zero-point handoff to `difference`: this stage normalises to its
-  own `[awaicgen] zprefimg_<filter>` and stamps the result in `MAGZP`
-  and `refimmeta.zero_point` (carried, not registered), but `difference`
-  reads its own, separate `[awaicgen] zprefimg` setting for gain
-  matching and never reads the reference instance's declared zero point.
-  The two are meant to agree and nothing enforces it; a demo run must
-  freeze matching values by hand until the interface is fixed
-  (supervisor step 8, 2026-09-24, a Codex plan-review finding).
 - Concurrency of registration beyond the advisory lock: the lock
   serialises the `(field, fid, ppid)` version allocation, but `svid`
   allocation (the latest global software-revision row) and the general

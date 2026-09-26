@@ -41,7 +41,7 @@ instance, registered in `rapidpipe/checks/`: a registry keyed
 `name@version`, declared with `@check("difference-image-statistics",
 "1")`. Its signature is `(conn, instance_id, params: dict) ->
 CheckResult(outcome 'passed'|'failed', detail dict)`. Running a check
-always records a `checks` row — instance, check name, version, the
+always records a `checks` row: instance, check name, version, the
 required flag from the policy that ran it, outcome, and a detail
 document of the measurements, the bounds, the params it ran under and
 the reason for the outcome; a check that raises records `failed` with
@@ -73,7 +73,7 @@ two runs never share one; the check instead finds its reference by
 science identity, following the candidate's dependencies back through
 `source-set` to `difference` to the `l2` product and its `(expid, sca,
 fid)` triple, then looking for another run's current `source-set`
-instance of the same catalog type over that same triple — or, when
+instance of the same catalog type over that same triple, or, when
 `params` names a `reference_run`, that run's instance for the same
 triple instead. It compares the candidate's `result_sets.row_count`
 against the reference's and passes when `|candidate − reference| /
@@ -126,7 +126,7 @@ at that version (R3, 2026-09-24).
 promote` resolve which one to validate against in this order: an
 explicit `--check-policy`, then the run's own `check_policy_ref`, then
 the default `rebuild-trial@1`. Promotion first refuses an unapproved
-policy — `approval: none` — before looking at any check result. Every
+policy (`approval: none`) before looking at any check result. Every
 promotion under an approved policy is then validated under its version:
 for each after-instance, every policy check whose kind matches that
 instance must have a latest `checks` row, for that check's name,
@@ -140,7 +140,7 @@ but does not refuse. The promotion row records `check_policy_version`
 and `check_result_ids`, the rows it relied on. A kind the policy names
 no check for passes trivially, and there is no unchecked-exception
 flag: a deliverable of a kind the policy does cover always goes through
-this gate. Rollback does not re-validate checks — it restores a
+this gate. Rollback does not re-validate checks: it restores a
 selection an earlier promotion already admitted, the same treatment the
 released-image check gives it (R4, 2026-09-24, amended by the plan
 review, 2026-09-24).
@@ -172,7 +172,7 @@ policies. `check run <run> [--policy P] [--instance I] [--check
 NAME@V] [--param k=v]…` runs every applicable policy check over the
 run's candidate instances from their selected attempts, or over the one
 named instance or check, records a row for each, and prints one line
-per result — instance, kind, logical key, check, version, required
+per result: instance, kind, logical key, check, version, required
 flag, outcome, summary; it exits 0 if every result passed and 1 if any
 failed. `check show <run> [--instance I]` prints the run's recorded
 check results, newest first. Checks run launcher-side, on

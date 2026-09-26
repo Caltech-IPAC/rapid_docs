@@ -68,15 +68,29 @@ in the execution record's `notes`.
    source set, and COPY the CSV into the child table, all in one
    transaction; the loaded row count is read back and must match.
 
-`load` never clusters or analyzes per image: `dev`'s once-per-processing-date
-CLUSTER and ANALYZE is its own `maintain` stage instead, described below
-under the child tables (lead, 2026-09-23).
+`load` does not cluster or analyze per image by default: `dev`'s
+once-per-processing-date CLUSTER and ANALYZE is its own `maintain` stage
+instead, described below under the child tables (lead, 2026-09-23). The
+same call stays designed into `load` behind `[child_tables]
+cluster_and_analyze`, off by default, so a per-image cluster remains
+possible without being the shipped path.
 
 ## The child tables
 
 `sources` is the parent of one child table per observation date and
-detector, `sources_<yyyymmdd>_<sca>`, as in `dev`; the date is the UT
-date of the image's `dateobs`. `dev`'s loader makes a child as a login
+detector, `sources_<yyyymmdd>_<sca>`, as `dev`'s current loader names it;
+the date is the UT date of the image's `dateobs`. `dev`'s existing
+production tables do not all follow that rule: the control image
+(`dev` pid 1105, `dateobs` 2027-10-01) was loaded on 2026-08-09 by an
+earlier loader and sits in `sources_20260809_1`, named by the date it was
+processed, with every row stamped the image's own field (4711398). The
+rebuild follows `dev`'s current code, not those older rows: the child is
+named by `dateobs`, and each source's field is its own tessellation
+tile, a departure from `dev`'s data that the lead approved on
+2026-09-26. Nothing in the rebuild derives a table name from a date:
+crossmatch and the other readers resolve a source set's child table
+through the set's own record (direction pass, 2026-09-26, correcting
+this page's earlier "as in `dev`"). `dev`'s loader makes a child as a login
 holding `rapidporole`, which owns `sources`. The rebuild's service
 login holds table grants only, so two functions do the same work as
 `rapidporole` (migration `20260923-05`, EXECUTE granted by `-06`):
@@ -96,8 +110,9 @@ login holds table grants only, so two functions do the same work as
   design, and the done check in `load`'s inputs guards uniqueness within
   one run (lead, 2026-09-23).
 - `cluster_sources_child_table(obs_date, sca)`: `dev`'s CLUSTER on the
-  position index and ANALYZE. Called by the `maintain` stage below, not
-  by `load`.
+  position index and ANALYZE. Called by the `maintain` stage below, and
+  by `load` only when its off-by-default `[child_tables]
+  cluster_and_analyze` is on.
 
 Three things differ from `dev`: the tablespace lines are omitted, as the
 baseline omits them; the grants run when the table is made rather than
@@ -107,8 +122,8 @@ takes away the owner's `MAINTAIN` privilege and CLUSTER is then refused.
 
 `dev` runs its CLUSTER and ANALYZE once per processing date, after every
 image for that date has loaded; running it per image would recluster
-the table on every load. The rebuild keeps that timing but moves it out
-of `load` into its own stage, [maintain](maintain), unit kind
+the table on every load. The rebuild keeps that timing as its default
+path in its own stage, [maintain](maintain), unit kind
 `detector-date` (observation date, detector), scheduled after the
 date's last `load` unit and before `crossmatch`, calling
 `cluster_sources_child_table` (lead, 2026-09-23; unit kind named by the
