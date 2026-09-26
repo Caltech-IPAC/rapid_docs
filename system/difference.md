@@ -47,8 +47,11 @@ its FWHM. The science image's SIP distortion is rewritten as PV, and
 SWarp resamples the reference image, coverage map and uncertainty image
 onto the science grid. bkgest subtracts the science background. Gain
 matching compares SExtractor catalogs of the two images to find the
-reference's scale factor and the median offsets between them; with too
-few matched sources it falls back to the zero points and zero offsets.
+reference's scale factor and the median offsets between them, from the
+science image's own zero point and the reference's: its `MAGZP` header
+keyword, the value the reference stage stamped on the coadd, unless
+`[awaicgen] zprefimg` overrides it (the lead, 2026-09-26). With too few
+matched sources it falls back to these zero points and zero offsets.
 NaNs in ZOGY's inputs are replaced and extreme artifact pixels in the
 science image are repaired; the reference is shifted by the median
 offsets. ZOGY runs as `dev` runs it, by subprocess. Its difference and
@@ -138,7 +141,7 @@ are not repeated here. Settings new with the port are marked.
 | `[sci_image] saturation_level` | 2500000.0 | DN |
 | `[sci_image] repair_extreme_artifact_pixels`, `extreme_artifact_threshold` | true, 10000.0 | artifact repair before differencing |
 | `[ref_image] saturation_level` | 100000.0 | `dev` reads `[SEXTRACTOR_REFIMAGE] sextractor_SATUR_LEVEL` |
-| `[awaicgen] zprefimg` | 17.0 | the reference zero point gain matching uses |
+| `[awaicgen] zprefimg` | empty | an explicit override of the reference zero point gain matching uses; empty (the default) reads it from the reference image's own `MAGZP` header keyword instead (the lead, 2026-09-26; see [reference](reference)) |
 | `[zogy] astrometric_uncert_x`, `astrometric_uncert_y` | 0.05, 0.05 | gain matching's fallback RMS |
 | `[zogy] astrometric_sigma` | 0.0 | new: ZOGY's own astrometric inputs, always 0.0 as `dev`'s override; `dxrmsfin` and `dyrmsfin` register the measured residual RMS from gain matching instead, not this setting (lead, 2026-09-23) |
 | `[zogy] post_zogy_keep_diffimg_lower_cov_map_thresh` | 0.5 | the coverage threshold for masking |
