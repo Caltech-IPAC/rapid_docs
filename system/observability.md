@@ -167,14 +167,26 @@ behind this table, with job ids, are kept with the direction pass's
 records.
 
 `difference` is the one stage over the target, at about twice it in the
-typical case. Its log shows where to look first, without
-profiling: the Photutils PSF-fit catalogs, run on four images (ZOGY
-positive and negative, naive positive and negative), take most of the
-hour, and the job has one vCPU. The science-correctness review of
-2026-09-12 also found ten million unseeded normal samples drawn in every
-clipped-statistics call, which `difference` makes several times. Which
-of these dominates is what the first profiled run on the control image
-will say; nothing is changed until it has.
+typical case. The first profiled run (2026-09-26, release rebuild-v0.8,
+`rapid-rebuild:24`, the control image under the exact-reproduction
+settings, 4918 seconds of stage body under `cProfile`) says where the
+time goes: the Photutils PSF-fit catalogs take 4662 seconds, 95% of it,
+in six calls, positive and negative on each of the ZOGY, naive and SFFT
+differences. The naive and SFFT branches together take about 3160
+seconds, and with the shipped settings neither of their catalogs is
+registered or loaded; only ZOGY's is. The ten million unseeded samples
+per clipped-statistics call do not appear among the forty most expensive
+functions. The groundwork stops here: whether to skip the unused
+catalogs, give the stage more than one vCPU, or both, is a proposal for
+the team, not a change made by this page.
+
+A defect the same run showed: `run timings` printed a negative
+`reconcile_lag_s` (about minus 330 seconds for `difference`), meaning
+`attempts.ended` is stamped before Batch's own stop time. PostgreSQL's
+`now()` is the time the recording transaction began, which reconcile
+opens before it waits on Batch and reads the execution record;
+recording `clock_timestamp()` instead is the likely fix. Until then,
+read the reconcile lag as unreliable.
 
 ## Proposed, not built
 
