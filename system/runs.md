@@ -75,11 +75,11 @@ revision and image digest), settings and input refs, lane, resource
 profile, database target, max attempts and check-policy ref, sets
 `purpose` to name the seed it recovers, and takes `selected_stages`
 from the seed's own list starting at the earliest stage holding a
-non-complete unit — one in state `failed` or `cancelled`, or `running`
+non-complete unit: one in state `failed` or `cancelled`, or `running`
 with a job-less or `lost` attempt. From that position it creates one
 new `pending` unit for every non-complete unit anywhere in the seed, at
 that stage or any later one, each carrying `units.seeded_from_unit` and
-the seed unit's own frozen `unit_inputs` bindings copied across — a
+the seed unit's own frozen `unit_inputs` bindings copied across: a
 copied binding points at the same producer instance the seed unit
 already depended on, so the existing deletion fence already protects
 it, the same as any other frozen input binding of unfinished work.
@@ -176,8 +176,8 @@ disposition, no scheduler job and no repair, past that age, does
 reconcile lock it and record it `lost`, with a null exit code and a
 reconcile note explaining why; the unit returns to `ready` while
 attempts remain under its allowance, or `failed` otherwise. This is how
-a job-less running attempt — the one `run start` used to exit 64 on
-without a way to move past it — is resolved rather than left open
+a job-less running attempt (the one `run start` used to exit 64 on
+without a way to move past it) is resolved rather than left open
 indefinitely (supervisor step 6, 2026-09-24).
 
 A retry's own `done_check` -- whether a database-writing stage reuses
@@ -232,7 +232,7 @@ snapshot.
 **Promotion eligibility.** Automatic and manual promotion require
 completed, selected outputs, a recorded image digest identifying a
 released artifact, and passing results for every required check under
-the resolved check-policy version — an explicit `--check-policy`, then
+the resolved check-policy version: an explicit `--check-policy`, then
 the run's own `check_policy_ref`, then the default `rebuild-trial@1`;
 no unchecked exception exists, so a deliverable of a kind the policy
 covers always goes through the gate ([checks](checks) page, supervisor
@@ -289,12 +289,12 @@ after-selection is no longer current (supervisor step 3, 2026-09-24).
 finished or not: a finished run admits no new unit, attempt or input
 binding, but that alone does not block its deletion (supervisor step 3,
 2026-09-24). It first locks the run, verifies the owner, refuses if any
-attempt is queued, running or unresolved — meaning it carries no
+attempt is queued, running or unresolved, meaning it carries no
 disposition at all; `lost` is itself a recorded resolution of that
 uncertainty, written only once reconcile finds the scheduler no longer
 returns the job, or once `run reconcile --resolve-jobless` finds no job
 under the attempt's name, so a `lost` attempt does not by itself block
-deletion (supervisor step 6, 2026-09-24) — if any frozen input binding
+deletion (supervisor step 6, 2026-09-24), if any frozen input binding
 of unfinished work or any provenance dependency of a retained output
 outside the run points into it, or if a row in `xsources` references
 one of the run's rows (that table is not in the cleanup set below, so
@@ -445,8 +445,8 @@ per-tier service login (for example `rapid_rebuild_pipeline`) holding
 SELECT/INSERT/UPDATE/DELETE on the trial database's tables, granted by
 guarded migrations in rapid's own stream (they no-op where the role
 does not exist, so CI still applies the stream from empty); people read
-it through `rapid_read`. That role's identity — its NOLOGIN cluster
-role, its secret and its SSM tree — is provisioned separately, by the
+it through `rapid_read`. That role's identity (its NOLOGIN cluster
+role, its secret and its SSM tree) is provisioned separately, by the
 system repo's own migration stream, since the role itself is
 cluster-wide and rapid's stream owns only the trial database's tables.
 A job definition's `RAPID_PARAMETER_PATH` selects the tier: it points
@@ -490,7 +490,7 @@ step 6, 2026-09-24).
 | `run_policy_checks(conn, run_id, policy, *, instance=None, check=None, param_overrides=None, who=None) -> list[RecordedCheck]`, in `rapidpipe.checks.runner` | Runs every applicable policy check over the run's candidate instances from their selected attempts, or one named instance or check, and records a `checks` row for each; `check run` builds on it. |
 | `recorded_checks(conn, run_id, *, instance=None) -> list[RecordedCheck]`, in `rapidpipe.checks.runner` | Returns the run's recorded check results, newest first; `check show` prints them. |
 | `maybe_auto_promote(conn, run_id, *, who="auto-promote") -> AutoPromoteOutcome`, in `rapidpipe.checks.runner` | Called at the end of a `run start` walk once every unit is complete; with the run's `auto_promote` flag true, resolves the policy, runs its checks over the run's candidates and calls `promote_run` on a pass; the outcome's status is `off`, `skipped`, `refused` or `promoted`. |
-| `failed_rerun_plan(conn, seed_run) -> FailedRerunPlan`, in `rapidpipe.runs.repository` | Computes the recovery plan `run create --seed --only-failed` executes: the earliest non-complete position, the seed's stage list, and the non-complete units to seed — or, for a scratch seed, the first stage's units to recreate. |
+| `failed_rerun_plan(conn, seed_run) -> FailedRerunPlan`, in `rapidpipe.runs.repository` | Computes the recovery plan `run create --seed --only-failed` executes: the earliest non-complete position, the seed's stage list, and the non-complete units to seed, or, for a scratch seed, the first stage's units to recreate. |
 | `seed_failed_units(conn, *, seed_run, new_run) -> list[str]`, in `rapidpipe.runs.repository` | Creates the new run's seeded units from a `FailedRerunPlan`, copying each seed unit's `unit_inputs` bindings, and returns the created unit ids. |
 | `record_attempt_locations(conn, attempt_id, inputs_location, settings_location) -> None`, in `rapidpipe.runs.repository` | Records the input-set and settings locations `submit_unit` resolved for an attempt, on `attempts.inputs_location` and `attempts.settings_location`. |
 | `resolve_jobless(conn, *, run_id, older_than_seconds, client=None) -> list[Reconciled]`, in `rapidpipe.launch.batch` | Implements `run reconcile --resolve-jobless`: for each job-less attempt, looks first for a scheduler job under its deterministic job name and repairs the attempt on exactly one match, otherwise records it `lost` once past the age threshold. |

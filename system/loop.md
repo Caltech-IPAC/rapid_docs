@@ -140,7 +140,7 @@ CLI's `run create --release` path: owner and lane from the spec, purpose
 location, `check_policy_ref` the spec's policy, `max_attempts_per_unit`
 the spec's, and `selected_stages` the loop's own chain: admit, register,
 difference, finalize, register, load, maintain, crossmatch, statistics,
-prune, alerts — one `register` fewer than first ruled, since the landed
+prune, alerts: one `register` fewer than first ruled, since the landed
 `finalize` contract never registers the raw difference instance, and
 promoting two candidates for the same kind and logical key is refused
 (ruling R4, amended, supervisor step 7, 2026-09-24, after the Codex plan
@@ -170,8 +170,8 @@ Submission and polling go through `submit_unit` and `reconcile`, as
 
 A field's base catalog is the association-set instance its crossmatch
 produced in the most recent earlier `loop_dates` row of the same
-schedule that is `complete` and has an association set for that field —
-that row's run's selected attempt for the field's unit — or none, if no
+schedule that is `complete` and has an association set for that field
+(that row's run's selected attempt for the field's unit), or none, if no
 earlier complete row has one, on a schedule's first date or a field new
 to a later one. A failed or still-open date has no association set to
 offer, so the search steps back past it to the most recent complete
@@ -181,7 +181,7 @@ association sets bind by instance, not by current custody, so an
 unpromoted complete date is still an eligible base, and `prune`'s own
 not-best exclusion, not promotion, is what keeps an inferior instance
 out of the chain a later date reads. Each field's entry in the date's
-record notes `base_promoted` — whether the date that supplied its base
+record notes `base_promoted`: whether the date that supplied its base
 had itself been promoted at bind time (ruling R5, amended, supervisor
 step 7, 2026-09-24, after the Codex plan review). Input-set manifests
 for crossmatch and alerts are written under
@@ -219,8 +219,8 @@ way, and the date exits 0.
 ## Concurrency and recovery
 
 `loop run` takes one PostgreSQL advisory lock scoped to the spec's
-schedule for its whole run; a second launcher for the same schedule — a
-stray retry, an overlapping Maintenance Window — exits 75 without
+schedule for its whole run; a second launcher for the same schedule (a
+stray retry, an overlapping Maintenance Window) exits 75 without
 touching any date, rather than racing the first (supervisor step 7,
 2026-09-24, after the Codex plan review).
 
