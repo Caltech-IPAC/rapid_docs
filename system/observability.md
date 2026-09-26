@@ -65,11 +65,10 @@ Without CloudWatch, three things hold everything about an attempt:
 - **The per-stage log file**: the same lines, at `log/<stage>.log`
   under the attempt's output location, published with the attempt,
   including when it fails (a failed upload logs a warning and never
-  changes the exit code). For outputs in S3 the file is closed and
-  uploaded before the stage's final success line is written, so that one
-  line (exit code, manifest, timing) is in the console stream and not in
-  the S3 copy; the same timing is in the execution record. A `--dry-run`
-  writes no file. It is not a manifest member, in the same way
+  changes the exit code). The file includes the stage's final line
+  (exit code, manifest, timing); under release rebuild-v0.8 an S3 copy
+  still lacked that one line, fixed on `rebuild` for the next release
+  (rapid #157, after a Codex review). A `--dry-run` writes no file. It is not a manifest member, in the same way
   `exec/<attempt>.json` is not.
 - **The database**: `attempts` (started, ended, exit code, disposition,
   output, inputs and settings locations, scheduler job id) and
