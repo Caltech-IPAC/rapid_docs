@@ -64,6 +64,8 @@ expect `SystemExit(2)`, and `op-processing-date-loop.sh`, which forwards
 the loop's code. The release hook runner maps every non-zero hook result
 to release exit 1, so a hook's own codes never reach the caller; that
 should stay true through the change. About a day, most of it tests.
+Landed (supervisor step 1, 2026-09-26): the full table is on the
+[tool](../system/tool.md) page.
 
 **One binding primitive.** Keep both composers, which do different jobs
 (the CLI replaces one template entry with one producer's output; the

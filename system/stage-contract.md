@@ -154,6 +154,11 @@ attempt identity, completion or retry safety.
 | 70 | Unclassified stage error; stop for investigation | fail, no retry |
 | 75 | Recognised temporary dependency failure; repeating the same work may succeed | retry within the limit |
 
+These six are the stage subset (`STAGE_EXIT_CODES` in
+`rapidpipe/stages/contract.py`) of the one vocabulary in
+`rapidpipe/exitcodes.py`, whose full table is on the [tool](tool) page;
+a stage never exits 1 or 2 (supervisor step 1, 2026-09-26).
+
 Code 69 is `sysexits`' `EX_UNAVAILABLE`, chosen over 64 (which would
 misreport a correct invocation as a usage error) and 70 (which calls
 for investigation): a stub stage that validates its arguments and
