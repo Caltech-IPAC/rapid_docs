@@ -124,20 +124,24 @@ These go beyond consistency: each removes a mechanism.
 - **One recovery path for a failed loop date.** Today `loop run
   --retry-failed` seeds a replacement run when the date has a failed
   unit, and a separate reopen path resumes the same run when it has none.
-  Seeding a replacement for both cases (with no failed unit, the seed
-  plan re-runs every unit) leaves one sentence: a failed date is
-  recovered by a seeded replacement run. Small.
+  One sentence would do: a failed date is recovered by a seeded
+  replacement run. It needs new behaviour, not only a removed branch:
+  today a seed with no non-complete unit is refused (`SeedRefused`), so
+  the seed plan would have to learn to re-run a date that failed before
+  any unit existed. About a day.
 - **Scratch expiry without warnings.** The warning mechanics were never
   designed (the lead, 2026-09-26). Proposed: none. A scratch run expires
   fourteen days after creation unless pinned, and `run list` and `run
   show` print the expiry date. The first live `run expire` stays the
   lead's, by hand, on or after 2026-10-09.
-- **One way to register.** `alerts` registers its own container and
-  alert set; every other stage's outputs go through a separate `register`
-  unit, which is why the loop's chain names `register` twice. Either all
-  stages register their own outputs in their completion transaction, or
-  none do. Large; a question for the lead before operations, not a
-  change to make now.
+- **One rule for registration.** The database-writing stages (`load`,
+  `crossmatch`, `alerts` and their neighbours) register their result sets
+  inside the transaction that writes the rows, while file products go
+  through a separate `register` unit, which is why the loop's chain names
+  `register` twice. That split is defensible (a result set and its rows
+  must commit together; a file stage has no database transaction), so
+  the proposal is to state it as the rule in one sentence on the stage
+  contract page, not to merge the two paths. Small.
 - **One notion of "current".** `vbest` on the `dev` tables and
   `current_selection` both answer "which one do consumers see", and
   promotion maintains both. Consumers moving to `current_selection` is
