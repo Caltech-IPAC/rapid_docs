@@ -31,7 +31,7 @@ names:
 | Create a run | `run create` (`--seed <run>` records lineage only: it inherits no settings and no input references from the seeding run, unless paired with `--only-failed`, which makes it a recovery run over the seed's non-complete units instead (the [runs](runs) page has the mechanics); `--release <tag>` is the [releases](releases) page's; `--auto-promote --check-policy P` is refused unless P permits automatic promotion (the [checks](checks) page has the gate); supervisor step 6, 2026-09-24) |
 | Start a stage or the whole loop | `run start` |
 | Rerun part of a run | `run start --stage <stage>` |
-| Watch progress | `run status [--watch]`, `run show` |
+| Watch progress | `run status [--watch]`, `run show`, `run timings [--stage S] [--json]` (queue, execution and orchestration time per attempt; the [observability](observability) page, direction pass, 2026-09-26) |
 | Cancel and restart from failure | `run cancel <attempt>`, then `run start` |
 | List and compare runs | `run list`, `run compare <a> <b>` |
 | Promote a candidate | `run promote --check-policy P` (defaults to the run's own `check_policy_ref`, then `rebuild-trial@1`), `run rollback` ([checks](checks) page has the gate; supervisor step 6, 2026-09-24) |
