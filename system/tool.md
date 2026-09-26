@@ -14,7 +14,7 @@ this page records how the rebuild meets it.
 
 The team touches one command-line tool: `rapidpipe`, shipped in the
 pipeline repository and already the image's entrypoint for a stage
-invocation. Step 4 extends it rather than adding a second binary — a
+invocation. Step 4 extends it rather than adding a second binary: a
 `rapidctl` would contradict the specification's own sentence naming one
 tool, and would split an entrypoint the container already carries (R1,
 2026-09-24). Everything below is `rapidpipe`'s command surface; nothing
@@ -28,7 +28,7 @@ names:
 
 | Operation | Subcommand |
 |---|---|
-| Create a run | `run create` (`--seed <run>` records lineage only — it inherits no settings and no input references from the seeding run, unless paired with `--only-failed`, which makes it a recovery run over the seed's non-complete units instead — the [runs](runs) page has the mechanics; `--release <tag>` is the [releases](releases) page's; `--auto-promote --check-policy P` is refused unless P permits automatic promotion — the [checks](checks) page has the gate; supervisor step 6, 2026-09-24) |
+| Create a run | `run create` (`--seed <run>` records lineage only: it inherits no settings and no input references from the seeding run, unless paired with `--only-failed`, which makes it a recovery run over the seed's non-complete units instead (the [runs](runs) page has the mechanics); `--release <tag>` is the [releases](releases) page's; `--auto-promote --check-policy P` is refused unless P permits automatic promotion (the [checks](checks) page has the gate); supervisor step 6, 2026-09-24) |
 | Start a stage or the whole loop | `run start` |
 | Rerun part of a run | `run start --stage <stage>` |
 | Watch progress | `run status [--watch]`, `run show` |
@@ -36,7 +36,7 @@ names:
 | List and compare runs | `run list`, `run compare <a> <b>` |
 | Promote a candidate | `run promote --check-policy P` (defaults to the run's own `check_policy_ref`, then `rebuild-trial@1`), `run rollback` ([checks](checks) page has the gate; supervisor step 6, 2026-09-24) |
 | Delete scratch | `run delete`, `run expire`, `run pin` / `run unpin` |
-| One unit by hand | `run submit`, `run reconcile` (`--resolve-jobless [--older-than SECONDS]` records a job-less attempt `lost` — the [runs](runs) page has the mechanics; supervisor step 6, 2026-09-24), `run local` |
+| One unit by hand | `run submit`, `run reconcile` (`--resolve-jobless [--older-than SECONDS]` records a job-less attempt `lost` (the [runs](runs) page has the mechanics); supervisor step 6, 2026-09-24), `run local` |
 | Verify a candidate | `check list`, `check run <run> [--policy P] [--instance I] [--check NAME@V]`, `check show <run>` ([checks](checks), supervisor step 6, 2026-09-24) |
 | A stage directly | `stage run <name> …` (a synonym of `stage <name> …`, the frozen invocation form the container's entrypoint calls), `stage list`, `stage describe <name>` |
 | Fixtures | `selftest --stage` |
@@ -45,7 +45,7 @@ names:
 
 `run start <run> --unit <u> [--stage <s>]` walks the run's selected
 stages in order, or the one named stage: a complete unit is skipped; a
-unit already terminal `failed` or `cancelled` is not re-attempted —
+unit already terminal `failed` or `cancelled` is not re-attempted:
 `start` prints its state and exits 1, and recovering it is the sixth
 supervisor step's `--seed`/`--only-failed`, not this step's; a unit with
 an attempt still running is attached to and polled, never resubmitted;
@@ -84,7 +84,7 @@ overwrite a manifest already at `<dest>`.
 
 An input set is a staged working copy, not a product, so `<dest>`
 defaults to, and `--dest` is refused outside,
-`<scratch root>/runs/<run>/inputs/<stage>/<unit>/` — the scratch outputs
+`<scratch root>/runs/<run>/inputs/<stage>/<unit>/`, the scratch outputs
 root, for every run kind, since the launcher host has no write access to
 the products bucket. Before copying, the composer checks the run's
 admission fence: a run that is finished, deleting or already deleted
@@ -127,7 +127,7 @@ codes table carries.
 | 0 | Success: every requested unit reached complete (`start`), every unit is complete (`status`), or the two runs are identical (`compare`) |
 | 1 | A stage or unit failed or was cancelled (`start`, `status`); the two runs differ (`compare`) |
 | 2 | Still running: `status` without `--watch`, while a unit remains non-terminal |
-| 64 | Usage: bad arguments, or the tool refused rather than acting — for example `run inputs` onto a destination that already carries a manifest |
+| 64 | Usage: bad arguments, or the tool refused rather than acting, for example `run inputs` onto a destination that already carries a manifest |
 | 65 | `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) |
 | 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable |
 
@@ -168,7 +168,7 @@ role is one parameter value. Scratch jobs submitted this way still run
 under the scratch job role, exactly as they do from the launcher; only
 the submitting identity differs.
 
-Cleanup — `run delete` and `run expire` — has its own principal,
+Cleanup (`run delete` and `run expire`) has its own principal,
 separate from the general workstation role. When the environment
 variable `RAPIDPIPE_CLEANUP_ROLE_ARN` is set, the tool assumes that role
 for the deletion; when it is unset, the tool deletes under whatever
@@ -189,11 +189,11 @@ finding, 2026-09-24).
 The tool runs launcher-side: on a fleet host, under that host's instance
 role, exactly where it runs today. Deployment-specific locations,
 connection settings and credentials reach it through named environment
-variables — for example `RAPIDPIPE_BATCH_JOB_QUEUE`,
+variables, for example `RAPIDPIPE_BATCH_JOB_QUEUE`,
 `RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH` and `_PRODUCTION`,
 `RAPIDPIPE_OUTPUTS_ROOT_SCRATCH` and `_PRODUCTION`,
 `RAPIDPIPE_SCRATCH_BUCKET`, `RAPIDPIPE_CLEANUP_ROLE_ARN`, and the
-database connection variables (`PG*`, `RAPID_DB_SECRET_ID`) — the
+database connection variables (`PG*`, `RAPID_DB_SECRET_ID`): the
 pipeline repository's README, "Running on Batch", carries the full
 list. A launcher-side change, including everything on this page, needs no image
 rebuild and no job-definition deployment: the container's own
@@ -202,8 +202,8 @@ revisions this step touches are none (R8).
 
 ## Not decided here
 
-- The field-level input resolver — which reference a field should use
-  among several eligible ones: still open, and not resolved by the
+- The field-level input resolver (which reference a field should use
+  among several eligible ones): still open, and not resolved by the
   seventh supervisor step's own field-level binding either (the
   [loop](loop) page, supervisor step 7, 2026-09-24).
 - The automatic check gate `run promote` consults is on the
