@@ -269,8 +269,12 @@ under could only be recovered here from the overlay files, not from the
 database: a provenance gap in the recording, proposed for a fix alongside
 the timing groundwork.
 
-A rerun of the control on Batch under the exact-reproduction overlay, at
-release rebuild-v0.7, is recorded in the direction pass's ledger.
+A rerun of the control on Batch under the exact-reproduction overlay
+(release rebuild-v0.7, job definition `rapid-rebuild:23`, 58 minutes for
+`difference`) produced 143714 rows against the earlier 143707, and the
+same match against `dev`'s ZOGY catalogs: 99.94% and 99.96% of `dev`'s
+positive and negative sources matched, at a median separation below a
+milliarcsecond.
 
 **The six findings of 2026-09-12**, checked against `rebuild`:
 
