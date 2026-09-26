@@ -227,9 +227,18 @@ touching any date, rather than racing the first (supervisor step 7,
 Within the lock, dates are processed in spec order. A `complete` row is
 skipped, and an `open` row is resumed as described above (The loop
 spec): complete units skipped, running attempts attached, ready units
-re-attempted. A `failed` row is also skipped by default; `loop run
---retry-failed` reopens it to `open` and resumes the same run rather
-than creating a new one, walking its units the same way. A date's move
+re-attempted. A `failed` row is also skipped by default. `loop run --retry-failed`
+recovers a failed date whose run has a failed or cancelled unit by
+seeding a replacement run, the `run create --seed <run> --only-failed`
+recovery the [runs](runs) page describes: the row is repointed to the
+new run, the old run's id is kept in `record.previous_runs`, and the
+date is walked again against the new run, which re-runs only the
+seed's non-complete units. Only a
+failed date with no failed or cancelled unit resumes the same run,
+the reopen described below (direction pass, 2026-09-26, correcting
+this paragraph's earlier "resumes the same run rather than creating a
+new one", which the code, `rapidpipe/launch/loop.py` `retry_date`, has
+not done since the seeded path landed). A date's move
 to `complete` and its run's `finish_run` commit in one transaction, so a
 crash between the two cannot leave a `loop_dates` row claiming
 completion for a run that never finished, or a finished run with no row
@@ -290,7 +299,7 @@ the laptop, by the [releases](releases) page's own recipe.
 
 | Command | Does |
 |---|---|
-| `loop run --spec <loc> [--date D]… [--retry-failed] [--dry-run] [--interval N] [--timeout N]` | Runs every date in the spec whose `loop_dates` row is absent or `open`, in spec order, under the schedule's advisory lock; `--date` restricts to named dates; `--retry-failed` also reopens and resumes `failed` dates |
+| `loop run --spec <loc> [--date D]… [--retry-failed] [--dry-run] [--interval N] [--timeout N]` | Runs every date in the spec whose `loop_dates` row is absent or `open`, in spec order, under the schedule's advisory lock; `--date` restricts to named dates; `--retry-failed` also recovers `failed` dates, through a seeded replacement run when the date has a failed or cancelled unit |
 | `loop plan --spec <loc>` | Prints what `run` would do: the dates it would process and the runs it would create, without creating them |
 | `loop show <schedule>` | Prints the schedule's `loop_dates` rows |
 

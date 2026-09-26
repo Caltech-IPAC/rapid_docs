@@ -418,8 +418,6 @@ lookups and defaults. It does not read product files.
   `alert-set` result set are on the [alerts](alerts) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
-- The alert outbox shape and the per-alert record are fixed on the
-  [alerts](alerts) page (supervisor step 2, 2026-09-24).
 - Derived products are keyed on the instance they derive from
   (`difference-image` on its l2 and reference instances, `source-set`
   on its difference instance, `association-set` on its base plus its
