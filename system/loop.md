@@ -29,7 +29,7 @@ The schedule trigger is a row, `processing-date-loop`, in `rapid_systems`'
 operations registry, `cloudformation/operations.tsv`: the estate's one
 scheduling mechanism, already driving `pin-sweep` and the other
 recurring fleet operations through an SSM Maintenance Window and an
-Automation runbook per row (ruling R1). The row's fields: trigger
+Automation runbook per row. The row's fields: trigger
 `window:at(<UTC>)`, target `Name=rapid-admin`, runbook
 `rapid-op-processing-date-loop-runbook`, concurrency 1, error cutoff 1,
 owner `rapid-alerts`, freshness `P7D`, freshness actions `quiet`. The
@@ -57,14 +57,14 @@ cadence is set once real deliveries exist (below, Not decided here).
 ## Venue
 
 The operation runs as root under SSM on `rapid-admin`, from a checkout
-of the release tag (ruling R2). `rapid-admin` is where every registry
+of the release tag. `rapid-admin` is where every registry
 row already runs; the workstation idle-stops fifteen
 minutes after its last session, and an unattended loop polling Batch
 over hours would be stopped mid-run there. `rapid-admin-instance-role`
 already holds `batch:SubmitJob`/`DescribeJobs` on the `rapid-*`
 definitions and reads the rebuild database secret. For the input-set
 write access its own runs need, it joins a new parameter,
-`LoopLauncherRoleNames`, rather than [tool](tool) page's R7
+`LoopLauncherRoleNames`, rather than the [tool](tool) page's
 `WorkstationSubmitterRoleNames`: the role already carries 22 of the 25
 policies an instance role can hold, so the loop's grant is scoped to
 `ScratchSubmitter` alone, not the workstation role's fuller set.
@@ -85,7 +85,7 @@ spec's dates.
 
 ## The loop spec
 
-The spec is a TOML document, read from S3 or a local path (ruling R3):
+The spec is a TOML document, read from S3 or a local path:
 
 ```toml
 [loop]
@@ -236,8 +236,7 @@ one pruned set, whose base must be the association set the same date's
 crossmatch produced for the field, else the date fails. Each detector
 image's alerts input set names, per field it touches, the association
 set, its statistics set and that pruned set, in that order after the
-source set (the [alerts](alerts) page's `pruned-set` binding, ruling
-R5), the recipe `compose-alerts-inputs.py` already scripts. The date
+source set (the [alerts](alerts) page's `pruned-set` binding), the recipe `compose-alerts-inputs.py` already scripts. The date
 record gains `pruned_sets {field: instance}` (see Records, below).
 Submission and polling go through `submit_unit` and `reconcile`, as
 `run start` uses them for one unit at a time.
@@ -370,13 +369,12 @@ dates to migration
 (`open`, `complete`, `failed`), started and ended timestamps, the
 promotion id, and a `record` JSON column, granted to
 `rapid_rebuild_pipeline` under the same guard as the rebuild's other
-grants (ruling R7). `record` carries the spec's location and release,
+grants. `record` carries the spec's location and release,
 each unit's selected attempt and job id, the field list, the base sets
 each field bound and, per field, `base_promoted` (above, Base catalog),
 `bases_skipped` (per field, the bases the reading rule refused before an
-eligible one was found, ruling R2), `pruned_sets` (per field, the
-pruned-set instance that field's `prune` wrote and alerts read, ruling
-R5), the alert container's instance and location, and the promotion id
+eligible one was found), `pruned_sets` (per field, the
+pruned-set instance that field's `prune` wrote and alerts read), the alert container's instance and location, and the promotion id
 or refusal reason. An inbox spec's batches add `record.batch` and
 `record.deliveries`, the batch's `loop_deliveries` locations.
 
@@ -394,8 +392,7 @@ then its `loop_deliveries` rows.
 
 The spec names the release; the operation checks that tag out before
 running, and each date's run records it, so a run's code and the image
-its units execute are the same tag the spec named, never a branch head
-(ruling R9). The release is the first tag cut at a rebuild head that
+its units execute are the same tag the spec named, never a branch head. The release is the first tag cut at a rebuild head that
 carries the loop's own code and migration, allocated by `next_tag` from
 the laptop, by the [releases](releases) page's own recipe.
 

@@ -249,6 +249,3 @@ the [tool](tool) page.
   approval, and the content of any policy the team approves for
   automatic promotion: both scientific, and the team's.
 - Checks that read S3 rather than only the database.
-- Revoking a recorded acceptance: a wrong one is corrected today by
-  replacing the product, not by unmarking the `acceptances` row
-  (Acceptance, above).
