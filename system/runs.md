@@ -275,9 +275,15 @@ the run's own `check_policy_ref`, then the default `rebuild-trial@1`;
 no unchecked exception exists, so a deliverable of a kind the policy
 covers always goes through the gate ([checks](checks) page, supervisor
 step 6, 2026-09-24). Missing or failed required checks refuse
-promotion. Every provenance dependency must
-identify a complete, retained instance in project custody; a dependency
-need not be current. The replacement's kind and slot must equal the
+promotion. Every provenance dependency, followed through the whole
+chain to its roots and not only the instances named directly, must be
+`current`, `superseded` or `accepted`; anything else refuses the
+promotion, naming the ancestor and the deciding check ([checks](checks)
+page has the states and the walk; supervisor step 6, 2026-09-26,
+replacing the direct-dependency check this paragraph stated before).
+`run show` prints an `acceptance:` block after `instances:`, one line
+per candidate or current instance in those same states ([checks](checks)
+page has the format). The replacement's kind and slot must equal the
 requested selector, or, for a legacy selector, its kind and provenance
 key; either way it must be retained, and a result set must be complete
 (supervisor step 5a, 2026-09-26, amending this sentence for slot;
