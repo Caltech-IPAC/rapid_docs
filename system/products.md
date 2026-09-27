@@ -26,15 +26,76 @@ apart, and promotion says which instance consumers see.
 
 ## Identity
 
-A **logical key** identifies the output being selected or replaced: for
-a difference image, which detector image against which reference with
-which differencer and settings. An **instance id** identifies one
-published output and records its run, stage, attempt and revision.
-Retries and reruns produce several instances of one logical key;
-downstream stages consume only the instance the launcher selected, and
-reference it by instance id, never by logical key. Promotion records
-the previous and replacement instances for each affected logical key.
-Instances are immutable once their manifest is published.
+Every instance carries three keys now (supervisor step 5a, 2026-09-26).
+The **provenance key** is what a manifest entry has always called
+`key`: for a difference image, which detector image against which
+reference with which differencer and settings. It names the exact
+input instances a stage consumed, not a science description, so a
+difference from one reprocessing and one from another carry different
+provenance keys even where the science is identical. No stage changes
+how it writes this key; it stays the column `product_instances.logical_key`,
+unchanged, so a reader that already walks a chain through it, a base
+association set's ancestor, a retry's reuse lookup, needs no change.
+
+Two more columns describe the same instance for a consumer: the
+**identity key** (column `identity`) states everything that makes the
+instance scientifically different from another, delivered facts and
+science choices only, never an instance id; the **slot** (column
+`slot`) is the part of the identity key a consumer selects on, "the
+current X for Y". Both are nullable JSON, and neither is written by a
+stage. The database derives them from the provenance key, by resolving
+each producer instance the key names to its own slot and identity in
+turn, in `product_identity_fill()`. Because nothing in the manifest
+changed, a stage image of any earlier release still registers exactly
+as it does today; the database fills the rest afterward.
+
+The derivation, one row per kind. `k` is the provenance key; `P(x)` and
+`V(x)` are producer instance `x`'s own slot and identity; a missing
+producer, or one whose slot is still null, leaves the row null this
+pass:
+
+| Kind | Slot | Identity adds |
+|---|---|---|
+| `l2-image` | exposure, detector, from `k` | version |
+| `psf` | filter, detector, from `k` | version |
+| `reference-image` | field, filter, from `k` | recipe, version (the selection digest) |
+| `reference-catalog` | `P(k.reference)` plus catalog type | `V(k.reference)` plus catalog type |
+| `difference-image` | `P(k.l2)` plus differencer | exposure, detector, version from `V(k.l2)`, differencer, the reference's `V(k.reference)`, settings hash |
+| `source-catalog` | `P(k.difference)` plus catalog type, sign | `V(k.difference)` plus catalog type, sign |
+| `source-set` | `P(k.difference)` plus catalog type | `V(k.difference)` plus catalog type |
+| `alert-container`, `alert-set` | `P(k.difference)` (an alert set shares its container's slot; one alert set per difference) | `V(k.difference)` plus schema version |
+| `association-set` | field, from `k` | field, settings hash, the sorted identities of `k.source_sets`, plus a hash of the base's own identity (below) |
+| `pruned-set` | `P(k.base)`, which is field | the base association set's identity, settings hash |
+| `statistics-set` | `P(k.membership)` plus which kind of set `k.membership` names | the membership set's identity, plus that kind |
+| `light-curve` | field, request id, from `k`, when both are present, else null (declared, not yet ported) | nothing beyond the slot |
+| `catalog-export` | field, export type, from `k` | the selection digest, as today |
+
+An unknown kind resolves to null and is counted unresolved, the same as
+a missing producer.
+
+An identity key never carries an instance id, but an association set
+built from equal source sets over two different bases must still
+differ from the other. Its identity therefore carries a hash of the
+base's own identity too: the SHA-256 digest of the base's canonical
+JSON text, or null when there is no base. The hash is bounded in size
+however deep the chain runs, and a pruned or statistics set built on
+top inherits the distinction through its own membership's identity.
+
+Filling never rewrites a slot already set, and never assigns a slot
+another current instance already holds. Each pass computes every row's
+prospective slot and identity, then drops from that set any current row
+whose (kind, slot) would collide with another current row, existing or
+computed in the same pass, before writing anything. A dropped row keeps
+its identity but stays null on slot, counted `duplicate_current` and
+reported alongside `unresolved`; running the fill again resolves what a
+later registration completed and leaves an already-filled row alone.
+
+An instance with a null slot cannot be promoted by slot until something
+resolves it: a later registration supplying the missing producer, or an
+operator's own correction. At most one current instance exists per kind
+and slot, a partial unique index beside the older (kind, provenance
+key) index, which stays under the additive migration rule
+([releases](releases)).
 
 Wherever this page says a product references another (a reference
 version, a source set, a base association set) it means the complete
@@ -42,7 +103,7 @@ instance id, never a bare version number.
 
 ## File products
 
-| Kind | Unit | Logical key | Format | Made by | Today's table |
+| Kind | Unit | Provenance key | Format | Made by | Today's table |
 |---|---|---|---|---|---|
 | `l2-image` | detector-image | exposure, detector, delivered version | FITS or ASDF as delivered | `admit` | `l2files` |
 | `psf` | detector-image | filter, detector, version | FITS | `psf-import` | `psfs` |
@@ -112,7 +173,7 @@ result-set instance id, and it is what the next stage names as its
 input. Completion is recorded on the result-set record, so an empty
 result set can be complete.
 
-| Kind | Unit | Logical key | Rows in | Made by |
+| Kind | Unit | Provenance key | Rows in | Made by |
 |---|---|---|---|---|
 | `source-set` | detector-image | difference instance, catalog type | `sources` | `load` |
 | `association-set` | field | field, frozen input selection, crossmatch settings hash | `merges`, `astroobjects` | `crossmatch` |
@@ -237,7 +298,7 @@ For the difference image (`difference` makes it, `register` records it):
 | l2 instance | manifest identity | `diffimages.rid`, with `expid` and `sca` copied from that `l2files` row |
 | reference instance | manifest identity | `diffimages.rfid`: that instance's `refimages` row, through the `instance` column added with the `difference` stage; for a reference registered by `dev`, which has no instance, the legacy rfid the registration block carries as `reference_rfid` |
 | differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage. When the stage runs both ZOGY and SFFT, both register, each its own `difference-image` instance with its own `diffimages` row and `ppid` (ZOGY 15, SFFT 16); `[sfft] register_sfft` turns SFFT's registration off (lead, 2026-09-26). Which instance consumers read is a promotion choice under the planned slot supersession, not a code default. `dev`'s own stored sources for the control exposure it processed are its SFFT difference's, not ZOGY's (`log/2026-09-26-direction-review.md`, "Science verification"), so the rebuild does not copy `dev`'s choice here; it registers both. The naive subtraction is an optional diagnostic file, never a registered instance. |
-| settings hash | manifest identity | the instance's logical key only; no legacy column |
+| settings hash | manifest identity | the instance's provenance key only; no legacy column |
 | field, filter, observation time | lookup on the l2 instance | `field`, `fid`, `jd` (from that row's `mjdobs`), on `diffimages` and `diffimmeta` |
 | image centre and four corners (RA, Dec) | manifest, from the difference WCS | `ra0`, `dec0` to `ra4`, `dec4` |
 | reference info bits | manifest, `infobits_reference` | `infobitsref`: the reference instance's info bits |
@@ -272,7 +333,7 @@ supervisor step 8, rulings R6-R7, 2026-09-24):
 | filter | manifest identity | `refimages.fid`: lookup in `filters` by name |
 | field | manifest, `registration.field` | `refimages.field` |
 | recipe | manifest identity, fixed `awaicgen` | `refimages.ppid`: 12, the `pipelines` row `dev` used |
-| selection digest (the key's `version`) | manifest identity, the instance's logical key only | no legacy column; `refimages.version` is the separate legacy counter, allocated globally per `(field, fid, ppid)` under an advisory lock, not scoped to the run (above) |
+| selection digest (the key's `version`) | manifest identity, the instance's provenance key only | no legacy column; `refimages.version` is the separate legacy counter, allocated globally per `(field, fid, ppid)` under an advisory lock, not scoped to the run (above) |
 | mosaic centre (RA, Dec) | manifest, `registration.ra_center`, `dec_center` | derived to `hp6`, `hp9` on `refimages` and `refimmeta` |
 | frame count | manifest, `registration.nframes` | `refimmeta.nframes` |
 | observation time range | manifest, `registration.mjdobs_min`, `mjdobs_max` | `refimmeta.mjdobsmin`, `mjdobsmax` |
@@ -282,7 +343,7 @@ supervisor step 8, rulings R6-R7, 2026-09-24):
 | clipped image statistics | manifest, `registration.clmean`, `clstddev`, `clnoutliers`, `gmedian`, `datascale`, `gmin`, `gmax` | `refimmeta`, same names |
 | catalog FWHM | manifest, `registration.fwhmmedpix`, `fwhmminpix`, `fwhmmaxpix` | `refimmeta`, same names |
 | source counts | manifest, `registration.nsexcatsources`, `npucatsources` | `refimmeta.nsxcatsources` (`dev`'s column spelling; the block field is `nsexcatsources`), `npucatsources`: null when `[psfcat]` is off, needing migration `20260924-09` to drop that column's `NOT NULL` |
-| settings hash | manifest identity | the instance's logical key only; no legacy column |
+| settings hash | manifest identity | the instance's provenance key only; no legacy column |
 | infobits | manifest, `registration.infobits` | `refimages.infobits`: 0, `dev`'s TODO; no code sets bits |
 | checksum | manifest registration block, `md5` | `refimages.checksum` |
 | file path | manifest primary member | `refimages.filename` |
@@ -418,19 +479,13 @@ lookups and defaults. It does not read product files.
   `alert-set` result set are on the [alerts](alerts) page.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
-- Derived products are keyed on the instance they derive from
-  (`difference-image` on its l2 and reference instances, `source-set`
-  on its difference instance, `association-set` on its base plus its
-  source sets), so a new production run's derived products sit beside
-  the previous date's as new logical products instead of superseding
-  them; only the `l2-image` key supersedes, which is why the loop's own
-  promotions carry as many changes as detector images each date, not
-  one. The keys stay as they are for the prototype. The logical key of
-  a derived product as a science identity -- exposure, detector,
-  filter, reference selection, settings hash -- is the design decision
-  to take before daily promotion of real deliveries, and it needs the
-  lead (supervisor step 9, ruling R6, 2026-09-25, recorded open;
-  carried from the residual step 6 raised the same way, 2026-09-24).
+- Closed by the Identity section above: a derived product's science
+  identity, and the slot it supersedes by, are now derived for every
+  kind, not only `l2-image` (supervisor step 5a, 2026-09-26). This was
+  the design decision recorded open at supervisor step 9, ruling R6,
+  2026-09-25, carried from step 6; the specification's own "Not decided
+  here" list still points at that ruling and needs its pointer updated
+  to this section (flagged, not this step's file to edit).
 - The cross-run result-set read rule ("Reading across runs", above)
   is not yet applied to file products -- l2 images, references, PSFs --
   consumed across runs; whether and how it should be needs its own

@@ -504,6 +504,11 @@ stays until no open run's release predates the change (additive rule,
 trial-database backfill, more than a light-touch change, so this is a
 proposal for the lead.
 
+Landed by step 5a on 2026-09-26 as ruled on [products](products) and
+[runs](runs): `slot` and `identity` are derived server side from the
+unchanged manifest key, promotion replaces by slot, and the chain
+switch is still not built.
+
 ## Staged inputs of a production run
 
 Production run 01M3B18KDDJT92VW3V54RYV9HM (the P4 demonstration) staged

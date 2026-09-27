@@ -68,18 +68,22 @@ ratio falls within `[ratio_lo, ratio_hi]`. All bounds come from the
 policy's `params` for that check.
 
 `catalog-counts-vs-reference@1` runs over a `source-set` result-set
-instance. A logical key embeds the producing run's own instance ids, so
-two runs never share one; the check instead finds its reference by
-science identity, following the candidate's dependencies back through
-`source-set` to `difference` to the `l2` product and its `(expid, sca,
-fid)` triple, then looking for another run's current `source-set`
-instance of the same catalog type over that same triple, or, when
-`params` names a `reference_run`, that run's instance for the same
-triple instead. It compares the candidate's `result_sets.row_count`
-against the reference's and passes when `|candidate − reference| /
-reference` is at most `params.tolerance`. When no reference instance
-exists, the outcome follows `params.missing_reference`, recorded in
-`detail`; policy `rebuild-trial@1` sets that to pass.
+instance. It now finds its reference by slot rather than walking
+dependencies by hand: the candidate's slot already names its exposure,
+detector and catalog type ([products](products) page), so the check
+looks for another current `source-set` instance sharing that same slot,
+any differencer, or, when `params` names a `reference_run`, that run's
+instance for the same slot instead. A candidate or a would-be reference
+without a slot is not a reference; the check's own runner fills every
+candidate's slot first, so a set only misses one when its producer is
+still unresolved (below). It compares the candidate's
+`result_sets.row_count` against the reference's and passes when
+`|candidate − reference| / reference` is at most `params.tolerance`.
+When no reference instance exists, the outcome follows
+`params.missing_reference`, recorded in `detail`; policy
+`rebuild-trial@1` sets that to pass (supervisor step 5a, 2026-09-26,
+replacing the dependency walk by science identity this check used
+before).
 
 Policy `rebuild-trial@1` marks `difference-image-statistics` required
 and `catalog-counts-vs-reference` advisory, required false (R2,
@@ -168,7 +172,11 @@ act (R5, 2026-09-24).
 ## The check commands
 
 `rapidpipe check list` prints the registered checks and the shipped
-policies. `check run <run> [--policy P] [--instance I] [--check
+policies. `run_policy_checks`, the runner both `check run` and the
+promotion gate call, fills every candidate's slot before running a
+single check, so `catalog-counts-vs-reference` never sees a slot the
+fill itself could have resolved (supervisor step 5a, 2026-09-26).
+`check run <run> [--policy P] [--instance I] [--check
 NAME@V] [--param k=v]…` runs every applicable policy check over the
 run's candidate instances from their selected attempts, or over the one
 named instance or check, records a row for each, and prints one line
