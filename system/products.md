@@ -88,31 +88,34 @@ JSON text, or null when there is no base. The hash is bounded in size
 however deep the chain runs, and a pruned or statistics set built on
 top inherits the distinction through its own membership's identity.
 
-The fill runs in two stages. It first writes identities to a fixpoint,
-at most thirty-two passes: each pass resolves every row whose identity
-is still null and whose own producers already have theirs, and it
-stops once a pass resolves nothing more, leaving a missing producer, a
-cycle or an unknown kind unresolved. Only once identity has settled
-does it derive every still-null slot, in one further pass, straight off
-each row's own now-filled identity; the collision rule applies exactly
-once at that point, over every current instance's slot, already held or
-freshly derived, so both members of a duplicated pair are withheld
-together whatever their depth in the chain, a pruned or statistics set
-built on a duplicated association pair included (supervisor step 5a,
-2026-09-26, amendment 1, superseding this paragraph's earlier per-pass
-description). Filling never rewrites a slot already set, and never
-assigns one another current instance already holds; a withheld row
-keeps its identity but stays null on slot, counted `duplicate_current`
-and reported alongside `unresolved`. Running the fill again resolves
-what a later registration completed and leaves an already-filled row
-alone.
+The fill runs in two stages, and a slot is set only when the identity
+is also derived: slot NOT NULL implies identity NOT NULL, for every
+kind. The identity stage runs pass after pass, resolving every row
+whose own producers already have theirs, until one pass converts
+nothing more; no fixed pass count bounds it, only a very large guard
+against a cycle, and if that guard trips the call assigns no slots at
+all and counts every remaining row unresolved (supervisor step 5a,
+2026-09-26, amendment 2, correcting the fixed pass figure amendment 1
+stated). Only once identities have settled does the fill derive every
+still-null slot, in one further pass, straight off each row's own
+now-filled identity; the collision rule applies exactly once at that
+point, over every current instance's slot, already held or freshly
+derived, so both members of a duplicated pair are withheld together
+whatever their depth in the chain, a pruned or statistics set built on
+a duplicated association pair included (amendment 1). Filling never
+rewrites a slot already set, and never assigns one another current
+instance already holds; a withheld row keeps its identity but stays
+null on slot, counted `duplicate_current` and reported alongside
+`unresolved`. Running the fill again resolves what a later registration
+completed and leaves an already-filled row alone.
 
-An instance with a null slot cannot be promoted by slot until something
-resolves it: a later registration supplying the missing producer, or an
-operator's own correction. At most one current instance exists per kind
-and slot, a partial unique index beside the older (kind, provenance
-key) index, which stays under the additive migration rule
-([releases](releases)).
+An instance with a null slot, or a null identity, cannot be promoted
+until something resolves it: a later registration supplying the
+missing producer, or an operator's own correction (a row whose identity
+is null can never be promoted, since its slot is null too). At most one
+current instance exists per kind and slot, a partial unique index
+beside the older (kind, provenance key) index, which stays under the
+additive migration rule ([releases](releases)).
 
 Wherever this page says a product references another (a reference
 version, a source set, a base association set) it means the complete

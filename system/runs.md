@@ -300,10 +300,12 @@ production run registered before its slot resolved is never refused for
 that alone. The default deliverable list is every candidate instance
 the run produced through its unit's selected attempt, grouped by (kind,
 slot); intermediate revisions and unselected attempts are excluded. A
-candidate whose slot is still null is refused, naming it; two
-candidates sharing one slot are refused, since a promotion needs exactly
-one replacement per kind and slot (supervisor step 5a, 2026-09-26,
-amending step 3, 2026-09-24, which grouped by provenance key). Piecemeal
+candidate whose slot, or whose identity, is still null is refused,
+naming it, since a slot never exists without its identity ([products](products)
+page); two candidates sharing one slot are refused, since a promotion
+needs exactly one replacement per kind and slot (supervisor step 5a,
+2026-09-26, amending step 3, 2026-09-24, which grouped by provenance
+key). Piecemeal
 promotion names an explicit subset of that list and passes the same
 validation. A change may also name no replacement, withdrawing a slot:
 the replaced instance returns to candidate, and the promotion record's
@@ -326,7 +328,11 @@ prints them without writing anything; `run promote <run> --plan <file>`
 applies that same file later, under a fresh lock, and refuses, exit 64,
 naming the first slot whose actual current instance or whose candidate
 no longer matches the plan, writing nothing (supervisor step 5a,
-2026-09-26; [tool](tool) page has the commands).
+2026-09-26; [tool](tool) page has the commands). The plan file itself
+must hold a non-empty JSON list of `{kind, slot, before, after}`
+entries; anything else, a JSON `null`, an empty list, a different
+shape, exits 64 before the file is even read as a plan, let alone
+anything written (supervisor step 5a, 2026-09-26, amendment 2).
 
 A change into an `association-set` slot whose expected-before is not
 null is refused unless the before instance is an ancestor of the after
