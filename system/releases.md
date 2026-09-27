@@ -5,8 +5,7 @@
 How operations move from a commit to a running, verified version: the
 tag, the record that ties a commit to a schema and an image, the
 command that cuts one, and what promotion and the launcher require of
-it. Written 2026-09-24 from supervisor step 5's rulings (R1 through R9).
-The [specification](specification)'s Releases section states the
+it. The [specification](specification)'s Releases section states the
 requirement; this page records how the rebuild meets it.
 
 ## In plain terms
@@ -24,19 +23,17 @@ used.
 
 `rapidpipe release cut|show|list|verify`, also runnable as
 `python -m rapidpipe.release`, and wrapped unchanged by the future
-`rapidctl` (ruling R1, 2026-09-24). `cut` takes `--tag`, `--ref`,
-`--hooks-dir`, `--skip HOOK`, `--resume TAG` and `--dry-run`; `show`
-prints one release's record; `list` prints every recorded release;
-`verify` checks a recorded release against its live state. The Python
-interface is `rapidpipe.release.core`: `next_tag`, `cut`, `show` and
-`verify`, and the `Release` dataclass the record above maps onto.
+`rapidctl`. The full flag surface for `cut`, `show`, `list` and `verify`
+is on the [tool](tool) page. The Python interface is
+`rapidpipe.release.core`: `next_tag`, `cut`, `show` and `verify`, and
+the `Release` dataclass the record above maps onto.
 
 ## The tag
 
 A release tag is annotated, on the `rebuild` branch, named
 `rebuild-v0.<n>` where `n` is one more than the highest tag already
-pushed; remote tags are authoritative, not a local checkout's (ruling
-R2, 2026-09-24). The scheme becomes `v1.<n>` once the rebuild replaces
+pushed; remote tags are authoritative, not a local checkout's. The
+scheme becomes `v1.<n>` once the rebuild replaces
 `main`, the specification's own sequencing point for that move.
 
 The tag message is the release's initial manifest: the tag, the source
@@ -51,7 +48,7 @@ specification asks for without any check the cut has to write itself.
 
 ## The record
 
-Two tables carry a release's state (ruling R3, 2026-09-24). `releases`
+Two tables carry a release's state. `releases`
 holds one row per tag: source revision, schema version, image digest,
 image reference, a state that advances `migrated`, `built`,
 `deployed`, `complete`, who cut it and when, and when it completed.
@@ -73,7 +70,7 @@ reconcile stores whichever value it finds.
 pins. The account-specific steps, migrate, build, deploy and pins, are
 hooks: executables the systems repository supplies, which `cut` invokes
 in order with the release's tag, source revision and schema version in
-their environment (ruling R4, 2026-09-24). The pipeline repository
+their environment. The pipeline repository
 itself names no account, host or bucket; everything account-specific
 lives in the hook, on the other side of that boundary.
 
@@ -101,7 +98,7 @@ A release's schema version is the greatest migration filename present
 in its tagged tree. The migrate hook applies that tree's migrations to
 the release's database target, and `cut` refuses to record the release
 until every one of those files is applied with the checksum the
-migration applier recorded for it (ruling R5, 2026-09-24). Migration
+migration applier recorded for it. Migration
 therefore always precedes the image deploy in a cut, so a job
 definition revision never runs code ahead of the schema it expects. A
 run started without a release still submits by the unversioned job
@@ -114,7 +111,7 @@ through to the job definition itself.
 A run created under a release submits every unit to the job definition
 revision that release's `release_deployments` row records for the
 run's kind, verified `ACTIVE` before submission; there is no fallback
-to whatever revision is latest (ruling R6, 2026-09-24). That makes a
+to whatever revision is latest. That makes a
 job definition revision something operations must keep alive past its
 own release: a later cut's deploy step repoints the job definition to a
 new revision, and a run still reading the earlier release needs the
@@ -123,8 +120,7 @@ systems-repository concern, not a pipeline one.
 
 The processing-date loop's binding to a release is resolved on the
 [loop](loop) page: the loop's spec names the release, and the scheduled
-operation checks that tag out before running each date (supervisor step
-7, 2026-09-24).
+operation checks that tag out before running each date.
 
 ## Promotion eligibility
 
@@ -134,8 +130,8 @@ whose image digest matches a complete release's digest, and whose
 recorded release, when it has one, is that release's tag. A deliverable
 that fails this refuses promotion, unless the operator passes the
 explicit unreleased exception, which the promotion's request context
-then carries (ruling R7, 2026-09-24). This closes the trial exception
-the [runs](runs) page recorded for step 3: promotion no longer treats a
+then carries. This closes the trial exception
+the [runs](runs) page recorded earlier: promotion no longer treats a
 missing released-image check as passing by default, it treats it as
 refused unless waived.
 
@@ -144,8 +140,8 @@ refused unless waived.
 The last step of a cut appends one row per rebuild consumer to the
 operations pin table, reading each consumer's live job definition and
 writing the release identity beside it, so which release is deployed
-has a database answer rather than a person's memory of the last deploy
-(ruling R8, 2026-09-24). The daily pin sweep that already runs against
+has a database answer rather than a person's memory of the last deploy.
+The daily pin sweep that already runs against
 the legacy pipeline's own consumer set is unchanged; a cut's pin step
 covers the rebuild's consumers alongside it.
 
@@ -154,7 +150,7 @@ covers the rebuild's consumers alongside it.
 CI on `rebuild` gates the source before any tag is cut; a cut's own
 steps stop at deploy and pins. Selftests run on Batch under the newly
 deployed revision afterwards, as evidence that the deployed image
-behaves, not as a gate the cut itself waits on (ruling R9, 2026-09-24).
+behaves, not as a gate the cut itself waits on.
 
 ## A run never spans a release
 
@@ -170,8 +166,7 @@ rename while an earlier release's runs are open) and compatible with
 the readers and writers of every release whose runs are still open.
 That additivity and compatibility are now a stated constraint of the
 migration rule above, not an assumption a concurrent cut could quietly
-violate (ruling R7, supervisor step 9, 2026-09-25, closing step 5's
-residual 1).
+violate.
 
 ## Concurrent cuts are serialised
 
@@ -182,10 +177,9 @@ row; the message names the tag and its state, exit 1 (a refusal; the
 still written only after the tag is pushed, so two cuts started in the
 same instant can both pass the check before either has a row to be
 refused by: this rule serialises through the record once it exists, it
-is not a lock, and closing that window is recorded open, not part of
-this ruling. A `--resume` of the row already in flight is the way
-through a cut that failed partway, not a second `cut` (ruling R8,
-supervisor step 9, 2026-09-25, closing step 5's residual 2).
+is not a lock, and closing that window is recorded open. A `--resume`
+of the row already in flight is the way through a cut that failed
+partway, not a second `cut`.
 
 ## Not decided here
 
