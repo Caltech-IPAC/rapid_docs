@@ -414,8 +414,9 @@ does today, but the next date's catalog cannot be published until the
 refused date is accepted or repaired. That makes a refusal loud: it
 holds its field's catalog until someone acts, rather than letting a
 catalog that contains rejected data become current. This is a change to
-the loop's behaviour, landed by this step (supervisor step 6,
-2026-09-26).
+the loop's behaviour: promotion walks every ancestor to enforce it
+([checks](checks) page, "The promotion gate"; supervisor step 6,
+2026-09-26; in force from release rebuild-v0.10).
 
 ## The loop's five calls
 
@@ -426,15 +427,21 @@ The lead folded these into this page on 2026-09-26 (12:25).
   delivery the stream discovers in its inbox location, grouped into one
   batch per processing date, oldest first. The spec keeps schedule,
   release, policy, owner, lane and attempts; its `[[dates]]` list stays
-  for proofs and backfills only.
+  for proofs and backfills only. This landed as the [loop](loop) page's
+  "Discovery and batches" section (supervisor step 4, 2026-09-26),
+  proven live by the step 4 and step 7 firings.
 - **Cadence** (proposed): a fixed `window:cron(...)` at an interval of
   half the latency budget; a firing that discovers nothing exits 0 and
   writes nothing. An event trigger only if the latency requirement is
   minutes.
-- **Release binding** (proposed): the spec names a tag explicitly, and
-  moving operations to a new release is a one-line spec change made on
+- **Release binding**: the spec names a tag explicitly, and moving
+  operations to a new release is a one-line spec change made on
   purpose; `release cut` does not edit the spec, and there is no
-  "current" alias, which would move operations on every cut.
+  "current" alias, which would move operations on every cut. This is
+  already how [loop](loop)'s `[loop].release` works: the launcher
+  checks that tag out and refuses if the checkout's `git describe
+  --tags --exact-match` does not equal it (supervisor step 7,
+  2026-09-27).
 - **Production check policy** (proposed, below).
 - **The proof spec** stays unrepaired (the lead, 2026-09-26, 12:25). Its
   `difference_template` prefix was deleted in the 2026-09-25 cleanup; a

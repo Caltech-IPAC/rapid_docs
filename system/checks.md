@@ -176,6 +176,14 @@ retained and in project custody, as before this step; only the walk past
 those direct dependencies, and the check-result states above it, are
 skipped.
 
+The gate's read of the latest check rows takes its lock `FOR SHARE`; a
+failed check row committed after that read is not seen by the
+promotion it should have refused. Accepted since the speedrun's step 6,
+and now also for the ancestors whose state the walk decides from check
+rows (a current, superseded or explicitly accepted ancestor is judged
+without reading them); recorded, not fixed (supervisor step 7,
+2026-09-27).
+
 ## Acceptance
 
 Acceptance is separate from selection. The dependency walk above treats
