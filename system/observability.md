@@ -25,7 +25,7 @@ notice. Nothing here needs an agent, a daemon or a metrics service.
 ## The line
 
 ```
-2026-09-26T20:44:27.004Z INFO run=<run-id> attempt=<attempt-id> stage=finalize unit=e20260821001234/SCA07 rapidpipe.stages.finalize finalize: 01J8Y6QZ3MF1NA1E0000000D1F -> 01M3FQCJZH926NEY4XQ91988NQ (diffimage_masked.fits), 4 catalogs
+2026-09-26T20:44:27.004Z INFO run=<run-id> attempt=<attempt-id> stage=finalize unit=e20260821001234/SCA07 rapidpipe.stages.finalize finalize: 01J8Y6QZ3MF1NA1E0000000D1F -> 01J8Y6QZ3M00000000000MASK1 (diffimage_masked.fits), 4 catalogs
 ```
 
 UTC time with milliseconds, level, then `key=value` identity fields in a
