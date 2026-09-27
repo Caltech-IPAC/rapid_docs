@@ -43,16 +43,23 @@ instance scientifically different from another, delivered facts and
 science choices only, never an instance id; the **slot** (column
 `slot`) is the part of the identity key a consumer selects on, "the
 current X for Y". Both are nullable JSON, and neither is written by a
-stage. The database derives them from the provenance key, by resolving
-each producer instance the key names to its own slot and identity in
-turn, in `product_identity_fill()`. Because nothing in the manifest
-changed, a stage image of any earlier release still registers exactly
-as it does today; the database fills the rest afterward.
+stage. The database derives them from the provenance key, in
+`product_identity_fill()`: it resolves identity first, by walking each
+producer instance the key names to its own identity in turn, and only
+once identity has settled does it read the slot off the finished
+identity (below). Because nothing in the manifest changed, a stage
+image of any earlier release still registers exactly as it does today;
+the database fills the rest afterward.
 
-The derivation, one row per kind. `k` is the provenance key; `P(x)` and
-`V(x)` are producer instance `x`'s own slot and identity; a missing
-producer, or one whose slot is still null, leaves the row null this
-pass:
+The derivation, one row per kind. `k` is the provenance key; `V(x)` is
+producer instance `x`'s own identity, and `P(x)` is the slot fields
+projected from it, since every slot is a subset of its kind's identity
+fields (supervisor step 5a, 2026-09-26, amendment 1). Because `P(x)`
+reads `x`'s identity rather than its slot column, a producer whose own
+slot was withheld by a collision (below) does not block its
+descendants: each row still derives its own slot and identity
+independently, from identities alone. A missing producer, or one whose
+own identity is still null, leaves the row null until that resolves:
 
 | Kind | Slot | Identity adds |
 |---|---|---|
@@ -81,14 +88,24 @@ JSON text, or null when there is no base. The hash is bounded in size
 however deep the chain runs, and a pruned or statistics set built on
 top inherits the distinction through its own membership's identity.
 
-Filling never rewrites a slot already set, and never assigns a slot
-another current instance already holds. Each pass computes every row's
-prospective slot and identity, then drops from that set any current row
-whose (kind, slot) would collide with another current row, existing or
-computed in the same pass, before writing anything. A dropped row keeps
-its identity but stays null on slot, counted `duplicate_current` and
-reported alongside `unresolved`; running the fill again resolves what a
-later registration completed and leaves an already-filled row alone.
+The fill runs in two stages. It first writes identities to a fixpoint,
+at most thirty-two passes: each pass resolves every row whose identity
+is still null and whose own producers already have theirs, and it
+stops once a pass resolves nothing more, leaving a missing producer, a
+cycle or an unknown kind unresolved. Only once identity has settled
+does it derive every still-null slot, in one further pass, straight off
+each row's own now-filled identity; the collision rule applies exactly
+once at that point, over every current instance's slot, already held or
+freshly derived, so both members of a duplicated pair are withheld
+together whatever their depth in the chain, a pruned or statistics set
+built on a duplicated association pair included (supervisor step 5a,
+2026-09-26, amendment 1, superseding this paragraph's earlier per-pass
+description). Filling never rewrites a slot already set, and never
+assigns one another current instance already holds; a withheld row
+keeps its identity but stays null on slot, counted `duplicate_current`
+and reported alongside `unresolved`. Running the fill again resolves
+what a later registration completed and leaves an already-filled row
+alone.
 
 An instance with a null slot cannot be promoted by slot until something
 resolves it: a later registration supplying the missing producer, or an
