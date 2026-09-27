@@ -6,11 +6,10 @@ What a `rapidpipe` log line looks like and where it goes, what the
 record of a run is with and without CloudWatch, what the team can ask of
 that record with `rapidpipe` alone, how a Batch job's time is split into
 queue, execution and orchestration, how to profile a stage, and a
-baseline of today's job durations against a 30-minute target. Written
-2026-09-26 by the rebuild direction pass (Lanes C and D) for the team
-member who has to find out why a run is slow or what a failed attempt
-did. The [stage contract](stage-contract) and the [tool](tool) page
-state the invocation and exit-code rules this page builds on.
+baseline of today's job durations against a 30-minute target, for the
+team member who has to find out why a run is slow or what a failed
+attempt did. The [stage contract](stage-contract) and the [tool](tool)
+page state the invocation and exit-code rules this page builds on.
 
 ## In plain terms
 
@@ -26,11 +25,8 @@ notice. Nothing here needs an agent, a daemon or a metrics service.
 ## The line
 
 ```
-2026-09-26T20:44:27.004Z INFO run=01M3FQCJ7P4EYMZCV2Q9N6KE2F attempt=01M3FQCJ7P4EYMZCV2Q9N6KE2G stage=finalize unit=e20260821001234/SCA07 rapidpipe.stages.finalize finalize: 01J8Y6QZ3MF1NA1E0000000D1F -> 01M3FQCJZH926NEY4XQ91988NQ (diffimage_masked.fits), 4 catalogs
+2026-09-26T20:44:27.004Z INFO run=<run-id> attempt=<attempt-id> stage=finalize unit=e20260821001234/SCA07 rapidpipe.stages.finalize finalize: 01J8Y6QZ3MF1NA1E0000000D1F -> 01M3FQCJZH926NEY4XQ91988NQ (diffimage_masked.fits), 4 catalogs
 ```
-
-(from the `finalize` selftest under release rebuild-v0.8, job definition
-`rapid-rebuild:24`, 2026-09-26)
 
 UTC time with milliseconds, level, then `key=value` identity fields in a
 fixed order (`run`, `attempt`, `stage`, `unit`), then the logger name
@@ -50,11 +46,11 @@ return code and what it printed. Only what a library writes straight to
 stderr, a warning from Photutils or Astropy for example, passes through
 unprefixed.
 
-The console handler moved from stdout to stderr on 2026-09-26 (the
-direction pass). Nothing in the pipeline read log lines from stdout; `run
-local`, which printed its one data line on the same stdout as the
-stage's log lines, now keeps the two apart. Batch's log driver captures
-both streams, so the CloudWatch record is unchanged.
+The console handler writes to stderr, not stdout. Nothing in the
+pipeline reads log lines from stdout; `run local`, which used to print
+its one data line on the same stdout as the stage's log lines, now
+keeps the two apart. Batch's log driver captures both streams, so the
+CloudWatch record is unchanged.
 
 ## The record, with and without CloudWatch
 
@@ -66,9 +62,8 @@ Without CloudWatch, three things hold everything about an attempt:
   under the attempt's output location, published with the attempt,
   including when it fails (a failed upload logs a warning and never
   changes the exit code). The file includes the stage's final line
-  (exit code, manifest, timing); under release rebuild-v0.8 an S3 copy
-  still lacked that one line, fixed on `rebuild` for the next release
-  (rapid #157, after a Codex review). A `--dry-run` writes no file. It is not a manifest member, in the same way
+  (exit code, manifest, timing), including in its S3 copy. A `--dry-run`
+  writes no file. It is not a manifest member, in the same way
   `exec/<attempt>.json` is not.
 - **The database**: `attempts` (started, ended, exit code, disposition,
   output, inputs and settings locations, scheduler job id) and
@@ -123,8 +118,8 @@ which `reconcile` copies into `scheduler_metadata.stage` for a
 successful attempt, so `run timings` prints them; `publish_s` happens
 after the record is written and is on the log line only.
 
-None of this needed a new column. Attempts recorded before 2026-09-26
-have no Batch timestamps and print `-`.
+None of this needed a new column. An attempt from before Batch
+timestamps were recorded has none, and prints `-`.
 
 ## Profiling a stage
 
@@ -140,10 +135,10 @@ SWarp, awaicgen) appears as the one Python call that ran it.
 
 ## Today's baseline
 
-From the jobs AWS Batch still held on 2026-09-26: 260 rebuild jobs
-between 2026-09-23 and 2026-09-25, 208 of them real stage invocations,
-all on `rapid-queue-prompt`, every job definition at 1 vCPU and 15 GiB.
-Minutes of execution, real invocations only:
+Measured from AWS Batch's job records: 260 rebuild jobs, 208 of them
+real stage invocations, all on `rapid-queue-prompt`, every job
+definition at 1 vCPU and 15 GiB. Minutes of execution, real invocations
+only:
 
 | Stage | Jobs | Median | 90th percentile | Longest | Over 30 minutes |
 |---|---|---|---|---|---|
@@ -163,13 +158,11 @@ Queue time was a median of 0.1 to 1.8 minutes per stage, and at most 4.5
 minutes, when the compute environment had to start an instance. Five
 `difference` jobs in the sample ran in 7 to 20 minutes; what set them
 apart (inputs or settings) is not established here, and the per-job rows
-behind this table, with job ids, are kept with the direction pass's
-records.
+behind this table, with job ids, are kept separately.
 
 `difference` is the one stage over the target, at about twice it in the
-typical case. The first profiled run (2026-09-26, release rebuild-v0.8,
-`rapid-rebuild:24`, the control image under the exact-reproduction
-settings, 4918 seconds of stage body under `cProfile`) says where the
+typical case. Profiling the control image under the exact-reproduction
+settings (4918 seconds of stage body under `cProfile`) says where the
 time goes: the Photutils PSF-fit catalogs take 4662 seconds, 95% of it,
 in six calls, positive and negative on each of the ZOGY, naive and SFFT
 differences. The naive and SFFT branches together take about 3160
@@ -203,8 +196,7 @@ read the reconcile lag as unreliable.
   message` on stderr, through one formatter, with each script keeping its
   own failure handling and its stdout data. The migration markers and
   the pins hook's JSON, which callers parse from stdout, stay as they
-  are. The direction review of 2026-09-26 (in the log) has the detail and
-  the cost.
+  are.
 - **CloudWatch retention.** Fourteen days is shorter than a run's life;
   the per-stage file now covers the gap, so no change is proposed.
 
