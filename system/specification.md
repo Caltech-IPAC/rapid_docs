@@ -334,13 +334,13 @@ review at the SMDC cutover; none is ADOPTED.
   promotion, remain open ([checks](checks) page).
 - The boundary between mission-supplied data and RAPID-derived
   products, and what each side's retention and provenance owe.
-- Admission rules for duplicate, incomplete or corrected inputs,
-  including how a re-delivered observation supersedes the earlier one,
-  and the science half of the input contract (discovery, completeness,
-  versioning). The processing-date time convention is narrower than
-  before: the [loop](loop) page takes the processing date from the
-  spec that names it, one production run per date; the general rule for
-  a date's boundary in wall-clock or observatory time is still open.
+- Admission rules for duplicate, incomplete or corrected inputs: the
+  delivery-side handling (identical re-delivery refused, checksum
+  conflict quarantined, a corrected version deferred) now lives on the
+  [loop](loop) page's discovery and classification rule (supervisor
+  step 4, 2026-09-26). Still open: the science half of the input
+  contract (discovery, completeness, versioning), and a date's boundary
+  in wall-clock or observatory time (supervisor step 7, 2026-09-27).
 - Reference-image eligibility and selection rules, and where the
   reference PSF is resolved from. The [reference](reference) page
   records `dev`'s selection rule as the launcher's to implement; the
@@ -348,11 +348,6 @@ review at the SMDC cutover; none is ADOPTED.
   template rather than by running that rule. Which reference a field
   should use among several eligible ones is open on the [tool](tool)
   page too.
-- Product identity under concurrent processing: collision, publication
-  and replay semantics beyond the science identifier and context stamp.
-  The [products](products) page now records, and leaves open, the
-  specific case a derived product's key embeds a per-run instance id
-  (ruling R6, supervisor step 9, 2026-09-25).
 - Recovery targets per storage family and the stance on failover read
   cost.
 - Whether alert payload bytes are split from delivery evidence after a

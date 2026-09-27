@@ -290,6 +290,14 @@ for a failed or open date; each skip is recorded in the date's record as
 `bases_skipped` (per field, the run, processing date, instance and
 reason skipped) (supervisor step 9, ruling R2, 2026-09-25).
 
+A schedule's first date has no base, so over a sky whose field
+association sets are already current its scheduler promotion is refused
+by [checks](checks)'s ancestor rule until a chain switch to the earlier
+sets exists; a proof or a new stream over the same sky therefore
+continues the existing schedule, a new inbox prefix and new exposures,
+rather than starting a new schedule name (supervisor step 7,
+2026-09-27; proven by step 7's proof, which continued `ops4-stream`).
+
 ## Promotion
 
 Once every unit of a date's run is complete, the loop promotes it under
