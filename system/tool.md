@@ -132,17 +132,23 @@ the third column.
 | 64 | Usage, configuration or an unmet precondition: bad arguments, including every argparse parse failure from every command family (help still exits 0), invalid settings, a refused destination, a dirty tree, a tag that exists, missing hooks, or a release whose record is not `complete` | every family; `release cut\|show\|list\|verify`, `run create` included |
 | 65 | `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) | `run submit`, `run start`, `run local` |
 | 69 | Declared but not implemented in this build | a stage's own invocation (`stage run <name>`, the form Batch runs) |
-| 70 | An unclassified error; stop and investigate | a stage's own invocation |
+| 70 | An unclassified error; stop and investigate | every family: an unexpected error escaping a command is logged with its traceback and exits 70 (supervisor step 1, 2026-09-26); and a stage's own invocation |
 | 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable | `run start`, `run submit`, `run local`; `release cut`; `loop run`'s lock or timeout |
 
+`selftest` reads its own subset: 0 when every check passes, 1 when a
+check fails or the stage under test exited 0 where the fixture expected
+a non-zero code, 64 when the work directory already exists, and
+otherwise the stage's own unexpected code.
+
 Three invariants follow from finishing the unification (supervisor
-step 1, 2026-09-26). A parse failure exits 64 from every family:
-Python's `argparse` itself defaults to exit 2, so `rapidpipe`'s entry
-point catches that and re-raises 64, the same translation the stage
-runner already applied to `stage run <name>` under the stage contract,
-and help still exits 0. Because of that, 2 now means only "still
-running", never "could not parse". And `release` spells its own usage
-and precondition refusals 64, the same as every other family, not 2.
+step 1, 2026-09-26). A parse failure exits 64 from every family: every
+`rapidpipe` parser, nested subparsers included, is
+`rapidpipe.exitcodes.ArgumentParser`, whose usage error exits 64
+directly, and help still exits 0. The stage runner keeps its older
+translation of a parse failure to 64 for `stage run <name>` as a
+safeguard. Because of that, 2 now means only "still running", never
+"could not parse". And `release` spells its own usage and precondition
+refusals 64, the same as every other family, not 2.
 
 ## Personal submission from a workstation
 
