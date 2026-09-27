@@ -78,9 +78,9 @@ is the input-set composer the third supervisor step scripted, promoted
 to a tool operation (R4). It reads the template's manifest, replaces or
 adds the entry of the producer's output kind with that producer's
 selected output, copies that member and the template's other members to
-`<dest>`, writes the composed manifest there, prints the location, and
-binds it to the unit when the unit already exists. It refuses to
-overwrite a manifest already at `<dest>`.
+`<dest>`, admits and binds the unit through `bind_input_set` before
+writing the composed manifest there last, and prints the location. It
+refuses to overwrite a manifest already at `<dest>`.
 
 An input set is a staged working copy, not a product, so `<dest>`
 defaults to, and `--dest` is refused outside,
@@ -130,7 +130,7 @@ the third column.
 | 1 | A negative outcome: a stage or unit failed or was cancelled, two runs differ, a check failed, or a release refused (a check or a hook failed, a resume did not match, verify found a mismatch) | `run start`, `run status`, `run compare`, `run show`, `run submit` (a release whose recorded job-definition revision is refused, not `ACTIVE`); `run inputs` (an input's size mismatch); `loop run`; `check run`; `release cut\|show\|list\|verify` |
 | 2 | Still running: a unit remains non-terminal | `run status` |
 | 64 | Usage, configuration or an unmet precondition: bad arguments, including every argparse parse failure from every command family (help still exits 0), invalid settings, a refused destination, a dirty tree, a tag that exists, missing hooks, or a release whose record is not `complete` | every family; `release cut\|show\|list\|verify`, `run create` included |
-| 65 | A declared input absent, corrupt or incompatible once its storage was reached (a stage's own invocation), or `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) | a stage's own invocation; `run submit`, `run start`, `run local` |
+| 65 | A declared input absent, corrupt or incompatible once its storage was reached (a stage's own invocation); `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason, the manifest absent, not JSON, or failing validation; or a deleting or deleted producer met while `run inputs` or the loop binds an input set. Nothing is written (supervisor step 9, ruling R4, 2026-09-25; supervisor step 2, 2026-09-26) | a stage's own invocation; `run submit`, `run start`, `run local`; `run inputs` (a deleting or deleted producer at bind time); `loop run` (the same, through the loop's binding) |
 | 69 | Declared but not implemented in this build | a stage's own invocation (`stage run <name>`, the form Batch runs) |
 | 70 | An unclassified error; stop and investigate | every family: an unexpected error escaping a command is logged with its traceback and exits 70 (supervisor step 1, 2026-09-26); and a stage's own invocation |
 | 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable | `run start`, `run submit`, `run local`; every family for a transient database failure (`release cut\|show\|list\|verify`, `run create`, `check` included); `loop run`'s lock or timeout |

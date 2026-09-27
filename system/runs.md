@@ -152,6 +152,34 @@ producer's run against deletion. The fence also covers `run inputs` and
 the loop's own binding. The deletion guard's basis is this binding
 (supervisor step 9, ruling R4, 2026-09-25).
 
+One primitive now backs both composers, the launcher's own submission
+bind above and the loop's:
+`rapidpipe.runs.binding.bind_input_set(conn, storage, *, run_id, stage,
+unit_kind, unit_id, dest, compose, reuse_existing=True)`. Its order is
+fixed: check whether `manifest.json` already exists at `dest` (refused
+when reuse is not allowed -- `run inputs`, exit 64 -- and reused under
+`run start` and by the loop); admit the unit, through `add_unit`, the
+run fence, before anything is copied; read the existing manifest, or
+call the composer's own `compose` callable, which does the copying and
+builds the manifest; collect the manifest's instance ids by one rule,
+`manifest_instances`, every output entry's `instance` plus every
+`inputs.result_sets` entry; bind the registered ones through
+`bind_registered_inputs`; commit; and write the manifest to storage
+last, only when it did not already exist. Reusing an existing manifest
+is therefore an idempotent re-bind of that manifest's ids to the
+consuming unit, committed like any other bind, never a skipped bind and
+never a rewrite. A manifest on storage means its bindings were
+committed; if the write fails after the commit, the next call finds no
+manifest and composes again. Both `compose_inputs` and the loop's
+composer call this primitive, and a test fails if either binds or
+writes a manifest on its own. Two corrections follow from it: `run
+inputs` now binds a template's `inputs.result_sets` as well as its
+output entries, where before it read only the output entries; and a
+deleting or deleted producer met at `run inputs`'s bind now exits 65,
+not 64, which is what "the fence also covers `run inputs` and the
+loop's own binding" above already implied (supervisor step 2,
+2026-09-26).
+
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
 Success requires a valid completion manifest and complete declared
