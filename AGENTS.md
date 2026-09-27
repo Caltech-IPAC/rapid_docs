@@ -193,37 +193,38 @@ on anything outside it.
   examples over negative ones, options shown in examples rather than
   reference lists restated, several small files over one kitchen sink.
 
-## The system section, as landed (2026-09-26)
+## The system section
 
 `system/` holds one page per register: `specification.md` is the design
-authority; `products.md`, `runs.md` and `stage-contract.md` are the
-three model pages everything else builds on; each pipeline stage has
-its own page (`reference`, `difference`, `load`, `maintain`,
-`crossmatch`, `statistics`, `finalize`, `alerts`, `prune`,
-`photometry`, `export`); `releases.md`, `tool.md`, `loop.md`,
-`checks.md` and `observability.md` cover the mechanisms that run stages
-rather than a stage itself; and `operations.md` is a proposal, the
-direction pass's operations-readiness design (2026-09-26), which the
-lead has not yet ruled on. Dated reviews go in the log, not in
-`system/`. `index.md`'s table is the map: its Scope column names what each
-page owns, and a page's own content should never drift from that line.
+authority; `decisions.md` records the team's rulings; `products.md`,
+`runs.md` and `stage-contract.md` are the three model pages everything
+else builds on; each pipeline stage has its own page (`reference`,
+`difference`, `load`, `maintain`, `crossmatch`, `statistics`,
+`finalize`, `alerts`, `prune`, `photometry`, `export`); `releases.md`,
+`tool.md`, `loop.md`, `checks.md` and `observability.md` cover the
+mechanisms that run stages rather than a stage itself; and
+`operations.md` holds operations proposals still open. Dated reviews go
+in the log, not in `system/`. `index.md`'s table is the map: its Scope
+column names what each page owns, and a page's own content should never
+drift from that line.
 
-A ruling lands on the one page that governs the decision it makes, as a
-dated, attributed sentence or paragraph, not a changelog entry: dated
-with the day it was made, attributed to the supervisor step that made
-it (or "the lead", "the general", when that is who made it) and worded
-into the page's own prose, in the same pull request as the code it
-rules on. A page that only points at where a ruling lives, without the
-ruling's own content, has not recorded it.
+A ruling goes on `decisions.md` as one dated line with its author's
+name, and the page that governs the decision states the rule itself, in
+its own prose and in the present tense, in the same pull request as the
+code it rules on. The page does not narrate who ruled or when; where the
+attribution matters it cites the decision's target on `decisions.md`.
+A page that only points at where a ruling lives, without the rule's own
+content, has not recorded it. A table or a command surface is stated on
+one page and pointed at from the others.
 
 The specification's "Not decided here" list, and each page's own, hold
 open questions, not permanent fixtures. A bullet leaves the list only
-when some page states the decision that closes it, with its own dated
-ruling; removing a bullet without a page deciding it is not maintenance,
-it is losing the question. A page may narrow a bullet it does not fully
-close, and should say so, pointing at the page and ruling that narrowed
-it, rather than leave the specification's wording stale beside a page
-that has moved past it.
+when some page states the decision that closes it and `decisions.md`
+records the ruling; removing a bullet without a page deciding it is not
+maintenance, it is losing the question. A page may narrow a bullet it
+does not fully close, and should say so, pointing at the page that
+narrowed it, rather than leave the specification's wording stale beside
+a page that has moved past it.
 
 Status lines: **DRAFT** is a page under iteration, current with the
 code as landed but not yet reviewed as a whole; **STUB** is a page for

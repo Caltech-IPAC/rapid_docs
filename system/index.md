@@ -8,7 +8,7 @@ team's review lands at the cutover to SMDC, and nothing becomes ADOPTED
 without that review.
 
 The specification replaced the earlier design corpus of seventeen
-documents on 2026-09-21. That corpus described the system that had
+documents. That corpus described the system that had
 accumulated; the rebuild starts from this page. The earlier documents
 remain in this repository's history.
 
@@ -17,6 +17,7 @@ remain in this repository's history.
 | Document | Status | Scope |
 |---|---|---|
 | [`specification.md`](specification) | DRAFT | Purpose and outcome; the pipelines and their stages; the stage contract; runs, the three output states, promotion, attempts and deletion; tools; the three repositories and their boundary; releases; the manifest edges; constraints; sequencing; what is not yet decided |
+| [`decisions.md`](decisions) | DRAFT | The team's rulings, one dated line each with its author: Ben's rulings of 2026-09-27, earlier rulings, and the rulings carried from the build pending team review |
 | [`products.md`](products) | DRAFT | Product kinds and result-set kinds, logical key versus instance id, bundles, reading across runs, registration metadata with one source per field, one complete worked manifest |
 | [`runs.md`](runs) | DRAFT | The run-model tables beside the kept `dev` schema; unit and attempt state machines; instances and the three custody states; promotion under one lock with before and after per key; guarded deletion as the only deleter; storage layout; identifiers |
 | [`stage-contract.md`](stage-contract) | DRAFT | The `rapidpipe` package and its dependency direction; the stage declaration, one invocation form, attempts, the manifest, six exit codes, settings; local fixtures; what it replaces |
@@ -42,6 +43,7 @@ remain in this repository's history.
 :hidden:
 
 specification
+decisions
 stage-contract
 products
 runs
