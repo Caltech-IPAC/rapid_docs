@@ -1,63 +1,18 @@
+
 # Operations: live processing, reprocessing and development together
 
-**Status: DRAFT, a proposal.** Nothing on this page changes code, schema
-or another page's rulings; each section says whether it records a
-settled ruling or proposes one.
-
-Written 2026-09-26 by the rebuild direction pass, for the lead and the
-team, from the lead's concern of that morning: the system is naturally
-biased toward batch processing of simulations, and operations will bring
-data arriving in a stream from the spacecraft, so the run model has to
-serve continuous survey processing, bulk reprocessing, and parallel
-testing and development at the same time. This page takes every use
-case the team will have, traces them running together under three
-candidate shapes of the run model, and recommends one. It also carries
-the loop's five open calls, a proposed production check policy,
-reference eligibility, the product-identity mechanism under the lead's
-2026-09-26 principle, and the run-model rule for a production run's
-staged inputs. The [specification](specification), [runs](runs),
-[products](products) and [loop](loop) pages remain the design
-authority; where this page proposes a change to them, it says which
-sentence would change.
-
-## In plain terms
-
-Operations is a named stream that turns each batch of new deliveries
-into one ordinary run, frozen at creation like every other run. Anything
-that changes an earlier result, a corrected frame, a new release, new
-settings, is another run, never an edit to a finished one. Consumers see
-whatever promotion last selected, and promotion replaces the earlier
-selection for the same science slot: the same exposure and detector for
-an image, the same field for a catalog. A developer's run is an
-ordinary scratch run beside all of this and touches none of it.
-
-That is the recommendation. It is the model as written, with three
-additions: the stream discovers its own deliveries instead of reading a
-hand-written list; promotion supersedes by science slot rather than by
-the instance-bearing key it uses today; and one table says which inputs
-a product may be built from and which it may be published from. Each
-addition is a proposal below, with its cost.
-
-## The use cases
-
-| Use case | What the team does | Served today? |
-|---|---|---|
-| Continuous survey processing | Deliveries arrive through the day; each is admitted, differenced, loaded, crossmatched into its field's catalog and alerted on, without a person | Partly: the loop processes a fixed list of dates from a spec written by hand |
-| Late delivery | A frame observed on an earlier date arrives after that date's run | No: a run freezes its inputs, and nothing says which later run takes the frame |
-| Identical re-delivery | The same file arrives twice | No rule: a second admission would make a second `l2-image` instance of the same key |
-| Corrected delivery | The mission re-delivers a frame with a new version after its difference image, sources, catalog and alerts exist | No: the new version is a different logical key, and promotion today accumulates rather than supersedes |
-| Bulk reprocessing | Rerun months of data under a new release or new settings, then switch consumers to it | Partly: a production run with auto-promote off, but its derived products sit beside the old ones instead of replacing them ([runs](runs), Promotion) |
-| Development beside production | A developer runs a stage or a chain against real inputs without touching production | Yes: scratch runs, scratch bucket, trial database, `rapid-rebuild` job definition |
-| A stage on a slice | Test one stage on a handful of units | Yes: `run create` with one stage and `run start --unit` |
-| Recovery of a failed date | Resume or replace a date that failed | Yes, with one wording conflict: [loop](loop) says `--retry-failed` resumes the same run, while the code seeds a replacement run when the date has a failed unit (Recovery, below) |
-| Science comparison | Compare two runs' outputs over the same inputs | Partly: `run compare` compares metadata; a science comparison needs matched products by science slot, which today's keys cannot give across runs |
-| Outage catch-up | After a day or a week without processing, clear the backlog in order | Partly: the loop walks the dates a spec names, in order, one at a time |
-| References, photometry, exports | The slower pipelines, on their own cadence | Partly: references and exports run as independent runs bound by instance; forced photometry is a declared stub ([photometry](photometry)) |
+**Status: DRAFT, a proposal.** This page holds operations proposals the
+team has not yet ruled on; what landed is stated on [loop](loop),
+[products](products), [runs](runs) and [checks](checks). Nothing on this
+page changes code, schema or another page's rules. The
+[specification](specification), [runs](runs), [products](products) and
+[loop](loop) pages remain the design authority; where this page proposes
+a change to them, it says which sentence would change.
 
 ## What this page assumes about the mission
 
 Three mission interfaces are not yet defined ([specification](specification),
-Edges). The traces below assume the following, and the recommendation is
+Edges). This page assumes the following, and the recommendation is
 conditional on them.
 
 - **Delivery manifest.** Each delivery arrives with a manifest naming, per
@@ -72,16 +27,11 @@ conditional on them.
 - **Date completeness.** No completeness signal is assumed. If the mission
   provides one (a per-date manifest closing the day), the stream can use
   it; the recommendation below does not depend on it.
-- **Latency.** No delivery-to-alert latency requirement is established on
-  any page. The page assumes alerts are wanted within hours of delivery,
-  not within minutes; a minutes-scale requirement changes the batch size,
-  not the shape (Closure and latency, below).
-- **Inbox layout** (supervisor step 4, 2026-09-26). A delivery lands at
-  `<inbox>/<YYYY-MM-DD>/<delivery-name>/manifest.json`, and the date
-  directory is the delivery's processing date, the smallest assumption
-  available while the mission's own interface stays undefined ([loop](loop)
-  page). The stream applies one difference template to every delivery for
-  now; resolving a reference per field is still open (Not decided here).
+- **Latency.** The provisional requirement is within an hour per
+  detector image, from delivery to its alert current
+  ({ref}`latency ruling <decision-latency>`); the team confirms or
+  replaces the number. A different number changes the batch size, not
+  the shape (Closure and latency, below).
 
 ## Three shapes
 
@@ -129,103 +79,10 @@ The stream is the schedule identity the loop already has: the
 rows. What changes: the stream discovers deliveries it has not yet
 admitted instead of reading them from the spec; a date may take more
 than one batch (Closure and latency); promotion supersedes by science
-slot (Replacement scope); and publication follows the eligibility table
-(Dependency eligibility). What does not change: runs, units, attempts,
-custody, the promotion lock, release binding, recovery, the base-catalog
+slot (Replacement scope); and publication follows the eligibility
+table on [products](products), "Reading across runs". What does not
+change: runs, units, attempts, custody, the promotion lock, release binding, recovery, the base-catalog
 rule, deletion and the scratch path.
-
-## The modes together
-
-Four traces, each run under the recommended shape, with how the other
-two shapes fare.
-
-**Live processing and a bulk reprocessing competing for the same products
-and the same capacity.** The stream runs release R1. A reprocessing
-campaign under release R2 starts at the first date and works forward,
-as ordinary production runs with auto-promote off, on the bulk queue
-(Capacity, below). Neither promotes over the other by accident: the
-stream's promotions carry, per slot, the instance they expect to
-replace, and the campaign's do the same, so whichever promotes second
-against a stale expectation is refused and replans ([runs](runs),
-Promotion: "checks every expected previous selection ... and refuses the
-whole request on any mismatch"). Expected-before checks protect against
-concurrent writes; they do not prove the campaign covers every delivery
-the stream has processed. That is the *chain switch*'s job (below): the
-campaign catches up to the stream's head, takes the stream's schedule
-lock so no new batch starts, processes the deliveries up to the
-stream's last batch, and then one promotion replaces every slot the
-campaign covers, images, source sets, and each field's catalog,
-statistics and pruned sets, with before and after recorded, and writes a
-switch row in the stream's records naming each field's adopted head. The
-stream's spec moves to R2 in the same step; its next batch binds the
-adopted head as its base. One rollback restores R1's selection. Under the model as
-written this trace fails at the promotion: the campaign's derived
-products have keys that embed its own instance ids, so they add beside
-R1's rather than replace them. Under a long-lived run there is no
-second run to compare or switch to.
-
-**A partial delivery and where the date's boundary sits.** Half of a
-date's detector images arrive by the time the trigger fires. The stream
-makes one batch of what has arrived and processes it; the rest arrive
-later and enter the next batch, which is a second run for the same
-processing date. Each batch's catalog step binds, per field, the most
-recent complete batch's association set, so the second batch's objects
-accumulate onto the first's exactly as a new date's do today. A date has
-no boundary the pipeline must wait for; it is a label on the batches
-that processed its frames. Under the model as written the date's run
-either waits (latency) or closes early and strands the late half.
-
-**Catch-up after an outage.** The stream was down for three days.
-Deliveries kept landing in the inbox. The first firing discovers every
-unadmitted delivery; the stream groups them by processing date, oldest
-first, and makes one batch per date, in order, so each field's chain
-advances in observation order. The live backlog's age is the age of the
-oldest unadmitted delivery, which `loop show` can print. Under the model
-as written someone writes the three dates into a spec first.
-
-**A corrected earlier frame, after later dates' catalogs and alerts
-exist.** Frame F (exposure E, detector D) was delivered as version 1 on
-day 1, and days 2 to 5 have since run. Version 2 of F arrives on day 6.
-
-- Admission: the stream admits version 2 in day 6's batch; it is a new
-  instance of the `l2-image` slot (E, D) with a higher delivered version.
-- The frame and the catalog: the batch differences and loads version 2,
-  but a corrected frame does not enter the live catalog step. Appending
-  its sources to the current head would leave version 1's sources in
-  the same catalog, since the head holds them from day 1 onward, and
-  prune would keep both. The frame's products stay candidates.
-- Repair: a *correction run*, an ordinary production run seeded on each
-  affected field's last association set before day 1, replays the
-  field's batches from day 1 to the stream's head with version 2 in
-  place of version 1, regenerating the association, statistics and
-  pruned sets and the alert containers of the frames those fields hold.
-  It ends in a chain switch, the same step a reprocessing campaign ends
-  in: one promotion selects the corrected frame's products and the
-  repaired field selections together, against their expected
-  predecessors, and the stream adopts the repaired heads. Corrections may
-  be batched into one correction run on a schedule the lead sets; until
-  the switch, consumers keep the earlier selection, version 1 included.
-- Alerts already delivered stay historical records. Any correction or
-  withdrawal sent outside the account belongs to the delivery adapter
-  ([specification](specification), Edges).
-
-A frame is *awaiting correction* when the stream has admitted a higher
-delivered version for its (exposure, detector) than the version the
-current catalog of its field holds, and no chain switch has applied it
-yet. That can be asked of the database: for each (exposure, detector),
-compare the highest delivered version among the `l2-image` instances
-the stream's own runs admitted with the version reached by following
-the field's current association chain to its source sets, difference
-images and l2 instances. Only the stream's admissions count, so a
-scratch or campaign admission never marks a frame as awaiting
-correction. Ordinary advancement never trips this test, since extending
-a chain changes no delivered version.
-
-The cost of a correction run grows with the batches after the corrected
-epoch, which is why it is batched rather than run on every admission.
-Under a long-lived run the correction would edit history inside the
-run; under the model as written the corrected frame's products would
-sit beside the old ones as two current selections.
 
 ## Recommendation, and where the first cuts differ
 
@@ -233,95 +90,56 @@ The named stream of batch runs. It keeps every boundary the run model
 already draws, one release, one frozen input set, one promotion, one
 recovery scope per run, and adds only the continuity operations needs.
 
-Two first cuts existed before this page. Codex Astra's, written the same
-morning, recommends the same shape in its own sentence: "operations
-advances through frozen batches; corrections create replacement runs,
-never edit completed ones." Claude's earlier leaning was the named
-stream. This page agrees with both on the shape and records three
-differences:
+Three points settle how the shape behaves:
 
-- On a corrected frame, both cuts replay descendants; this page adds
-  that the replay may be batched, and that the corrected frame's own
-  products wait for the same switch rather than being promoted alone.
-  An earlier draft of this page promoted the frame at once and deferred
-  the catalog; Codex's co-work review of that draft (2026-09-26) showed
-  it publishes both versions in one catalog, and the draft was
-  withdrawn.
-- Codex's cut leaves open whether a date admits several batches. This
-  page says it does, when the latency requirement is shorter than a day,
-  and says it is the same mechanism as a new date.
-- Codex's cut keeps "stream" as thin configuration. So does this page:
-  the stream is the existing schedule identity and its rows, with no new
-  service, table or scheduler.
+- On a corrected frame, the repair replays the descendants, and the
+  replay may be batched. The corrected frame's own products wait for the
+  same switch rather than being promoted alone: promoting the frame at
+  once and deferring the catalog publishes both versions in one catalog.
+- A date admits several batches when the latency requirement is shorter
+  than a day, by the same mechanism as a new date.
+- The stream is thin configuration: the existing schedule identity and
+  its rows, with no new service, table or scheduler.
 
 ## Replacement scope
 
-The lead ruled the principle on 2026-09-26: a logical key is built only
-from delivered facts and science choices, never from an instance id;
-instances still reference the exact input instances they consumed;
-promotion supersedes, never accumulates. The principle alone does not
-say what a new instance replaces, because a changed delivered version,
-reference recipe or settings hash is a different logical key. This page
-proposes two keys per kind:
-
-- the **identity key**: everything that makes one product scientifically
-  different from another, the ruled logical key;
-- the **slot**: the part of the identity key a consumer selects on,
-  "the current X for Y". At most one instance is current per kind and
-  slot, and promotion replaces by slot.
-
-| Kind | Slot | Identity key adds |
-|---|---|---|
-| `l2-image` | exposure, detector | delivered version |
-| `psf` | filter, detector | version |
-| `reference-image` | field, filter | recipe, selection digest |
-| `reference-catalog` | field, filter, catalog type | the reference's identity key |
-| `difference-image` | exposure, detector, differencer | delivered version, the reference's identity key, settings hash |
-| `source-catalog` | exposure, detector, differencer, catalog type, sign | the difference image's identity key |
-| `source-set` | exposure, detector, differencer, catalog type | the difference image's identity key |
-| `alert-container` | exposure, detector, differencer | the difference image's identity key, alert schema version |
-| `association-set` | field | crossmatch settings hash, the selection digest of the source sets it holds |
-| `pruned-set` | field | the association set's identity key, pruning settings hash |
-| `statistics-set` | field, membership kind (association or pruned) | the membership set's identity key |
-| `light-curve` | field, request id | the object set's identity key |
-| `catalog-export` | field, export type | the selection digest (as today) |
-
-What each change withdraws, at promotion:
+Promotion supersedes by science slot. Each kind's identity key and slot
+are on [products](products), "Identity"; slot replacement, including the
+rule that an `association-set` promotion replaces only an ancestor of the
+set it promotes, is on [runs](runs), "Rules". What stays open here is
+the replacement the chain switch below makes:
 
 - **A new delivered version** of (E, D): the `l2-image` slot (E, D) and
   every slot keyed on (E, D), and each affected field's catalog slots,
-  all in the one chain-switch promotion a correction run ends in (the
-  fourth trace above).
-- **A new reference recipe or reference selection** for (field, filter):
-  the `reference-image` and `reference-catalog` slots. Difference images
-  made against the old reference keep their slots; a reprocessing
-  replaces them when the lead chooses to.
-- **New settings** for a stage: every slot of that kind the promoting
-  run produced, and nothing else. A reprocessing with new difference
-  settings therefore replaces the old difference images, which the
-  current [runs](runs) Promotion paragraph says it does not ("a
-  reprocessing with changed settings therefore sits beside the old
-  result"). That sentence is the one this proposal changes.
+  all in the one chain-switch promotion a correction run ends in.
 
 One atomic before and after, for an overlap of live and reprocessing:
 the campaign's switch promotion lists, per slot, the expected current
-instance (R1's) and its replacement (R2's). If the stream promoted a new
+instance (the stream's) and its replacement (the campaign's). If the stream promoted a new
 batch between the campaign's plan and its promotion, at least one
 expected instance no longer matches, the whole switch is refused, and
 the campaign replans against the new selection (stale-plan refusal, as
 the promotion lock does today). Rollback is the recorded inverse, refused
 if the switch's after-selection is no longer current, as today.
 
-An accumulating slot needs one more rule: a promotion into an
-`association-set` slot must replace either nothing or an ancestor of the
-set it promotes (the same chain), unless it is a chain switch. This
-keeps a live batch from replacing a campaign's chain head with its own
-older chain by accident.
-
 ### The chain switch
 
 One mechanism serves both a reprocessing campaign and a correction run:
 the switch that moves a stream from one catalog chain to another.
+
+A reprocessing campaign is a set of ordinary production runs under a new
+release or new settings, auto-promote off, on the bulk queue (Capacity,
+below). A correction run is an ordinary production run seeded on each
+affected field's last association set before a corrected frame's epoch;
+it replays the field's batches up to the stream's head with the
+corrected version in place, regenerating the association, statistics
+and pruned sets and the alert containers of the frames those fields
+hold. Corrections may be batched into one correction run on a schedule
+the team sets; until the switch, consumers keep the earlier selection.
+A frame is *awaiting correction* when the stream has admitted a higher
+delivered version for its (exposure, detector) than the version the
+current catalog of its field holds, and no chain switch has applied it
+yet; only the stream's own admissions count.
 
 1. The replacing run (a campaign or a correction run) has processed every
    delivery up to the stream's most recent complete batch.
@@ -353,17 +171,13 @@ date can hold several batches) and a row kind (`batch` or `switch`).
 
 ## Closure and latency
 
-Assumed: alerts wanted within hours of delivery; no completeness signal
-from the mission. Under that assumption a date admits several immutable
-batches, and each is a run.
-
-| Arrival | What happens |
-|---|---|
-| Before the date's first batch | Enters that batch |
-| After a batch of its date ran | Enters the next batch, a second run for the same date; its field chain extends the first batch's |
-| Identical re-delivery | Refused at discovery: same exposure, detector, delivered version and checksum as an admitted instance; recorded, no run |
-| Same version, different checksum | Quarantined: recorded as a mission error, not admitted, reported in `loop show`; a person decides |
-| Corrected version after descendants exist | Deferred at discovery (supervisor step 4, 2026-09-26): recorded, not admitted by the stream, no run; it waits for a correction run's chain switch (the fourth trace above) |
+The arrival outcomes, a later batch for the same date, a refused
+identical re-delivery, a quarantined checksum mismatch and a deferred
+corrected version, are on the [loop](loop) page, "Discovery and
+batches". The batch cadence stays open. The provisional latency, within
+an hour per detector image ({ref}`latency ruling <decision-latency>`),
+points to per-delivery batches with an event or roughly 30-minute window
+trigger.
 
 If the latency requirement is a day or more, one batch per date after a
 fixed cutoff hour is enough, and the stream is the loop as written plus
@@ -373,94 +187,34 @@ the stages and the queues keep up at that scale is unverified (the
 `difference` stage alone runs about 58 minutes per detector image today;
 Capacity, below), and a chain switch holds the schedule
 lock while it catches up, which pauses live batches for that time. The page does not declare operations ready
-until the lead or the mission states the latency and the delivery
+until the team confirms the latency and the mission states the delivery
 interface.
-
-## Dependency eligibility
-
-Readability is not scientific acceptance. A stage may *read* an input it
-may not *publish from*. [products](products) gives the reading rule for
-every product instance now, file products and result sets alike, and
-says a check-refused candidate is readable. The table covers both
-questions, reading and promotion, for each state (supervisor step 6,
-2026-09-26, landing what this section proposed).
-
-| Input's state | A stage of another run may read it | A product built from it may be promoted |
-|---|---|---|
-| Scratch, own run | yes | no (scratch never leaves scratch) |
-| Scratch, another run | no, exit 65 | no |
-| Candidate, from an unselected attempt | no, exit 65 | no |
-| Candidate, selected, required checks not yet run | yes | no, until its checks are run and pass |
-| Candidate, selected, required checks passed, or its kind has none | yes | yes: it is *accepted*, and stays a candidate |
-| Candidate, selected, a required check failed | yes | no, until a person accepts it with a recorded reason or it is replaced |
-| Current | yes | yes |
-| Superseded (current before, candidate now) | yes, as any candidate from a selected attempt; an extended catalog chain reads its superseded ancestors this way today | yes: it was accepted when it was promoted |
-
-Acceptance is separate from selection. A promotion selects its own
-deliverables and never selects their ancestors; it requires each
-dependency, followed through the whole chain, to be complete, retained,
-and current or accepted. A reprocessing campaign's chain B1, B2, B3 is
-therefore publishable by promoting B3 alone once B1 and B2 have passed
-their checks: B1 and B2 stay candidates, accepted, and only B3 takes the
-field's slot. Completeness and retention remain the prerequisites
-[products](products) already states.
-
-The same rule applies to file products (l2 images, references, PSFs) as
-to result sets, which closed the open question [products](products)
-recorded under "Reading across runs". The answer to "does a failed
-upstream science check block descendant publication": yes. A date whose
-promotion was refused still feeds the next date's catalog, as the loop
-does today, but the next date's catalog cannot be published until the
-refused date is accepted or repaired. That makes a refusal loud: it
-holds its field's catalog until someone acts, rather than letting a
-catalog that contains rejected data become current. This is a change to
-the loop's behaviour: promotion walks every ancestor to enforce it
-([checks](checks) page, "The promotion gate"; supervisor step 6,
-2026-09-26; in force from release rebuild-v0.10).
 
 ## The loop's five calls
 
-The lead folded these into this page on 2026-09-26 (12:25).
+Of the loop's five calls, two stay open here; the others are on the
+[loop](loop) page.
 
-- **What a firing processes**, implemented by `rapidpipe loop run`
-  (supervisor step 4, 2026-09-26): every admitted-but-unprocessed
-  delivery the stream discovers in its inbox location, grouped into one
-  batch per processing date, oldest first. The spec keeps schedule,
-  release, policy, owner, lane and attempts; its `[[dates]]` list stays
-  for proofs and backfills only. This landed as the [loop](loop) page's
-  "Discovery and batches" section (supervisor step 4, 2026-09-26),
-  proven live by the step 4 and step 7 firings.
 - **Cadence** (proposed): a fixed `window:cron(...)` at an interval of
   half the latency budget; a firing that discovers nothing exits 0 and
   writes nothing. An event trigger only if the latency requirement is
   minutes.
-- **Release binding**: the spec names a tag explicitly, and moving
-  operations to a new release is a one-line spec change made on
-  purpose; `release cut` does not edit the spec, and there is no
-  "current" alias, which would move operations on every cut. This is
-  already how [loop](loop)'s `[loop].release` works: the launcher
-  checks that tag out and refuses if the checkout's `git describe
-  --tags --exact-match` does not equal it (supervisor step 7,
-  2026-09-27).
 - **Production check policy** (proposed, below).
-- **The proof spec** stays unrepaired (the lead, 2026-09-26, 12:25). Its
-  `difference_template` prefix was deleted in the 2026-09-25 cleanup; a
-  discovering stream does not need it.
 
 ## A production check policy
 
 Proposed as `rebuild-production@1`, with `auto_promote = true`
 requested. Approval semantics: a policy is immutable once landed
-([checks](checks)), so the file lands once, already carrying
-`approval = "lead"` and `approved_by` set to the lead's login, in a pull
-request the lead approves; until then its content lives only in the
-table below, and no file for it exists to be edited. No other path
-raises a policy to `lead`. `rebuild-trial@1` stays at trial
-approval (the lead, 2026-09-26, 12:26). Lead approval of this policy is
-explicitly pending.
+([checks](checks)), so the file lands once, already carrying the
+team's approval, recorded as `approval = "lead"` with `approved_by` set
+to the approver's login, in a pull request the team approves; until
+then its content lives only in the table below, and no file for it
+exists to be edited. No other path raises a policy to `lead`.
+`rebuild-trial@1` stays at trial approval. Team approval of this policy
+is pending.
 
 Bounds from real data: the 15357 difference images `dev` recorded in
-production `diffimmeta` (read 2026-09-26), taking each measure's 1st to
+production `diffimmeta`, taking each measure's 1st to
 99th percentile and widening by half:
 
 | Measure | 1st, 50th, 99th percentile | Proposed bound |
@@ -473,8 +227,8 @@ production `diffimmeta` (read 2026-09-26), taking each measure's 1st to
 | `scalefacref` | 8889, 10286, 18820 | not set: see below |
 
 `scalefacref` depends on the reference zero point gain matching uses.
-`dev`'s values come from a fixed `zprefimg` of 17.0; under the lead's
-2026-09-26 ruling that gain matching reads `MAGZP` from the reference,
+`dev`'s values come from a fixed `zprefimg` of 17.0; under the ruling
+that gain matching reads `MAGZP` from the reference,
 the factor moves to order one, so its bound is set from the first
 production batches under that ruling, not from `dev`. The catalog-count check
 stays advisory until earlier production runs have made current source
@@ -482,6 +236,8 @@ sets for the same frames to compare against; it compares with another
 run's source set, never with a reference catalog ([checks](checks)).
 
 ## Reference eligibility and selection
+
+The acceptance this proposal names is withdrawn by the {ref}`acceptance ruling <decision-acceptance>`; the proposal is revisited with that change.
 
 Proposed: a reference image is eligible for a field and filter when it
 is current in that slot, built by the recipe the stream's spec names,
@@ -492,56 +248,26 @@ mid-stream is used by later batches; difference images made against the
 earlier one keep it, as their identity key says, until a reprocessing
 replaces them. Where the reference PSF is resolved from stays open.
 
-## The product-identity mechanism and its cost
-
-Proposed mechanism: `product_instances` gains a `slot` column (text,
-canonical JSON of the slot fields) beside `logical_key`, which is
-rebuilt from delivered facts and science choices. The partial unique
-index on current selections moves from (kind, logical key) to (kind,
-slot). Promotion's deliverable list, its expected-before check and its
-rollback work per slot. The loop's promotions then carry one change per
-slot, not per instance-keyed product. `vbest` maintenance maps onto the
-slot directly.
-
-Cost, stated: one additive migration (the column, a backfill for
-existing rows derived through `dependencies`, the new index); changes to
-`register` (compute both keys per kind), `promote`, `promote_run`,
-rollback, the loop's promotion, and the `catalog-counts-vs-reference`
-check, which today walks dependencies to find its reference by science
-identity and would read the slot instead; tests for each. The old index
-stays until no open run's release predates the change (additive rule,
-[releases](releases)). About three to four days of work including the
-trial-database backfill, more than a light-touch change, so this is a
-proposal for the lead.
-
-Landed by step 5a on 2026-09-26 as ruled on [products](products) and
-[runs](runs): `slot` and `identity` are derived server side from the
-unchanged manifest key, promotion replaces by slot, and the chain
-switch is still not built.
-
 ## Staged inputs of a production run
 
-Production run 01M3B18KDDJT92VW3V54RYV9HM (the P4 demonstration) staged
-its difference input set, a copy of the l2 image, reference bundle and
-PSFs plus the manifest, under the scratch bucket's
-`rapidpipe/runs/01M3B18KDDJT92VW3V54RYV9HM/inputs/`, because the launcher
+A production run stages its difference input set, a copy of the l2
+image, reference bundle and PSFs plus the manifest, under the scratch
+bucket's `rapidpipe/runs/<run-id>/inputs/`, because the launcher
 host cannot write the products bucket and [tool](tool) puts every input
 set under the scratch root. Proposed run-model rule: a production run's
 staged input sets are part of its provenance and are retained for the
 run's lifetime; nothing expires or deletes them while the run's row
 exists. That holds today without a change: scratch expiry and `run
 delete` act only on scratch runs, and the scratch bucket has no
-lifecycle rule (read 2026-09-26). The rule is written down so a later
+lifecycle rule. The rule is written down so a later
 lifecycle rule does not quietly break it.
 
 ## Capacity
 
 Two queues exist: `rapid-queue-prompt` (priority 10, on-demand
 `rapid-ce-prompt`, 5000 vCPU) and `rapid-queue-bulk` (priority 1, Spot
-`rapid-ce-bulk`, 10000 vCPU). Every rebuild job so far has run on the
-prompt queue. The jobs Batch still held on 2026-09-26 (260 rebuild jobs,
-2026-09-23 to 25) put `difference` at a median of about 58 minutes of
-execution per detector image, the only stage over the 30-minute target;
+`rapid-ce-bulk`, 10000 vCPU). Measured rebuild jobs put `difference` at
+a median of about 58 minutes of execution per detector image, the only stage over the 30-minute target;
 `alerts` ran about 25 minutes on production runs, and every other stage
 under a minute. Proposed lanes: the stream on prompt; reprocessing
 campaigns and correction runs on bulk; scratch runs on bulk by default,
@@ -549,37 +275,14 @@ prompt by request. That is the specification's "scratch runs cannot
 consume capacity reserved for regular operations" with the queues that
 already exist.
 
-## Recovery wording
-
-[loop](loop) says `loop run --retry-failed` reopens a failed date and
-resumes the same run. The code does that only for a failed date whose
-run has no failed or cancelled unit; a date with a failed unit is
-seeded into a replacement run (`run create --seed --only-failed`
-semantics). The loop page is corrected to say so in the direction
-pass's documentation fixes (rapid_docs #36).
-
-## What changes and what does not
-
-Changes, each a proposal: delivery discovery in the stream; several
-batches per date; supersession by slot, with the `slot` column; the
-eligibility table, including for file products; correction runs as
-ordinary runs ending in the chain switch, with its switch row and batch
-sequence in `loop_dates`; lanes mapped to the two queues; the production
-check policy.
-
-Does not change: the run as a frozen pass; units, attempts, custody and
-the promotion lock; release binding per run; the base-catalog rule
-(it reads one more row kind);
-deletion; the scratch path for development and slices; the registry row
-as the scheduler.
-
 ## Not decided here
 
-- The delivery-to-alert latency requirement, and the mission's delivery
+- Confirmation of the provisional delivery-to-alert latency
+  ({ref}`latency ruling <decision-latency>`), and the mission's delivery
   manifest and completeness signal.
 - How often correction runs run: per correction, or batched on a
-  schedule; the lead's.
+  schedule; the team's.
 - Whether alert history for a late-arriving earlier epoch is ordered by
-  observation time or by arrival; the lead's.
-- Lead approval of `rebuild-production@1` and its `scalefacref` bound.
+  observation time or by arrival; the team's.
+- Team approval of `rebuild-production@1` and its `scalefacref` bound.
 - Where the reference PSF is resolved from.
