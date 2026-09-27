@@ -281,18 +281,25 @@ instances counts as readable, and is what keeps a still-running scratch
 attempt's half-written output out of a production run's inputs, file
 products included.
 
-The same function backs the stage's own guard,
+The same rule backs the stage's own guard,
 `rapidpipe.runs.readguard.assert_inputs_readable`, which `run_stage`
 calls over every instance a stage's input manifest names, once the
-manifest is parsed and before any member is fetched. Direct invocation,
-the local launcher and Batch all reach `run_stage`, so none of the three
-can bypass the guard by choosing a path. An id the manifest names that
-matches no registered instance is ordinarily readable, since it is not a
-product of any run, but a file-product entry whose members (path and
-SHA-256) match a registered instance's is judged as that instance
-instead, so a fresh id cannot stand in for another run's scratch files.
-The guard needs a database connection to check named inputs; a stage
-without one, a dry run included, refuses rather than skipping the check
+manifest is parsed and before any other object is fetched. Direct
+invocation, the local launcher and Batch all reach `run_stage`, so none
+of the three can bypass the guard by choosing a path. The rule itself
+refuses an id naming no product instance at all; the guard never asks it
+about one. Instead, an unregistered manifest entry with no members (a
+result-set-style entry) is readable, since it names nothing to check,
+and a file-product entry's members are judged one at a time: a member
+whose path and SHA-256 match a registered instance's must match one the
+rule accepts, a member matching no registered instance is readable, and
+one member that matches only unreadable instances refuses the whole
+entry, whatever its other members match. So a fresh id cannot stand in
+for another run's scratch files. The guard needs a database connection
+to check named inputs; a stage without one, a dry run included, refuses
+rather than skipping the check. On an S3 input location the guard runs
+once the manifest alone is fetched, and only the member files it names
+are fetched afterward, one at a time, never the rest of the prefix
 ([tool](tool) page has the exit codes).
 
 ## Registration metadata
