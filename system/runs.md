@@ -29,11 +29,11 @@ deletes run data.
 | `unit_inputs` | frozen input binding | unit, producer instance |
 | `attempts` | execution of a unit | id, run, stage, unit, started, ended, exit code, disposition (null while queued or running; `succeeded`, `failed`, `transient`, `killed`, `lost`), output location, inputs location, settings location, execution record, scheduler job id |
 | `execution_records` | attempt | attempt, source revision, working-copy patch, image digest, release, schema version, resolved settings, settings hash, scheduler metadata; contents stored, not referenced into the run prefix |
-| `product_instances` | product an attempt made, file or result set | instance id, kind, logical key, run, producing stage, producing attempt, registering attempt, custody (`scratch`, `candidate`, `current`), format version, primary location, manifest ref, published at, deletion state |
+| `product_instances` | product an attempt made, file or result set | instance id, kind, provenance key, slot, identity (the latter two nullable, database-derived; [products](products) page), run, producing stage, producing attempt, registering attempt, custody (`scratch`, `candidate`, `current`), format version, primary location, manifest ref, published at, deletion state |
 | `product_members` | file in a bundle | instance, role, path, bytes, sha256 |
 | `result_sets` | one-to-one extension of an instance that is rows | instance, complete flag, row count |
 | `promotions` | promotion action | id, who, when, reason, check-policy version, check result ids, request context |
-| `promotion_changes` | affected logical key in a promotion | promotion, kind, logical key, before instance (nullable), after instance (nullable) |
+| `promotion_changes` | affected slot, or provenance key for a legacy row, in a promotion | promotion, kind, provenance key, slot (nullable, supervisor step 5a, 2026-09-26), before instance (nullable), after instance (nullable) |
 | `checks` | verification result | instance, check name, version, required flag, outcome, when, detail |
 | `dependencies` | provenance edge | consumer instance, producer instance |
 
@@ -219,7 +219,7 @@ A retry's own `done_check` -- whether a database-writing stage reuses
 an already-complete result set instead of writing a new one -- reads an
 attempt's disposition, not only whether its result set is complete. The
 rule: a stage's done check reuses a complete, retained result set of
-this run with the same kind and logical key only when that set's
+this run with the same kind and provenance key only when that set's
 producing attempt is the calling attempt or an attempt whose
 disposition is `succeeded`. A set left by an attempt that committed
 rows and then failed, or by another attempt still without a
@@ -257,12 +257,15 @@ ruling were re-kinded to production by hand on 2026-09-24 and their
 instances made candidates (supervisor step 3, 2026-09-24).
 
 **Custody.** Scratch never leaves scratch. Candidate becomes current by
-promotion; current becomes candidate again when superseded. At most one
-current instance exists per kind and logical key, enforced by a partial
-unique index where custody is current. The current selection is a view
-over the instance table and includes file products and result sets
-alike. A consumer resolves a related selection from one database
-snapshot.
+promotion; current becomes candidate again when superseded. Two partial
+unique indexes now govern the current selection, both live: the older
+one still holds at most one current instance per kind and provenance
+key, for every current row; a newer one, additive beside it, holds at
+most one current instance per kind and slot, wherever the fill has
+resolved a slot for it (supervisor step 5a, 2026-09-26; [products](products)
+page has the fill). The current selection is a view over the instance
+table and includes file products and result sets alike. A consumer
+resolves a related selection from one database snapshot.
 
 **Promotion eligibility.** Automatic and manual promotion require
 completed, selected outputs, a recorded image digest identifying a
@@ -274,9 +277,12 @@ covers always goes through the gate ([checks](checks) page, supervisor
 step 6, 2026-09-24). Missing or failed required checks refuse
 promotion. Every provenance dependency must
 identify a complete, retained instance in project custody; a dependency
-need not be current. The replacement's kind and logical key must equal
-the requested pair, it must be retained, and a result set must be
-complete. Validation against a released image digest is now
+need not be current. The replacement's kind and slot must equal the
+requested selector, or, for a legacy selector, its kind and provenance
+key; either way it must be retained, and a result set must be complete
+(supervisor step 5a, 2026-09-26, amending this sentence for slot;
+[products](products) page has the two keys). Validation against a
+released image digest is now
 implemented, closing the trial exception recorded here for step 3: every
 deliverable's selected producing attempt must have an execution record
 whose image digest is a complete release's digest, or the promotion is
@@ -288,37 +294,77 @@ disabled
 until the lead approves its policy; reprocessing is a production run
 with auto-promote off.
 
-**Promotion.** The default deliverable list is every candidate instance
-the run produced through its unit's selected attempt, one per kind and
-logical key; intermediate revisions and unselected attempts are
-excluded, and two candidates for the same key refuse the promotion,
-since a promotion needs exactly one replacement instance per kind and
-logical key (supervisor step 3, 2026-09-24). Piecemeal promotion names
-an explicit subset of that list and passes the same validation. A
-change may also name no replacement, unselecting a key: the replaced
-instance returns to candidate, and the promotion record's after-instance
-for that key is null (supervisor step 3, 2026-09-24). Promotion
-replaces only identical kind-and-logical-key selections; different
-settings or upstream instances produce additional current products
-rather than supersede earlier ones. A reprocessing with changed
-settings therefore sits beside the old result as a new instance, per
-the products page's keys, rather than superseding it. Only a
-production run's outputs can be promoted; scratch never leaves scratch.
-On rows a run wrote, `vbest` is a current-membership flag: 1 while the
-instance is current, 0 otherwise. Rows `dev` wrote, with `run` null,
-including those an import run links through `instance`, keep `dev`'s
-own flag. A mapped kind whose instance has no row refuses the
+**Promotion.** `promote_run` first fills the run's own rows through
+`product_identity_fill()` ([products](products) page), so a candidate a
+production run registered before its slot resolved is never refused for
+that alone. The default deliverable list is every candidate instance
+the run produced through its unit's selected attempt, grouped by (kind,
+slot); intermediate revisions and unselected attempts are excluded. A
+candidate whose slot is still null is refused, naming it; two
+candidates sharing one slot are refused, since a promotion needs exactly
+one replacement per kind and slot (supervisor step 5a, 2026-09-26,
+amending step 3, 2026-09-24, which grouped by provenance key). Piecemeal
+promotion names an explicit subset of that list and passes the same
+validation. A change may also name no replacement, withdrawing a slot:
+the replaced instance returns to candidate, and the promotion record's
+after-instance for that slot is null (supervisor step 3, 2026-09-24).
+Expected-before per slot is whichever instance currently holds it, or
+none; a current instance whose own slot is still null is invisible to
+slot promotion, neither replaced nor withdrawn by it, until an operator
+resolves it by hand.
+
+Promotion now replaces by slot: a change whose after-instance shares its
+predecessor's (kind, slot) supersedes it outright, whatever settings or
+upstream instances differ between the two. A reprocessing with changed
+settings therefore replaces the old difference images in their slots,
+rather than sitting beside them as a new instance, as this page said
+before this ruling (supervisor step 5a, 2026-09-26).
+
+A promotion can be planned and frozen ahead of applying it. `run
+promote-plan <run>` reads the run's slot groupings under the lock and
+prints them without writing anything; `run promote <run> --plan <file>`
+applies that same file later, under a fresh lock, and refuses, exit 64,
+naming the first slot whose actual current instance or whose candidate
+no longer matches the plan, writing nothing (supervisor step 5a,
+2026-09-26; [tool](tool) page has the commands).
+
+A change into an `association-set` slot whose expected-before is not
+null is refused unless the before instance is an ancestor of the after
+instance, walked through the provenance key's `base` field, so a live
+batch cannot replace a reprocessing campaign's chain head with its own
+older chain by accident. Rollback's own recorded inverse is the one
+exception: it bypasses this rule, since it is undoing a change that
+already passed it once (supervisor step 5a, 2026-09-26). Ordinary slot
+replacement is never a substitute for the chain switch operations.md
+describes, the one promotion that moves a whole stream from one catalog
+chain to another: that switch is still not built, and `loop_dates.kind
+= 'switch'` exists from step 4's migration with nothing yet writing it.
+
+Only a production run's outputs can be promoted; scratch never leaves
+scratch. On rows a run wrote, `vbest` is a current-membership flag: 1
+while the instance is current, 0 otherwise. Rows `dev` wrote, with `run`
+null, including those an import run links through `instance`, keep
+`dev`'s own flag. A mapped kind whose instance has no row refuses the
 promotion (lead, 2026-09-22; restated by the supervisor, step 3,
-2026-09-24). All promotions
-take one transaction-scoped advisory lock; after acquiring it the
-transaction checks every expected previous selection, including
-expected absence, against the actual selection and refuses the whole
-request on any mismatch, then validates dependencies, updates custody
-and records the action. Each promotion records a before and after
-instance for every affected key, either nullable. Reversal is itself a
-promotion, carrying the inverse mapping and
-`request_context.rollback_of`, and is refused if the recorded
-after-selection is no longer current (supervisor step 3, 2026-09-24).
+2026-09-24). All promotions take one transaction-scoped advisory lock;
+after acquiring it the transaction checks every expected previous
+selection, including expected absence, against the actual selection and
+refuses the whole request on any mismatch, then validates dependencies,
+updates custody and records the action. Each promotion records a before
+and after instance for every affected slot, either nullable, and
+`promotion_changes` carries the slot alongside the provenance key
+(supervisor step 5a, 2026-09-26).
+
+Rollback inverts the exact recorded change: by slot, when the promotion
+recorded one; by provenance key, for a promotion recorded before this
+migration whose instances never resolved a slot. Reversal is itself a
+promotion, carrying the inverse mapping and `request_context.rollback_of`,
+and is refused if the recorded after-selection is no longer current
+(supervisor step 3, 2026-09-24). `promote()` accepts a bare
+provenance-key selector only when rollback is the caller reversing one
+of those pre-migration changes; anywhere else, a provenance-key
+selector, or a slot selector naming an instance whose own slot is null,
+is refused (supervisor step 5a, 2026-09-26).
 
 **Deletion.** `run delete` is allowed on a scratch run by its owner,
 finished or not: a finished run admits no new unit, attempt or input
@@ -513,8 +559,8 @@ step 6, 2026-09-24).
 | `bind_unit_inputs(conn, *, unit_id, manifest) -> list[str]`, in `rapidpipe.runs.repository` | Writes a `unit_inputs` row for every `instance` the manifest names, in `inputs.products` and `inputs.result_sets`, that is a registered product instance; a name that resolves to no instance binds nothing and is logged, not refused; called by `submit_unit` and `run local` before allocating the attempt (supervisor step 9, 2026-09-25). |
 | `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
 | `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
-| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, logical_key, expected_before, after)`, either instance nullable, validated under `check_policy` ([checks](checks) page). |
-| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy: Policy \| str \| None = None, allow_unreleased=False) -> promotion_id` | Builds the run's default deliverable list, optionally narrowed to `kinds`, and calls `promote` with it. |
+| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, selector, expected_before, after)`, either instance nullable; `selector` is `{"slot": {...}}`, or, only when rollback is the caller, `{"logical_key": {...}}` for a pre-migration change. Validated under `check_policy` ([checks](checks) page) (supervisor step 5a, 2026-09-26). |
+| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy: Policy \| str \| None = None, allow_unreleased=False, plan=None) -> promotion_id` | Fills the run's rows, builds its default deliverable list grouped by slot, optionally narrowed to `kinds`, and calls `promote` with it; given `plan` (the list `run promote-plan` printed), refuses under `StalePlan` if the actual current selection or the run's own candidates have moved since the plan was made (supervisor step 5a, 2026-09-26). |
 | `rollback_promotion(conn, promotion_id, who, reason) -> promotion_id` | Submits a past promotion's inverse mapping as a new promotion. |
 | `finish_run(conn, run_id) -> None` | Marks a run finished; refuses unless every unit is terminal. |
 | `mark_run_deleting(conn, run_id, requested_by, *, expiry=False) -> None` | The deletion fence: locks the run, runs the pre-deletion checks, and marks it deleting. `delete_run` calls it first; `expiry=True` marks the caller as the expiry sweep rather than the run's owner. |
