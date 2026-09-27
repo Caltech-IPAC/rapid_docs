@@ -4,16 +4,14 @@
 
 What the `crossmatch` stage reads, what it writes into `astroobjects_<field>`
 and `merges_<field>`, the association set it records, the settings it
-takes and its exit codes. Written 2026-09-24 from the port on the
+takes and its exit codes. The stage lands on the
 pipeline repository's `rebuild` branch (`rapidpipe/stages/crossmatch.py`,
 `rapidpipe/science/crossmatch/catalog.py`,
 `rapidpipe/settings/crossmatch.toml`, `rapidpipe/db/objects.py`,
 migrations `20260924-03` to `-06`), ported from `dev`'s
-`pipeline/crossMatchSources.py`. The port follows the lead's rule of
-2026-09-22: minimise differences to `dev`, and design in, off by default,
-anything that can be left unused. The [products](products) page fixes the
-vocabulary; the rulings cited below are the supervisor's for step 1,
-2026-09-24.
+`pipeline/crossMatchSources.py`. Every ported stage minimises differences
+from `dev` and designs in, off by default, anything that could be left
+unused. The [products](products) page fixes the vocabulary.
 
 ## In plain terms
 
@@ -32,7 +30,7 @@ absent.
 
 `--inputs` is a manifest naming what to match. It is either a `load`
 completion manifest (one source set) or an input-set manifest composed
-from several (ruling R2). The stage reads:
+from several. The stage reads:
 
 | Entry | Count | Used for |
 |---|---|---|
@@ -42,7 +40,7 @@ from several (ruling R2). The stage reads:
 The unit is the field's tessellation id (rtid) as a decimal string. The
 stage filters sources by `field = <unit>` itself, so a manifest can name
 source sets that also cover other fields; the launcher's per-field
-fan-out needs no new manifest shape (ruling R2).
+fan-out needs no new manifest shape.
 
 `inputs.result_sets` lists every source set and the base, sorted;
 `inputs.products` is empty.
@@ -58,7 +56,7 @@ launcher's.
 
 1. Take `pg_advisory_xact_lock(20260924, <field>)`, so two attempts on
    one field run one after the other. Without it, their CLUSTERs can
-   deadlock on the lock upgrade (ruling R13).
+   deadlock on the lock upgrade.
 2. Make `astroobjects_<field>` and `merges_<field>` if new (`dev`'s
    `main()` steps 3 to 5, lines 985-1091), through
    `create_field_object_tables`.
@@ -81,7 +79,7 @@ launcher's.
 5. CLUSTER `astroobjects_<field>` on its position index and ANALYZE both
    tables (`dev`'s `main()` step 7, lines 1156-1186), through
    `cluster_field_object_tables`, when `[crossmatch]
-   cluster_between_passes` is on (ruling R5).
+   cluster_between_passes` is on.
 6. Stage 2, per neighbouring field, per source set (lines 581-889). The
    neighbours come from the certified closed-form tessellation already in
    the tree; `dev` reads them from its SQLite tessellation file. For a tile with eight neighbours,
@@ -128,7 +126,7 @@ DEFINER functions owned by `rapidporole` do that work (migration
 - `cluster_field_object_tables(field)`: `dev`'s CLUSTER on the position
   index and ANALYZE of both tables.
 
-**Uniqueness (ruling R4).** `merges_<field>` has `UNIQUE (result_set,
+**Uniqueness.** `merges_<field>` has `UNIQUE (result_set,
 aid, sid)` and `astroobjects_<field>` has `UNIQUE (result_set, aid)`. The
 keys are scoped to the set: two scratch runs over the same sources
 make the same `aid`s under different sets, and the products page scopes
@@ -141,7 +139,7 @@ with one `aid`, and its `statistics` step later deletes all but the last.
 The rebuild keeps the first row inserted and never writes the second.
 `dev`'s `pruneRedundantMerges` is folded into the same insert.
 
-**The catalog a pass reads (ruling R3).** An association set's rows are
+**The catalog a pass reads.** An association set's rows are
 its own plus its base's, recursively (`objects.association_chain`, which
 follows `logical_key->>'base'`). Both passes read `astroobjects` rows
 whose `result_set` is in the base's chain or is this attempt's own new
@@ -193,7 +191,7 @@ writes its `product_instances` row (kind `association-set`, stage
 `crossmatch`, this attempt as producer and registrar, custody by run
 kind), its `result_sets` row (`complete` true, `row_count` the merges
 rows written) and dependency edges to every source set and the base, in
-the same transaction as the rows (ruling R10).
+the same transaction as the rows.
 
 Logical key:
 
@@ -215,7 +213,7 @@ The manifest entry has no members. Its `registration` block:
 | `row_counts.new_objects` | unmatched sources given an object, counted before ON CONFLICT; larger than `astroobjects` when sources repeat a position |
 
 A retry is a new attempt with a new instance. `[crossmatch] done_check`
-is the rebuild's form of a done file (ruling R14). A complete, retained
+is the rebuild's form of a done file. A complete, retained
 set with the same logical key already written in this run is reused,
 nothing is written, and the manifest names that instance, only when
 that set's producing attempt is the calling attempt or an attempt whose
@@ -228,8 +226,7 @@ even with no disposition recorded yet. Against a different attempt that
 committed rows and then failed, or one still without a disposition, the
 done check does not reuse it: that set's rows stay the run's own, but a
 fresh attempt writes a fresh set (`db/objects.find_complete_result_set`,
-joining `attempts`; supervisor step 9, ruling R1, 2026-09-25, the
-[runs](runs) page has the general rule). The gap between a committed
+joining `attempts`; the [runs](runs) page has the general rule). The gap between a committed
 write and a published manifest itself is a stage-contract matter and is
 not closed here.
 
@@ -237,7 +234,7 @@ not closed here.
 
 `rapidpipe/settings/crossmatch.toml`. `dev` reads its `.ini`
 (`cdf/awsBatchSubmitJobs_launchSingleSciencePipeline.ini`) for two
-values; the rest of the section it loads is unused (ruling R11).
+values; the rest of the section it loads is unused.
 
 | Setting | Default | `dev` |
 |---|---|---|

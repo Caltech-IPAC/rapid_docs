@@ -3,12 +3,12 @@
 **Status: DRAFT**
 
 What the `difference` stage reads, what it runs, what it publishes, what
-`register` records for it, and the settings it takes. Written 2026-09-23
-from the port that landed on the pipeline repository's `rebuild` branch
+`register` records for it, and the settings it takes. The stage lands
+on the pipeline repository's `rebuild` branch
 (`rapidpipe/stages/difference.py`, `rapidpipe/settings/difference.toml`,
-`rapidpipe/products/diffimage.py`, `rapidpipe/db/diffimages.py`). The
-port follows the lead's rule of 2026-09-22: minimise differences to
-`dev`, and design in, off by default, anything that can be left unused.
+`rapidpipe/products/diffimage.py`, `rapidpipe/db/diffimages.py`). Every
+ported stage minimises differences from `dev` and designs in, off by
+default, anything that could be left unused.
 The [products](products) page fixes the vocabulary and the field list;
 this page records how the stage meets them.
 
@@ -21,7 +21,7 @@ significance images, and four source catalogs. SFFT and a plain
 subtraction also run, as in `dev`. Both ZOGY's and SFFT's results are
 registered, each its own `difference-image` instance; a setting turns
 SFFT's registration off. Which instance is current downstream is a
-promotion choice, not this stage's job (lead, 2026-09-26). The naive
+promotion choice, not this stage's job. The naive
 subtraction's files stay diagnostics, never registered. The stage
 touches no database; `register` records its manifest afterwards.
 
@@ -53,7 +53,7 @@ matching compares SExtractor catalogs of the two images to find the
 reference's scale factor and the median offsets between them, from the
 science image's own zero point and the reference's: its `MAGZP` header
 keyword, the value the reference stage stamped on the coadd, unless
-`[awaicgen] zprefimg` overrides it (the lead, 2026-09-26). With too few
+`[awaicgen] zprefimg` overrides it. With too few
 matched sources it falls back to these zero points and zero offsets.
 NaNs in ZOGY's inputs are replaced and extreme artifact pixels in the
 science image are repaired; the reference is shifted by the median
@@ -79,7 +79,7 @@ entries naming it: SExtractor positive and negative, Photutils positive
 and negative. A Photutils catalog that could not be made has no entry;
 its bit in the catalog-outcome mask says so.
 
-`[sfft] register_sfft` is on by default (lead, 2026-09-26): when SFFT
+`[sfft] register_sfft` is on by default: when SFFT
 succeeds, a second `difference-image` instance carries its result, with
 members `difference`, `uncertainty`, and `psf` and `kernel` where SFFT
 wrote them, and its own four catalogs. Turning the setting off keeps
@@ -116,7 +116,7 @@ The remaining columns come from lookups and allocations:
 |---|---|
 | `rid`, `expid`, `sca`, `field`, `fid`, `jd` | the l2 instance's `l2files` row; `jd` is its `mjdobs` plus 2400000.5, as `dev`'s `addDiffImage` computes it |
 | `rfid` | the reference instance's `refimages` row, through the `instance` column the migration `20260923-02-refimages-instance.sql` adds; for a reference registered by `dev`, the block's `reference_rfid` |
-| `ppid` | the differencer: `zogy` is 15, the science pipeline's row, as in `dev`; `sfft` is 16, priority 6, script `sfft_rapid_rimtimsim.py`, its own `pipelines` row added by the migration `20260924-01-pipelines-sfft.sql` (lead, 2026-09-24) |
+| `ppid` | the differencer: `zogy` is 15, the science pipeline's row, as in `dev`; `sfft` is 16, priority 6, script `sfft_rapid_rimtimsim.py`, its own `pipelines` row added by the migration `20260924-01-pipelines-sfft.sql` |
 | `hp6`, `hp9` | derived from the centre, on both tables |
 | `version` | the next number for (`rid`, `ppid`) within the run |
 | `svid` | the `swversions` row whose `cvstag` is the run's code revision, made on first use |
@@ -145,9 +145,9 @@ are not repeated here. Settings new with the port are marked.
 | `[sci_image] saturation_level` | 2500000.0 | DN |
 | `[sci_image] repair_extreme_artifact_pixels`, `extreme_artifact_threshold` | true, 10000.0 | artifact repair before differencing |
 | `[ref_image] saturation_level` | 100000.0 | `dev` reads `[SEXTRACTOR_REFIMAGE] sextractor_SATUR_LEVEL` |
-| `[awaicgen] zprefimg` | empty | an explicit override of the reference zero point gain matching uses; empty (the default) reads it from the reference image's own `MAGZP` header keyword instead (the lead, 2026-09-26; see [reference](reference)) |
+| `[awaicgen] zprefimg` | empty | an explicit override of the reference zero point gain matching uses; empty (the default) reads it from the reference image's own `MAGZP` header keyword instead (see [reference](reference)) |
 | `[zogy] astrometric_uncert_x`, `astrometric_uncert_y` | 0.05, 0.05 | gain matching's fallback RMS |
-| `[zogy] astrometric_sigma` | 0.0 | new: ZOGY's own astrometric inputs, always 0.0 as `dev`'s override; `dxrmsfin` and `dyrmsfin` register the measured residual RMS from gain matching instead, not this setting (lead, 2026-09-23) |
+| `[zogy] astrometric_sigma` | 0.0 | new: ZOGY's own astrometric inputs, always 0.0 as `dev`'s override; `dxrmsfin` and `dyrmsfin` register the measured residual RMS from gain matching instead, not this setting |
 | `[zogy] post_zogy_keep_diffimg_lower_cov_map_thresh` | 0.5 | the coverage threshold for masking |
 | `[zogy] zogy_sn_sr_from_uncertainty_maps` | true | ZOGY's noise arguments from the uncertainty maps |
 | `[zogy] zogy_output_*_file` | `zogy_diffimage.fits`, `diffpsf.fits`, `scorrimage.fits` | ZOGY's output names |
@@ -155,8 +155,8 @@ are not repeated here. Settings new with the port are marked.
 | `[sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs as in `dev`; cross-convolution is forced off for rimtimsim data, as in `dev` |
 | `[sfft] sfft_bsmask_value`, `sfft_bsmask_radius`, `sfft_use_gainmatch_catalogs`, `sfft_use_segmentation` | `20000.0`, `30.0`, false, false | the socsims block; an empty `sfft_bsmask_value` selects `dev`'s file-name fallback |
 | `[sfft] sfft_code` | `/code/modules/sfft/sfft_rapid_rimtimsim.py` | hard-coded in `dev` |
-| `[sfft] python_cmd`, `activate_cmd` | empty, empty | new: empty `python_cmd` selects the stage's own interpreter, the same convention as `[paths] python`; empty `activate_cmd` runs SFFT in the stage's own environment rather than activating one. Neither is a venv gap: the base image resolves sfft 1.7.3 into the main conda environment, `/sfft_env` exists nowhere, and `dev`'s `python3.11` is an smdc-layer alias for 3.14. `dev`'s values, `python3.11` and `source /sfft_env/bin/activate`, remain selectable (lead, 2026-09-23). |
-| `[sfft] register_sfft` | true | new: register SFFT's result as its own instance, alongside ZOGY's (lead, 2026-09-26) |
+| `[sfft] python_cmd`, `activate_cmd` | empty, empty | new: empty `python_cmd` selects the stage's own interpreter, the same convention as `[paths] python`; empty `activate_cmd` runs SFFT in the stage's own environment rather than activating one. Neither is a venv gap: the base image resolves sfft 1.7.3 into the main conda environment, `/sfft_env` exists nowhere, and `dev`'s `python3.11` is an smdc-layer alias for 3.14. `dev`'s values, `python3.11` and `source /sfft_env/bin/activate`, remain selectable. |
+| `[sfft] register_sfft` | true | new: register SFFT's result as its own instance, alongside ZOGY's |
 | `[sfft] detection_role` | `difference` | new: the member SFFT's catalogs detect on (the cross-convolved image with `crossconv_flag`, as in `dev`) |
 | `[naive_diffimage] naive_diffimage_flag`, `naive_output_diffimage_file` | true, `naive_diffimage_masked.fits` | the naive subtraction, a diagnostic |
 | `[bkgest]` | `dev`'s values | bkgest's options and output names |
@@ -171,10 +171,10 @@ are not repeated here. Settings new with the port are marked.
 runs inside the pipeline image on AWS Batch (rapid #103, #104, #105),
 an ordinary job against the deployed image and digest that replaces the
 earlier `rapid-admin` docker fixture venue. The fixture's real-tool
-expectations were seeded 2026-09-23 from a measured run and are
-deterministic across docker and Batch; its catalog row counts are
-checked within `max(3 sources, 2%)`, since SExtractor and Photutils
-catalogs vary by a few sources run to run on pixel-identical images.
+expectations come from a measured run and are deterministic across
+docker and Batch; its catalog row counts are checked within `max(3
+sources, 2%)`, since SExtractor and Photutils catalogs vary by a few
+sources run to run on pixel-identical images.
 
 On dev's pid-1105 inputs, with dev's settings of the time (gain 1.0,
 read noise 8.5, ZOGY noise from image scatter), the rebuilt stage
@@ -182,15 +182,14 @@ reproduces dev's ZOGY difference to numerical equivalence: 0.93% of
 pixels differ from dev's by more than 1e-3 DN, and the median relative
 difference is 1.5e-6. Every difference above 0.011 DN sits within about
 300 pixels of two science-image pixels of 10,000 DN or more that dev's
-2026-08-20 artifact-repair step (`625b8dcf`, ported by the rebuild) now
-removes and that dev's 2026-08-09 comparison run predates. Gain
-matching, the background subtraction, the resampled and gain-matched
-reference, the naive difference and ZOGY's own PSF are identical or
-differ only at float precision. With the rebuild's own defaults, the
-differences from that same comparison are dev's own later changes that
-the rebuild ports too: the instrument's gain and read noise (`8428314b`)
-and ZOGY's noise inputs from the uncertainty maps rather than image
-scatter (`df5117c3`). Verified 2026-09-23.
+artifact-repair step (`625b8dcf`, ported by the rebuild) now removes;
+the comparison run predates that dev change. Gain matching, the
+background subtraction, the resampled and gain-matched reference, the
+naive difference and ZOGY's own PSF are identical or differ only at
+float precision. With the rebuild's own defaults, the differences from
+that same comparison are dev's own later changes that the rebuild ports
+too: the instrument's gain and read noise (`8428314b`) and ZOGY's noise
+inputs from the uncertainty maps rather than image scatter (`df5117c3`).
 
 The real-tool run against fixed inputs and the IMSS comparison remain
-the lead's gate before operational use, and that gate has not run.
+the team's gate before operational use, and that gate has not run.

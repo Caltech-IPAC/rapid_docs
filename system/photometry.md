@@ -6,9 +6,8 @@ passes validation exits 69, "declared but not implemented in this
 build" ([stage-contract](stage-contract)); no science code runs and no
 manifest is written.
 
-Written 2026-09-24 from the rulings of supervisor step 8 (2026-09-24)
-and the inventory of `dev`'s forced-photometry pipeline, planned onto
-the pipeline repository's `rebuild` branch as
+The stage is planned from the inventory of `dev`'s forced-photometry
+pipeline, onto the pipeline repository's `rebuild` branch as
 `rapidpipe/stages/photometry.py` and `rapidpipe/settings/photometry.toml`.
 The [products](products) page fixes the vocabulary; this page records
 the contract now and what is left for the real port.
@@ -26,7 +25,7 @@ science and post-processing are; the inventory did not find where or
 how it is actually scheduled in production. The rebuild's `photometry`
 stage declares the shape this measurement will take as a run-model
 transform stage, producing a `light-curve` product, without porting the
-measurement itself this step (ruling R9, 2026-09-24).
+measurement itself this step.
 
 ## The declared contract
 

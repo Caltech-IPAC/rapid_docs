@@ -3,18 +3,17 @@
 **Status: DRAFT**
 
 What the `alerts` stage reads, what it writes, the outbox row it keeps
-for each alert, and its settings and exit codes. Written 2026-09-24 from
-the port landing on the pipeline repository's `rebuild` branch
+for each alert, and its settings and exit codes. The stage lands on the
+pipeline repository's `rebuild` branch
 (`rapidpipe/stages/alerts.py`, `rapidpipe/science/alerts/`,
 `rapidpipe/db/alerts.py`, `rapidpipe/products/alertcontainer.py`,
 `rapidpipe/settings/alerts.toml`, migration
 `20260924-07-alert-outbox.sql`), ported from `dev`'s
 `pipeline/produceAlertsForProcDate.py` and `alerts/` (schema
-`rapid.v00_04`). The port follows the lead's rule of 2026-09-22:
-minimise differences to `dev`, and design in, off by default, anything
-that can be left unused. The [products](products) page fixes the
-vocabulary; this page records how the stage meets it, and amends two of
-its paragraphs (below).
+`rapid.v00_04`). Every ported stage minimises differences from `dev` and
+designs in, off by default, anything that could be left unused. The
+[products](products) page fixes the vocabulary; this page records how
+the stage meets it, and amends two of its paragraphs (below).
 
 ## In plain terms
 
@@ -59,7 +58,7 @@ sigmas, and a count of `merges` rows for `nDiaSources`.
 A pruned set must prune one of the named association sets: its logical
 key's base must equal that association set's instance id, and at most
 one pruned set may prune any one association set; either violation
-exits 65 (supervisor step 9, 2026-09-25, R5). A named pruned set's
+exits 65. A named pruned set's
 excluded pairs are left out of every read of its base association
 set's chain: a `merges` row whose `(aid, sid)` the pruned set lists in
 `prunedmerges` is neither a source's association, nor counted in the
@@ -172,8 +171,7 @@ of one, else exit 65; a field with no such table also exits 65.
   `[alerts] prv_window_days` before its own `mjdobs`, with no upper
   bound, so a later detection of the same object also counts as
   previous to it. A named pruned set's excluded pairs are left out of
-  this before the time window is applied, per the pruned-set rule above
-  (R5).
+  this before the time window is applied, per the pruned-set rule above.
 
 The history and association reads are restricted to the source sets the
 named association sets' chains name (each key's `source_sets`), not to
@@ -183,8 +181,7 @@ alerts run (complete, retained, and either the alerts run's own or
 `candidate`/`current` from a selected attempt); a chain naming a scratch
 or unselected source set exits 65. Those chain source sets are not
 recorded as dependency edges of the alert container; only the named
-sets and their bases are (open item) (supervisor step 9, ruling R2,
-2026-09-25).
+sets and their bases are (open item).
 
 An input product with no `product_instances` row, such as a reference
 catalog `dev` registered, is still read and cross-matched, but is left
@@ -216,7 +213,7 @@ to be known to `register` for the replay to succeed, not the container
 alone. This amends the products page's "Alert names are not a file
 product" paragraph, which said `register` records the container; the
 stage does, and standalone `register` is the replay path, not the first
-writer (supervisor step 2, 2026-09-24).
+writer.
 
 Within the transaction, registration happens before the outbox insert:
 the outbox rows carry immediate foreign keys to `product_instances` and
@@ -298,7 +295,7 @@ same pair a rerun's recovery reads back.
 This amends [runs.md](runs)'s storage-layout paragraph, which described
 the outbox row's locator in general terms; the exact mechanism is this
 one, an Avro block plus the record's position within it and within the
-container (supervisor step 2, 2026-09-24).
+container.
 
 ## Registration: `alert-container` and `alert-set`
 
@@ -328,7 +325,7 @@ outbox rows and publishes them.
 `addAlertName`/`computeAlertName` procedures for a base-26 name scheme,
 but no path in `dev`'s pipeline or CLI calls them; naming is unused
 legacy machinery there too. The rebuild ports nothing of it and leaves
-naming for the lead to decide.
+naming for the team to decide.
 
 ## Cutouts
 
@@ -341,7 +338,7 @@ filled with 0.0. The science and reference cutouts are null in this
 port: `dev` cuts them from the background-subtracted science image and
 the resampled, gain-matched reference, neither of which is an input-set
 member the stage can name yet. They stay null until those roles exist in
-the input set, a choice left to the lead.
+the input set, a choice left to the team.
 
 ## Cross-matches
 
@@ -351,8 +348,8 @@ entirely, so nothing imports `rapid_kona` in the default path. `NED`
 cross-matching runs only when `[alerts] ned = true`; the default is
 `false`, where `dev`'s own `ned_match` defaults on, and a test run never
 sets it, since the cross-match calls an external web service
-(`astroquery`, the reader `dev` used before its 2026-09-23 move to a
-local HATS mirror, which is not ported here). The reference-catalog
+(`astroquery`, the reader `dev` used before its move to a local HATS
+mirror, which is not ported here). The reference-catalog
 cross-match (`refMatch`) runs when `[alerts] refcat` is set and the
 input set's `reference-catalog` entry is present.
 
