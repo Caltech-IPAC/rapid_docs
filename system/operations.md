@@ -379,9 +379,11 @@ interface.
 ## Dependency eligibility
 
 Readability is not scientific acceptance. A stage may *read* an input it
-may not *publish from*. Today [products](products) gives the reading
-rule for result sets only, and says a check-refused candidate is
-readable; file products carry no rule. The proposed table covers both.
+may not *publish from*. [products](products) gives the reading rule for
+every product instance now, file products and result sets alike, and
+says a check-refused candidate is readable. The table covers both
+questions, reading and promotion, for each state (supervisor step 6,
+2026-09-26, landing what this section proposed).
 
 | Input's state | A stage of another run may read it | A product built from it may be promoted |
 |---|---|---|
@@ -404,15 +406,16 @@ field's slot. Completeness and retention remain the prerequisites
 [products](products) already states.
 
 The same rule applies to file products (l2 images, references, PSFs) as
-to result sets, which closes the open question [products](products)
-records under "Reading across runs". The answer to "does a failed
+to result sets, which closed the open question [products](products)
+recorded under "Reading across runs". The answer to "does a failed
 upstream science check block descendant publication": yes. A date whose
 promotion was refused still feeds the next date's catalog, as the loop
 does today, but the next date's catalog cannot be published until the
 refused date is accepted or repaired. That makes a refusal loud: it
 holds its field's catalog until someone acts, rather than letting a
 catalog that contains rejected data become current. This is a change to
-the loop's behaviour and is proposed, not landed.
+the loop's behaviour, landed by this step (supervisor step 6,
+2026-09-26).
 
 ## The loop's five calls
 

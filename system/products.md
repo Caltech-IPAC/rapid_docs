@@ -231,31 +231,76 @@ within their own run. Ruled by the lead 2026-09-21 as an amendment to
 the specification's sharing rule, so that production can accumulate a
 catalog across processing dates.
 
-"Readable by any run" is narrower than it sounds. The rule: a stage of
-run R may read a result set only when it is complete and retained and
-either (a) it belongs to R, or (b) its custody is `candidate` or
-`current` and its producing attempt is the selected attempt of its
-unit. Another run's scratch set, or a set from an unselected attempt,
-is refused, exit 65. The rule applies to every set a read traverses:
-each link of an association chain, and each source set a set names, not
-only the set named directly. A same-run read needs completeness and
-retention, not selection, so a run may still name its own orphaned set
--- only a cross-run read of any set anywhere in the chain needs its
-producing attempt to be selected. A candidate set of a production run
-whose promotion was refused by checks is readable under (b): a failed
-or missing check leaves a candidate, not a scratch set, and this rule
-does not distinguish a checked candidate from an unchecked one.
-`register_manifest` applies the same rule to a dependency edge whose
-producer is another run's result set; one helper in `db/objects`
-enforces the read side for every reader -- `source_set_table`,
-`association_chain`, and the set resolution `statistics`, `prune`,
-`alerts` and `export` each do. This closes the gap the sharing rule
-above left open: which of another run's sets counts as "current"
-enough to read, and is what keeps a still-running scratch attempt's
-half-written set out of a production run's crossmatch. The rule is not
-yet applied to file products -- l2 images, references, PSFs -- consumed
-across runs; that needs its own ruling (supervisor step 9, ruling R2,
-2026-09-25).
+"Readable by any run" is narrower than it sounds, and reading is a
+different question from promotion: a stage may read an input it may
+not publish from. The table gives both answers for every product
+instance, file products and result sets alike (supervisor step 6,
+2026-09-26):
+
+| Input's state | A stage of another run may read it | A product built from it may be promoted |
+|---|---|---|
+| Scratch, own run | yes | no, scratch never leaves scratch |
+| Scratch, another run | no, exit 65 | no |
+| Candidate, from an unselected attempt | no, exit 65 | no |
+| Candidate, selected, required checks not yet run | yes | no, until its checks run and pass |
+| Candidate, selected, required checks passed, or its kind has none | yes | yes, it is accepted and stays a candidate |
+| Candidate, selected, a required check failed | yes | no, until a person accepts it with a recorded reason or it is replaced |
+| Current | yes | yes |
+| Superseded (current before, candidate now) | yes, as any candidate from a selected attempt | yes, it was accepted when it was promoted |
+
+A read needs completeness and retention always. A same-run read needs
+nothing more, so a run may still name its own orphaned set. Only a
+cross-run read, of any instance anywhere in a dependency chain, needs
+its producing attempt to be selected; a candidate whose promotion was
+refused by checks is readable all the same, since a failed or missing
+check leaves a candidate, not a scratch instance, and reading does not
+distinguish a checked candidate from an unchecked one. Only a promotion
+needs more: complete, retained, and current, superseded or accepted,
+followed through the whole chain of dependencies, not only the instance
+named directly ([checks](checks) page has the walk).
+
+Each instance settles to one of nine states, computed once by
+`rapidpipe.runs.eligibility.acceptance_state`: `deleted`, `incomplete`,
+`scratch` and `unselected` rule an instance out first; what remains is
+`current`, `superseded`, or, weighed against its governing policy's
+required checks, `accepted`, `pending` or `rejected` (a kind with no
+required checks is accepted once selected, complete and retained). The
+promotion walk, `check show`, `run show` and `check accept` all read
+this one state rather than re-deriving it ([checks](checks) page has
+the commands).
+
+`register_manifest` applies the read rule to every dependency edge now:
+a foreign file product's edge is refused on the same terms as a foreign
+result set's. One function enforces the read side for every reader:
+`rapidpipe.db.objects.assert_readable_instance`, of which
+`assert_readable_result_set` is the result-set wrapper that
+`source_set_table`, `association_chain`, and the set resolution
+`statistics`, `prune`, `alerts` and `export` already call. This closes
+the gap the sharing rule above left open: which of another run's
+instances counts as readable, and is what keeps a still-running scratch
+attempt's half-written output out of a production run's inputs, file
+products included.
+
+The same rule backs the stage's own guard,
+`rapidpipe.runs.readguard.assert_inputs_readable`, which `run_stage`
+calls over every instance a stage's input manifest names, once the
+manifest is parsed and before any other object is fetched. Direct
+invocation, the local launcher and Batch all reach `run_stage`, so none
+of the three can bypass the guard by choosing a path. The rule itself
+refuses an id naming no product instance at all; the guard never asks it
+about one. Instead, an unregistered manifest entry with no members (a
+result-set-style entry) is readable, since it names nothing to check,
+and a file-product entry's members are judged one at a time: a member
+whose path and SHA-256 match a registered instance's must match one the
+rule accepts, a member matching no registered instance is readable, and
+one member that matches only unreadable instances refuses the whole
+entry, whatever its other members match. So a fresh id cannot stand in
+for another run's scratch files. The guard needs a database connection
+to check named inputs; a stage without one, a dry run included, refuses
+rather than skipping the check. On an S3 input location the guard runs
+once the manifest alone is fetched, and only the member files it names
+are fetched afterward, one at a time, never the rest of the prefix
+([tool](tool) page has the exit codes).
 
 ## Registration metadata
 
@@ -505,7 +550,3 @@ lookups and defaults. It does not read product files.
   2026-09-25, carried from step 6; the specification's own "Not decided
   here" list still points at that ruling and needs its pointer updated
   to this section (flagged, not this step's file to edit).
-- The cross-run result-set read rule ("Reading across runs", above)
-  is not yet applied to file products -- l2 images, references, PSFs --
-  consumed across runs; whether and how it should be needs its own
-  ruling (supervisor step 9, ruling R2, 2026-09-25, recorded open).

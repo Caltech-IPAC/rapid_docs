@@ -144,10 +144,66 @@ but does not refuse. The promotion row records `check_policy_version`
 and `check_result_ids`, the rows it relied on. A kind the policy names
 no check for passes trivially, and there is no unchecked-exception
 flag: a deliverable of a kind the policy does cover always goes through
-this gate. Rollback does not re-validate checks: it restores a
-selection an earlier promotion already admitted, the same treatment the
-released-image check gives it (R4, 2026-09-24, amended by the plan
-review, 2026-09-24).
+this gate.
+
+Promotion also walks every dependency to its roots, not only the
+after-instances themselves (supervisor step 6, 2026-09-26).
+`_validate_promotion_eligibility` follows `dependencies` recursively for
+each after-instance, cycle-guarded rather than depth-capped. An ancestor
+that is itself `current` or `superseded` passes, since its own chain was
+judged when it was promoted, but the walk continues past it rather than
+stopping there, so a rejected grandparent behind a current parent still
+refuses the promotion. An ancestor that is itself an after-instance of
+the same promotion gets no exemption from this walk: it is judged by
+its own run's resolved policy like any other ancestor, and the
+promotion's own gate above still covers it separately as an
+after-instance. Any ancestor that is not `current` or `superseded` must
+be `accepted`; one that is `pending`, `rejected`, `unselected`,
+`scratch`, `incomplete` or `deleted` refuses the whole promotion, exit
+64, naming the after-instance, the ancestor, its kind, its state and the
+check or custody behind it: "after instance '01...' depends on '01...'
+(difference-image, rejected: difference-image-statistics@1 failed under
+rebuild-trial@1; accept it with `check accept` or replace it); refusing".
+A refusal changes no selection or custody; the transaction raises before
+anything is written.
+
+Rollback skips both gates, the check-policy gate and the ancestor walk:
+it restores a selection an earlier promotion already admitted, the same
+treatment the released-image check gives it (R4, 2026-09-24, amended by
+the plan review, 2026-09-24; the walk, supervisor step 6, 2026-09-26).
+Each direct dependency of the restored selection must still be complete,
+retained and in project custody, as before this step; only the walk past
+those direct dependencies, and the check-result states above it, are
+skipped.
+
+## Acceptance
+
+Acceptance is separate from selection. The dependency walk above treats
+a candidate instance as eligible once it is `accepted`, and neither the
+walk nor `check accept` itself changes an instance's custody: an
+accepted instance stays a candidate. Acceptance is recorded, not
+inferred. An `acceptances` row (`instance`, `who`, `reason`,
+`policy_ref`, `check_ids`, `happened_at`, `detail`) names who accepted
+an instance, why, which check-policy version was in force, and the
+latest row of every policy check for the instance's kind as the
+evidence (supervisor step 6, 2026-09-26).
+
+`rapidpipe check accept <run> --instance <id> --reason "<text>"
+[--who]` records one. It refuses, exit 64, unless the instance belongs
+to the run and its state is `rejected`: a `pending` instance says run
+the checks first; an `accepted`, `current` or `superseded` instance says
+it is already accepted; an `unselected`, `scratch`, `incomplete` or
+`deleted` instance is not acceptable at all. Acceptance applies to any
+kind an instance can take, file products included: `rebuild-trial@1`
+already requires `difference-image-statistics` on difference images,
+so a difference image is exactly the kind of instance `check accept`
+exists for, the same as a result set.
+
+There is no revocation in this step: a wrong acceptance is corrected by
+replacing the product, not by unmarking the acceptance row. Acceptance
+survives supersession, since the state `superseded` is decided before
+`accepted` (above): an instance accepted as a candidate keeps that
+acceptance once it is promoted and later superseded.
 
 ## Automatic promotion
 
@@ -183,7 +239,13 @@ named instance or check, records a row for each, and prints one line
 per result: instance, kind, logical key, check, version, required
 flag, outcome, summary; it exits 0 if every result passed and 1 if any
 failed. `check show <run> [--instance I]` prints the run's recorded
-check results, newest first. Checks run launcher-side, on
+check results, newest first, then one line per candidate or current
+instance of the run: `acceptance instance=<id> kind=<kind> state=<state>
+<detail>`, detail naming the deciding check and outcome, the acceptance
+row id, or the custody behind the state (Acceptance, above; supervisor
+step 6, 2026-09-26). `rapidpipe check accept <run> --instance <id>
+--reason "<text>" [--who]` records an acceptance for a `rejected`
+instance (Acceptance, above). Checks run launcher-side, on
 rapid-rusholme, reaching the database through the instance role; none
 of this touches the pipeline image (R6, 2026-09-24).
 
@@ -193,3 +255,6 @@ of this touches the pipeline image (R6, 2026-09-24).
   approval, and the content of any policy the lead approves for
   automatic promotion: both scientific, and the lead's.
 - Checks that read S3 rather than only the database.
+- Revoking a recorded acceptance: a wrong one is corrected today by
+  replacing the product, not by unmarking the `acceptances` row
+  (Acceptance, above; supervisor step 6, 2026-09-26).
