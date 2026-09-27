@@ -177,7 +177,8 @@ residual 1).
 
 `cut` refuses to start, before any fetch or tag, while any `releases`
 row is in a state other than `complete`, unless `--resume` names that
-row; the message names the tag and its state, exit 1. The row itself is
+row; the message names the tag and its state, exit 1 (a refusal; the
+[tool](tool) page's table). The row itself is
 still written only after the tag is pushed, so two cuts started in the
 same instant can both pass the check before either has a row to be
 refused by: this rule serialises through the record once it exists, it

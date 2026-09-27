@@ -267,8 +267,10 @@ finished run takes no new units (supervisor step 9, ruling R2,
 2026-09-25).
 
 `loop run` exits 0 when every date it processed reached `complete`, 1 on
-the first date that fails with no later date started, and 75 on a
-timeout or a lock already held.
+the first date that fails with no later date started, 64 on bad
+arguments or a refused spec, a parse failure included (supervisor step
+1, 2026-09-26), and 75 on a timeout or a lock already held. The full
+vocabulary is on the [tool](tool) page.
 
 ## Records
 

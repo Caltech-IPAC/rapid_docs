@@ -117,44 +117,38 @@ here (below).
 
 ## Exit codes
 
-These are the tool's own reporting codes for `run start`, `run status`
-and `run compare`; they are distinct from the five exit codes a stage
-itself reports, which the [stage contract](stage-contract) page's Exit
-codes table carries.
+One vocabulary covers every `rapidpipe` process, in the module
+`rapidpipe/exitcodes.py` (`ExitCode`). The [stage contract](stage-contract)
+page's Exit codes table carries the six of these a stage itself reports
+(0, 64, 65, 69, 70, 75); a stage never exits 1 or 2. The table below is
+the full eight, with which command family returns each one folded into
+the third column.
 
-| Code | Meaning |
-|---|---|
-| 0 | Success: every requested unit reached complete (`start`), every unit is complete (`status`), or the two runs are identical (`compare`) |
-| 1 | A stage or unit failed or was cancelled (`start`, `status`); the two runs differ (`compare`) |
-| 2 | Still running: `status` without `--watch`, while a unit remains non-terminal |
-| 64 | Usage: bad arguments, or the tool refused rather than acting, for example `run inputs` onto a destination that already carries a manifest |
-| 65 | `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) |
-| 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable |
+| Code | Meaning | Returned by |
+|---|---|---|
+| 0 | Success: the command did what was asked | every family |
+| 1 | A negative outcome: a stage or unit failed or was cancelled, two runs differ, a check failed, or a release refused (a check or a hook failed, a resume did not match, verify found a mismatch) | `run start`, `run status`, `run compare`, `run show`; `loop run`; `check run`; `release cut\|show\|list\|verify` |
+| 2 | Still running: a unit remains non-terminal | `run status` |
+| 64 | Usage, configuration or an unmet precondition: bad arguments, including every argparse parse failure from every command family (help still exits 0), invalid settings, a refused destination, a dirty tree, a tag that exists, missing hooks, or a release whose record is not `complete` | every family; `release cut\|show\|list\|verify`, `run create` included |
+| 65 | `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason: the manifest is absent, not JSON, or fails validation. Nothing is written (supervisor step 9, ruling R4, 2026-09-25) | `run submit`, `run start`, `run local` |
+| 69 | Declared but not implemented in this build | a stage's own invocation (`stage run <name>`, the form Batch runs) |
+| 70 | An unclassified error; stop and investigate | every family: an unexpected error escaping a command is logged with its traceback and exits 70 (supervisor step 1, 2026-09-26); and a stage's own invocation |
+| 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest: any of these is retryable | `run start`, `run submit`, `run local`; `release cut`; `loop run`'s lock or timeout |
 
-The other command families report their own codes, recorded here so a
-script that drives several of them can read one table (direction pass,
-2026-09-26; the codes are as the code returns them today, and the
-unification is a proposal on the direction pass's findings page):
+`selftest` reads its own subset: 0 when every check passes, 1 when a
+check fails or the stage under test exited 0 where the fixture expected
+a non-zero code, 64 when the work directory already exists, and
+otherwise the stage's own unexpected code.
 
-| Family | Codes |
-|---|---|
-| `release cut\|show\|list\|verify` | 0 success, 1 refused or mismatch, 2 usage, 75 database unavailable |
-| `loop run\|plan\|show` | 0 every processed date complete, 1 a date failed, 64 refused, 75 timeout or the schedule's lock already held ([loop](loop)) |
-| `check run\|show\|list` | 0 every result passed, 1 any failed, 64 usage or refused ([checks](checks)) |
-| `run create` | 0 with the run id on stdout, 64 usage or refused, 2 when `--release` names a release whose record is not `complete` |
-| `run show` | 0, or 1 when no such run exists |
-| `run submit`, `run start` and the other `run` subcommands | as the table above; a release whose recorded job-definition revision is refused (not `ACTIVE`) exits 1 |
-
-An argument the parser itself rejects, an unknown flag or a missing
-required one, exits 2 from every `rapidpipe` command family: that is
-Python's `argparse`, which exits before any of the codes above applies,
-so the 64 in the first table is the tool's own refusal of arguments it
-parsed, not a parse failure. A stage's own invocation (`stage run <name>
-...`, the form Batch runs) is the exception: the stage runner translates
-a parse failure to 64, as the [stage contract](stage-contract) says.
-Two consequences a script should know: 2 means "still running" from `run
-status` and "could not parse" from any command, and `release` spells its
-own usage refusal 2 where the other families spell it 64.
+Three invariants follow from finishing the unification (supervisor
+step 1, 2026-09-26). A parse failure exits 64 from every family: every
+`rapidpipe` parser, nested subparsers included, is
+`rapidpipe.exitcodes.ArgumentParser`, whose usage error exits 64
+directly, and help still exits 0. The stage runner keeps its older
+translation of a parse failure to 64 for `stage run <name>` as a
+safeguard. Because of that, 2 now means only "still running", never
+"could not parse". And `release` spells its own usage and precondition
+refusals 64, the same as every other family, not 2.
 
 ## Personal submission from a workstation
 
