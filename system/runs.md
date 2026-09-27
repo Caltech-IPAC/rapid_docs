@@ -332,7 +332,7 @@ no longer matches the plan, writing nothing (supervisor step 5a,
 must hold a non-empty JSON list of `{kind, slot, before, after}`
 entries; anything else, a JSON `null`, an empty list, a different
 shape, exits 64 before the file is even read as a plan, let alone
-anything written (supervisor step 5a, 2026-09-26, amendment 2).
+anything written (supervisor step 5a, 2026-09-26).
 
 A change into an `association-set` slot whose expected-before is not
 null is refused unless the before instance is an ancestor of the after

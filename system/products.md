@@ -54,9 +54,9 @@ the database fills the rest afterward.
 The derivation, one row per kind. `k` is the provenance key; `V(x)` is
 producer instance `x`'s own identity, and `P(x)` is the slot fields
 projected from it, since every slot is a subset of its kind's identity
-fields (supervisor step 5a, 2026-09-26, amendment 1). Because `P(x)`
-reads `x`'s identity rather than its slot column, a producer whose own
-slot was withheld by a collision (below) does not block its
+fields (supervisor step 5a, 2026-09-26). Because `P(x)` reads `x`'s
+identity rather than its slot column, a producer whose own slot was
+withheld by a collision (below) does not block its
 descendants: each row still derives its own slot and identity
 independently, from identities alone. A missing producer, or one whose
 own identity is still null, leaves the row null until that resolves:
@@ -95,19 +95,18 @@ whose own producers already have theirs, until one pass converts
 nothing more; no fixed pass count bounds it, only a very large guard
 against a cycle, and if that guard trips the call assigns no slots at
 all and counts every remaining row unresolved (supervisor step 5a,
-2026-09-26, amendment 2, correcting the fixed pass figure amendment 1
-stated). Only once identities have settled does the fill derive every
-still-null slot, in one further pass, straight off each row's own
-now-filled identity; the collision rule applies exactly once at that
-point, over every current instance's slot, already held or freshly
-derived, so both members of a duplicated pair are withheld together
-whatever their depth in the chain, a pruned or statistics set built on
-a duplicated association pair included (amendment 1). Filling never
+2026-09-26). Only once identities have settled does the fill derive
+every still-null slot, in one further pass, straight off each row's
+own now-filled identity; the collision rule applies exactly once at
+that point, over every current instance's slot, already held or
+freshly derived, so both members of a duplicated pair are withheld
+together whatever their depth in the chain, a pruned or statistics set
+built on a duplicated association pair included. Filling never
 rewrites a slot already set, and never assigns one another current
 instance already holds; a withheld row keeps its identity but stays
 null on slot, counted `duplicate_current` and reported alongside
-`unresolved`. Running the fill again resolves what a later registration
-completed and leaves an already-filled row alone.
+`unresolved`. Running the fill again resolves what a later
+registration completed and leaves an already-filled row alone.
 
 An instance with a null slot, or a null identity, cannot be promoted
 until something resolves it: a later registration supplying the
