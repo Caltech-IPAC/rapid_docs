@@ -55,7 +55,7 @@ launcher's selection rule, `dev`'s `get_overlapping_l2files` --
 science images of the same filter, `overlapfields @> field`, `vbest >
 0`, `mjdobs` in `[start, end)`, ordered by `mjdobs` then distance from
 the tile centre. That rule is recorded here because it is the rule
-step 7's launcher implements to build the manifest `reference` reads;
+the launcher implements to build the manifest `reference` reads;
 `reference` itself does not check it and reads no database. Eligibility
 and selection beyond that sentence stay not decided (see
 [specification](specification), "Not decided here").

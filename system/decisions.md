@@ -68,14 +68,6 @@ pages becomes the team's. The rulings above go on that page as Ben's,
 dated today. Team communication about the rebuild remains Ben's to open.
 (Ben, 2026-09-27)
 
-(decision-slot-identity)=
-**Association-set identity**: the slot-identity table on
-[products](products) is the one statement. An association set's identity
-adds the field, the crossmatch settings hash, the sorted identities of
-its source sets, and a hash of its base's own identity; the proposal's
-shorter wording, which omitted the base, is withdrawn with the table
-copy it sat in. (Carried from the build, 2026-09-27, pending team review)
-
 ## Earlier rulings
 
 Rulings Ben made while he held the lead role. Under the authority ruling
@@ -124,6 +116,14 @@ Rulings made during the rebuild by its build sessions and their reviews.
 Each is in force as its page states it until the team confirms, changes
 or removes it here.
 
+(decision-slot-identity)=
+- **Association-set identity.** The slot-identity table on
+  [products](products) is the one statement. An association set's identity
+  adds the field, the crossmatch settings hash, the sorted identities of
+  its source sets, and a hash of its base's own identity; the proposal's
+  shorter wording, which omitted the base, is withdrawn with the table
+  copy it sat in. (2026-09-27)
+
 (decision-pending-sharing-rule)=
 - **Sharing rule widening.** The specification lets any run read
   *current* result sets and keeps scratch within its run; the eligibility
@@ -151,7 +151,8 @@ or removes it here.
   runs. (2026-09-26)
 - Known defect, recorded not fixed: the dependency walk can miss a
   check-result row committed after the gate's read. (2026-09-27)
-- Checks run launcher-side through the pipeline image path only.
+- Checks run outside the pipeline image, on a workstation or the
+  launcher host, reaching the database through the instance role.
   (2026-09-24)
 
 ### Runs and promotion
@@ -161,8 +162,9 @@ or removes it here.
   the selection or the run's candidates moved since the plan.
   (2026-09-26)
 - A bare after-instance with no before is accepted only when the slot
-  has no current occupant; a non-null expected-before must be an
-  ancestor of the after. (2026-09-24)
+  has no current occupant; a change into an `association-set` slot with
+  a non-null expected-before must have the before as an ancestor of the
+  after. (2026-09-24)
 - Promotion's dependency walk covers every ancestor recursively;
   rollback skips the check-policy gate and the walk. (2026-09-24,
   2026-09-26)
@@ -190,8 +192,10 @@ or removes it here.
 ### Loop
 
 - The SSM runbook's `executionTimeout` is 21600 s. (2026-09-24)
-- The loop's chain has one `register`; promoting two candidates for the
-  same kind and key is refused. (2026-09-26)
+- The loop's chain carries two `register` steps, after `admit` and
+  after `finalize`, since `finalize` never registers the raw difference
+  instance; promoting two candidates for the same kind and key is
+  refused. (2026-09-26)
 - A field's base catalog is the newest earlier complete date's
   association set; each date records `base_promoted` and
   `bases_skipped`. (2026-09-24, 2026-09-25, 2026-09-26)
@@ -250,9 +254,9 @@ or removes it here.
 - `statistics` reads crossmatch's completion manifest; an association
   set is its own rows plus its base's, recursively; its source sets
   already decide "best". (2026-09-24)
-- `prune` excludes a pair whose difference image is not best or was
-  made by this run, and depends on promotion maintaining `vbest`, not
-  yet built. (2026-09-24)
+- `prune` excludes a pair unless its difference image is best
+  (`vbest > 0`, maintained by promotion) or was made by this run, and
+  depends on promotion maintaining `vbest`, not yet built. (2026-09-24)
 - `export`'s catalog key hashes the full sorted set of source-set ids; a
   catalog labelled by one field may hold rows of another. (2026-09-24)
 - The per-stage log's final line reaches its S3 copy. (2026-09-26)
