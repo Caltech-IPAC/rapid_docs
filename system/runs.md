@@ -152,6 +152,41 @@ producer's run against deletion. The fence also covers `run inputs` and
 the loop's own binding. The deletion guard's basis is this binding
 (supervisor step 9, ruling R4, 2026-09-25).
 
+One primitive now backs both composers, `run inputs` and `run start`'s
+`compose_inputs` and the loop's maintain, crossmatch and alerts sites:
+`rapidpipe.runs.binding.bind_input_set(conn, storage, *, run_id, stage,
+unit_kind, unit_id, dest, compose, reuse_existing=True)`. The
+submission-time bind above (`run submit`, `run start`, `run local`,
+through `bind_registered_inputs`) stays its own path, sharing with the
+primitive only the id rule. Its order is fixed: check whether
+`manifest.json` already exists at `dest` (refused when reuse is not
+allowed -- `run inputs`, exit 64 -- and reused under `run start` and by
+the loop); admit the unit, through `add_unit`, the run fence, before
+anything is copied. Admission is now the first write-side check of
+every composition, before the template and producer manifests are read
+and before an existing manifest is parsed, so a finished, deleting or
+deleted run is refused before its inputs are inspected (before this
+step a missing template was reported first; both exit 64, ruling R13).
+The composer then reads the existing manifest, or calls its own
+`compose` callable, which does the copying and builds the manifest;
+collects the manifest's instance ids by one rule, `manifest_instances`,
+every output entry's `instance` plus every `inputs.result_sets` entry;
+binds the registered ones through `bind_registered_inputs`; commits;
+and writes the manifest to storage last, only when it did not already
+exist. Reusing an existing manifest is therefore an idempotent re-bind
+of that manifest's ids to the consuming unit, committed like any other
+bind, never a skipped bind and never a rewrite. A manifest on storage
+means its bindings were committed; if the write fails after the commit,
+the next call finds no manifest and composes again. Both
+`compose_inputs` and the loop's composer call this primitive, and a
+test fails if either binds or writes a manifest on its own. Two
+corrections follow from it: `run inputs` now binds a template's
+`inputs.result_sets` as well as its output entries, where before it
+read only the output entries; and a deleting or deleted producer met
+at `run inputs`'s bind now exits 65, not 64, which is what "the fence
+also covers `run inputs` and the loop's own binding" above already
+implied (supervisor step 2, 2026-09-26).
+
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
 Success requires a valid completion manifest and complete declared
