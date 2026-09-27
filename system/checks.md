@@ -179,8 +179,10 @@ skipped.
 The gate's read of the latest check rows takes its lock `FOR SHARE`; a
 failed check row committed after that read is not seen by the
 promotion it should have refused. Accepted since the speedrun's step 6,
-now for every ancestor the walk covers too; recorded, not fixed
-(supervisor step 7, 2026-09-27).
+and now also for the ancestors whose state the walk decides from check
+rows (a current, superseded or explicitly accepted ancestor is judged
+without reading them); recorded, not fixed (supervisor step 7,
+2026-09-27).
 
 ## Acceptance
 

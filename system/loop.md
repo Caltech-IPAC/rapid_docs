@@ -292,11 +292,12 @@ reason skipped) (supervisor step 9, ruling R2, 2026-09-25).
 
 A schedule's first date has no base, so over a sky whose field
 association sets are already current its scheduler promotion is refused
-by [checks](checks)'s ancestor rule until a chain switch to the earlier
-sets exists; a proof or a new stream over the same sky therefore
-continues the existing schedule, a new inbox prefix and new exposures,
-rather than starting a new schedule name (supervisor step 7,
-2026-09-27; proven by step 7's proof, which continued `ops4-stream`).
+by the [runs](runs) page's association-set ancestor rule (the before
+instance must be reached from the new set through `base`) until a chain
+switch to the earlier sets exists; a proof or a new stream over the same
+sky therefore continues the existing schedule, a new inbox prefix and
+new exposures, rather than starting a new schedule name (supervisor
+step 7, 2026-09-27; step 7's proof continued `ops4-stream`).
 
 ## Promotion
 
