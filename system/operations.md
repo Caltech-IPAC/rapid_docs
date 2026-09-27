@@ -76,6 +76,12 @@ conditional on them.
   any page. The page assumes alerts are wanted within hours of delivery,
   not within minutes; a minutes-scale requirement changes the batch size,
   not the shape (Closure and latency, below).
+- **Inbox layout** (supervisor step 4, 2026-09-26). A delivery lands at
+  `<inbox>/<YYYY-MM-DD>/<delivery-name>/manifest.json`, and the date
+  directory is the delivery's processing date, the smallest assumption
+  available while the mission's own interface stays undefined ([loop](loop)
+  page). The stream applies one difference template to every delivery for
+  now; resolving a reference per field is still open (Not decided here).
 
 ## Three shapes
 
@@ -357,7 +363,7 @@ batches, and each is a run.
 | After a batch of its date ran | Enters the next batch, a second run for the same date; its field chain extends the first batch's |
 | Identical re-delivery | Refused at discovery: same exposure, detector, delivered version and checksum as an admitted instance; recorded, no run |
 | Same version, different checksum | Quarantined: recorded as a mission error, not admitted, reported in `loop show`; a person decides |
-| Corrected version after descendants exist | Admitted and differenced in the next batch, kept out of the live catalog; its products wait for a correction run's chain switch (the fourth trace above) |
+| Corrected version after descendants exist | Deferred at discovery (supervisor step 4, 2026-09-26): recorded, not admitted by the stream, no run; it waits for a correction run's chain switch (the fourth trace above) |
 
 If the latency requirement is a day or more, one batch per date after a
 fixed cutoff hour is enough, and the stream is the loop as written plus
@@ -412,7 +418,8 @@ the loop's behaviour and is proposed, not landed.
 
 The lead folded these into this page on 2026-09-26 (12:25).
 
-- **What a firing processes** (proposed): every admitted-but-unprocessed
+- **What a firing processes**, implemented by `rapidpipe loop run`
+  (supervisor step 4, 2026-09-26): every admitted-but-unprocessed
   delivery the stream discovers in its inbox location, grouped into one
   batch per processing date, oldest first. The spec keeps schedule,
   release, policy, owner, lane and attempts; its `[[dates]]` list stays
