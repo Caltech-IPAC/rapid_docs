@@ -3,13 +3,12 @@
 **Status: DRAFT**
 
 What the `export` stage reads, what it runs, what it publishes, and its
-settings and exit codes. Written 2026-09-24 from the port that landed on
+settings and exit codes. The stage lands on
 the pipeline repository's `rebuild` branch
 (`rapidpipe/stages/export.py`, `rapidpipe/settings/export.toml`,
 `rapidpipe/products/catalogexport.py`), ported from `dev`'s
-`pipeline/generateSourceHATSCatalog.py` (supervisor step 8, ruling R12,
-2026-09-24). The [products](products) page fixes the vocabulary; this
-page records how the stage meets it.
+`pipeline/generateSourceHATSCatalog.py`. The [products](products) page
+fixes the vocabulary; this page records how the stage meets it.
 
 ## In plain terms
 
@@ -93,13 +92,12 @@ Key: `{"field": <rtid>, "export_type": "sources", "selection": <selection
 digest>, "settings_hash": <resolved settings hash>}`. The selection
 digest is the full SHA-256 hex digest over the sorted, distinct named
 `source-set` instance ids, joined by newlines -- the same rule the
-reference-image's selection digest uses (ruling R5): the same set of
+reference-image's selection digest uses: the same set of
 source sets rebuilt, in any input order, is another instance of one
 logical product, and a different set of source sets is a new one. This
 replaces an earlier "result_set" key component naming only the first
 named source set, which let two exports over different sets that
-happened to share a first element collide (ruling R13, supervisor step
-8, 2026-09-24, a Codex export-review finding).
+happened to share a first element collide.
 
 Registration block: `row_count` (the rows dumped, checked against the
 catalog's own `properties` file), `export_type` (must equal the key's),
@@ -181,5 +179,4 @@ unnamed one or the association set.
   the stage restricts what it reads by the named source sets, never by
   field, and nothing stops a manifest from naming source sets whose rows
   carry a different `field` than the unit's. This is deliberate, not an
-  oversight (supervisor step 8, 2026-09-24, ruling R13): whether it
-  should be checked is left open.
+  oversight; whether it should be checked is left open.

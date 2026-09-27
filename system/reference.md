@@ -3,16 +3,16 @@
 **Status: DRAFT**
 
 What the `reference` stage reads, what it runs, what it publishes, what
-`register` records for it, and the settings it takes. Written 2026-09-24
-from the rulings of supervisor step 8 (2026-09-24) and the inventory of
+`register` records for it, and the settings it takes. The stage is
+planned from the inventory of
 `dev`'s reference pipeline, `ppid` 12
 (`pipeline/awsBatchSubmitJobs_launchSingleReferenceImagePipeline.py`,
-`pipeline/referenceImageSubs.py`), planned onto the pipeline
+`pipeline/referenceImageSubs.py`), onto the pipeline
 repository's `rebuild` branch as `rapidpipe/stages/reference.py`,
 `rapidpipe/science/reference/`, `rapidpipe/settings/reference.toml` and
-the packaged `cdf/rapidSex*RefImage*` files. The port follows the
-lead's rule of 2026-09-22: minimise differences to `dev`, and design
-in, off by default, anything that can be left unused. The
+the packaged `cdf/rapidSex*RefImage*` files. Every ported stage
+minimises differences from `dev` and designs in, off by default,
+anything that could be left unused. The
 [products](products) page fixes the vocabulary; this page records how
 the stage meets it.
 
@@ -34,23 +34,21 @@ Stage `reference`, unit kind `field`, unit id `<rtid>/<filter>` (for
 example `4711398/W146`): one reference per (field, filter) per run, the
 filter part of the logical key so a run may build several filters of
 one field. `reference` is a transform stage and declares no database
-access (supervisor step 8, ruling R1, 2026-09-24).
+access.
 
 Filter names are RAPID's own spelling, `W146` not `F146`: FITS `FILTER`
 headers and the `filters` table carry `W146`, and lookups against
 `filters` match that name exactly. A unit id or manifest may give the
 Roman spelling instead; it is normalised to the RAPID spelling with
 `dev`'s own `roman_to_rapid_filter_names` map before any comparison or
-lookup, so `4711398/F146` and `4711398/W146` name the same unit
-(supervisor step 8, 2026-09-24, a Codex plan-review finding).
+lookup, so `4711398/F146` and `4711398/W146` name the same unit.
 
 `--inputs` is an input-set manifest listing N `l2-image` entries,
 member role `image`, the delivered `.fits.gz`, all of one filter. The
 stage checks each frame's `FILTER` header value, normalised, against
 the unit's filter, checks `N >= [selection] min_frames` (`dev` 2) and
 coadds at most `[selection] max_frames` (`dev` 25) frames in manifest
-order; any violation of those three checks exits 65 (ruling R2,
-2026-09-24).
+order; any violation of those three checks exits 65.
 
 Which frames overlap the field is not this stage's decision: it is the
 launcher's selection rule, `dev`'s `get_overlapping_l2files` --
@@ -59,13 +57,13 @@ science images of the same filter, `overlapfields @> field`, `vbest >
 the tile centre. That rule is recorded here because it is the rule
 step 7's launcher implements to build the manifest `reference` reads;
 `reference` itself does not check it and reads no database. Eligibility
-and selection beyond that sentence stay not decided (ruling R2,
-2026-09-24; see [specification](specification), "Not decided here").
+and selection beyond that sentence stay not decided (see
+[specification](specification), "Not decided here").
 
 ## What it runs
 
 The steps are `dev`'s, in `dev`'s order, one module each under
-`rapidpipe.science.reference` (ruling R4, 2026-09-24):
+`rapidpipe.science.reference`:
 
 1. **Per-frame preparation.** For each input frame: HDU 1's data is
    divided by `EXPTIME` (`BUNIT` becomes `DN/s`), then scaled to the
@@ -107,7 +105,7 @@ The steps are `dev`'s, in `dev`'s order, one module each under
    `dev` computes them for `refimmeta`.
 
 Fake-source injection is not ported: it is a test-only branch in `dev`,
-recorded here and left out (ruling R3, 2026-09-24).
+recorded here and left out.
 
 ## Outputs and the header
 
@@ -115,7 +113,7 @@ One `reference-image` bundle instance: primary member role `image`
 (`awaicgen_output_mosaic_image.fits`), members `coverage` and
 `uncertainty`. One `reference-catalog` instance, member role `catalog`
 (`awaicgen_output_mosaic_refimsexcat.txt`), key `{"reference": <reference
-instance>, "catalog_type": "sextractor"}` (ruling R5, 2026-09-24).
+instance>, "catalog_type": "sextractor"}`.
 
 Header keywords are written on the mosaic image and the uncertainty
 image as `dev`'s `addKeywordsToReferenceImageHeader` writes them:
@@ -123,14 +121,13 @@ image as `dev`'s `addKeywordsToReferenceImageHeader` writes them:
 `MAGZP`, `TOTEXPTM`, and one `INFIL`*nnn* per input frame, plus the
 run-model stamp `finalize` already uses (`RUN`, `ATTEMPT`, `INSTANCE`,
 `STAGE`). Both files are rewritten with astropy's `checksum=True`, so
-`CHECKSUM` and `DATASUM` are recomputed (ruling R4, 2026-09-24).
+`CHECKSUM` and `DATASUM` are recomputed.
 
 Three departures from `dev` are recorded here rather than hidden in the
 code: `FID` is not stamped, because it is a database id and `register`
 derives it, not the stage; `[psfcat]` -- `dev`'s Photutils reference
 catalog -- is designed in and off, since it needs a PSF input this step
-does not produce; and fake-source injection is not ported at all
-(rulings R3-R5, 2026-09-24).
+does not produce; and fake-source injection is not ported at all.
 
 ## Identity
 
@@ -141,8 +138,8 @@ sorted constituent `l2-image` instance ids, joined by newlines, plus the
 resolved settings hash: rebuilding the same selection makes another
 instance of the same logical product, and a different selection makes a
 new one; the full digest is kept rather than a truncated prefix, since
-truncating buys nothing here and only adds collision risk (supervisor
-step 8, 2026-09-24, a Codex plan-review finding). `refimages.version` is
+truncating buys nothing here and only adds collision risk.
+`refimages.version` is
 not this digest -- it is the legacy per-(`field`, `fid`, `ppid`) counter
 the table has always carried, allocated at registration the way
 [products](products) describes for every legacy version column.
@@ -151,21 +148,20 @@ Because registration keeps `dev`'s `addRefImage` unchanged, that counter
 is allocated globally across every run, `coalesce(max(version), 0) + 1`
 over the whole `refimages` table for the triple, not scoped to the
 registering run; the run is still recorded on the row, on `run`,
-`attempt` and `instance`, but does not bound the counter (supervisor
-step 8, 2026-09-24, correcting the plan's earlier "within the run"
-wording). Two attempts racing to register a reference for the same
+`attempt` and `instance`, but does not bound the counter (correcting an
+earlier "within the run" wording). Two attempts racing to register a
+reference for the same
 `(field, fid, ppid)` are serialised by a transaction-level advisory
 lock, `pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`,
 taken before `addRefImage` allocates the version and released
 automatically at the transaction's end, rather than left to race on
-`MAX(version) + 1`; registered under the plan review's concurrency
-finding (supervisor step 8, 2026-09-24) and still not decided beyond
-that lock (see Not decided here).
+`MAX(version) + 1`; still not decided beyond that lock (see Not decided
+here).
 
 ## Registration
 
 `register` learns both new kinds, `rapidpipe/products/refimage.py` and
-`rapidpipe/db/refimages.py` (ruling R7, 2026-09-24).
+`rapidpipe/db/refimages.py`.
 
 The `reference-image` registration block: `md5` (the primary member),
 `status` 1, `infobits` 0 (`dev`'s TODO; no code sets bits yet), `field`
@@ -180,16 +176,16 @@ block's `nsexcatsources` field maps to `refimmeta.nsxcatsources` --
 `dev`'s column, not the block's spelling. `npucatsources` is null when
 `[psfcat]` is off; `refimmeta.npucatsources` is `NOT NULL` in the
 baseline schema, so a new migration, `20260924-09`, drops that
-constraint before a null can be written (supervisor step 8, 2026-09-24,
-a Codex plan-review finding). `dev`'s `refimmeta` names are kept for the measurements
+constraint before a null can be written. `dev`'s `refimmeta` names
+are kept for the measurements
 because they are the target columns. The `reference-catalog` block:
 `md5`, `status` 1, `catalog_type` (`sextractor` maps to `cattype` 1,
-`psf` to 2), `source_count` (ruling R6, 2026-09-24).
+`psf` to 2), `source_count`.
 
 The zero-point handoff to `difference` is settled: gain matching reads
 `zero_point` from the reference image it is given, by its `MAGZP`
-header keyword, rather than from a setting of its own (the lead,
-2026-09-26). The stage's `[awaicgen] zprefimg` setting still exists, but
+header keyword, rather than from a setting of its own. The stage's
+`[awaicgen] zprefimg` setting still exists, but
 only as an explicit override of the header value.
 
 Registration writes four tables:
@@ -203,8 +199,8 @@ Registration writes four tables:
   manifest and is carried in it, not the attempt running `register`.
   `psfs.py`, `diffimages` and `l2files` all record the *registering*
   attempt in their own `attempt` columns instead; `refimages` is the one
-  exception (WP-B's finding, supervisor step 8, 2026-09-24). `vbest`
-  stays 0; promotion is the step 3 ruling's job, not registration's.
+  exception. `vbest` stays 0; promotion is the promotion ruling's job,
+  not registration's.
 - `refimmeta`, one row, through `registerRefImMeta` with the block's
   measurements.
 - `refimimages`, one `(rfid, rid)` row per constituent whose
@@ -223,24 +219,23 @@ instance already registered whose stored block matches the manifest's is
 a no-op, and writes no satellite row a second time; a block that
 differs from what is already stored is an error, since `addRefImage`
 and `registerRefImCatalog` would otherwise silently update an existing
-row (supervisor step 8, 2026-09-24, a Codex plan-review finding). Two
-migrations are needed, not none: `20260923-02-refimages-instance.sql`
+row. Two migrations are needed, not none:
+`20260923-02-refimages-instance.sql`
 already covers `refimages`, and `20260924-09` drops `npucatsources`'s
 `NOT NULL` constraint (above). The three satellite tables carry no run
 column of their own and are reached only through their owning
 `refimages` row's `rfid`; deletion does not already handle them on that
 account alone -- what cleanup does with a scratch run's own reference is
 fixed on the [runs](runs) page's deletion section, amending its
-cleanup-set sentence (supervisor step 8, 2026-09-24). Where a stored
-function the trial database lacks is needed, it is ported inline into
-the register code, as `sources.py` already does, and recorded (ruling
-R7, 2026-09-24).
+cleanup-set sentence. Where a stored function the trial database lacks
+is needed, it is ported inline into the register code, as `sources.py`
+already does, and recorded.
 
 ## Settings
 
 `rapidpipe/settings/reference.toml` holds every `dev` setting the stage
 reads, taken from `awsBatchSubmitJobs_launchSingleReferenceImagePipeline.ini`
-on `dev` (ruling R3, 2026-09-24):
+on `dev`:
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -256,7 +251,7 @@ on `dev` (ruling R3, 2026-09-24):
 | `[awaicgen] simple_coadd_flag` | 1 | `dev`'s value |
 | `[awaicgen] num_threads` | 2 | `dev`'s value |
 | `[awaicgen]` list and output file names | `dev`'s names | `awaicgen_output_mosaic_image_file`, `_cov_map_file`, `_uncert_image_file` and the input list file names, `dev`'s values |
-| `[awaicgen] zprefimg_<filter>` | per filter, `dev`'s ini | the zero point this stage normalises frames to before coadding; a filter with no entry falls back to `zprefimg` 17.0, `dev`'s scalar default. Stamped as `MAGZP` on the coadd, which `difference`'s gain matching reads by default (the lead, 2026-09-26; see [difference](difference)); `difference.toml`'s own, separate `[awaicgen] zprefimg` is now an override of that header, not a second source of truth |
+| `[awaicgen] zprefimg_<filter>` | per filter, `dev`'s ini | the zero point this stage normalises frames to before coadding; a filter with no entry falls back to `zprefimg` 17.0, `dev`'s scalar default. Stamped as `MAGZP` on the coadd, which `difference`'s gain matching reads by default (see [difference](difference)); `difference.toml`'s own, separate `[awaicgen] zprefimg` is now an override of that header, not a second source of truth |
 | `[sextractor]` | `dev`'s `SEXTRACTOR_REFIMAGE` section | params, filter and star/galaxy classifier files, the packaged `cdf/rapidSexParamsRefImage.inp`, `cdf/rapidSexRefImageFilter.conv`, `cdf/rapidSexRefImageStarGalaxyClassifier.nnw` |
 | `[psfcat] enabled` | false | `dev`'s Photutils reference catalog; designed in, off, since it needs a PSF input this step does not produce |
 | `[paths]` | as `difference.toml` | `rapid_sw`, `cfg_path`, and the external tools (`awaicgen`, `sextractor`) on `PATH` |
@@ -287,7 +282,7 @@ the reformatted inputs onto a small TAN mosaic, and the existing fake
 `sex` pattern; `--real-tools` runs the image's own `awaicgen` and `sex`
 on the same frames. Registered in `selftest/runner.py`'s `STAGE_NAMES`
 and the Makefile as `stage-reference`, the same pattern every other
-stage's fixture follows (ruling R8, 2026-09-24).
+stage's fixture follows.
 
 ## Not decided here
 
@@ -306,9 +301,8 @@ stage's fixture follows (ruling R8, 2026-09-24).
   serialises the `(field, fid, ppid)` version allocation, but `svid`
   allocation (the latest global software-revision row) and the general
   question of two runs registering references for the same field and
-  filter at once are not otherwise addressed here (supervisor step 8,
-  2026-09-24, a Codex plan-review finding).
+  filter at once are not otherwise addressed here.
 - The Roman-to-RAPID filter map exists twice, once in
   `rapidpipe/science/reference/prep.py` and once in
   `rapidpipe/products/refimage.py`; unifying the two into one place is
-  left for later (WP-B's finding, supervisor step 8, 2026-09-24).
+  left for later.

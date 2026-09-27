@@ -3,11 +3,11 @@
 **Status: DRAFT**
 
 What the `maintain` stage reads, what it runs, its unit, its manifest,
-and its exit codes. Written 2026-09-24 from the port that landed on the
+and its exit codes. The stage lands on the
 pipeline repository's `rebuild` branch (`rapidpipe/stages/maintain.py`,
 `rapidpipe/db/sources.py`'s `cluster_and_analyze`, migration
 `20260924-02`), following the timing the [load](load) page already
-described and the lead's ruling of 2026-09-23 that created the stage.
+described and the team's ruling that created the stage.
 The [products](products) page fixes the vocabulary; this page records
 how the stage meets it.
 
@@ -19,8 +19,7 @@ per image would recluster the table on every load. The rebuild keeps
 that timing in a stage of its own: for one observation date and
 detector, `maintain` clusters the child table on its position index and
 analyzes it, once, after the date's last `load` unit and before
-`crossmatch` reads the table (supervisor step 1, ruling R1,
-2026-09-24). It writes no rows and no result set; it only makes the
+`crossmatch` reads the table. It writes no rows and no result set; it only makes the
 table `crossmatch` reads efficient to scan.
 
 ## Inputs
@@ -61,16 +60,15 @@ still `dev`'s once-per-date maintenance target.
 Unit kind `detector-date`, unit id `<yyyymmdd>/SCA<nn>` -- the
 observation date and detector a run's `load` units for that date and
 detector share, and the same pair the child table's own name is built
-from (supervisor step 1, ruling R2, 2026-09-24). This is a new kind
-because none of the contract's other four fits the lead's ruling of
-2026-09-23 that `maintain`'s unit is "(observation date, detector)":
+from. This is a new kind
+because none of the contract's other four fits the team's ruling that
+`maintain`'s unit is "(observation date, detector)":
 `detector-image` is one image, one attempt; `processing-date` carries no
 detector; `field` is a tessellation tile; `exposure` an admitted image
 before any detector-level product exists. `rapidpipe.stages.contract.UNIT_KINDS`
 and `rapidpipe.products.manifest.UNIT_KINDS` both carry the fifth value,
 and migration `20260924-02` widens the `units.unit_kind` CHECK
-constraint to match, so a run can record a `maintain` unit at all
-(supervisor step 1, 2026-09-24).
+constraint to match, so a run can record a `maintain` unit at all.
 
 ## The manifest
 
