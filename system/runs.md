@@ -281,9 +281,10 @@ chain to its roots and not only the instances named directly, must be
 promotion, naming the ancestor and the deciding check ([checks](checks)
 page has the states and the walk; supervisor step 6, 2026-09-26,
 replacing the direct-dependency check this paragraph stated before).
-`run show` prints an `acceptance:` block after `instances:`, one line
-per candidate or current instance in those same states ([checks](checks)
-page has the format). The replacement's kind and slot must equal the
+`run show` prints an `acceptance:` block at the end of its listing, one
+line per candidate or current instance in those same states, after
+`units:`, `attempts:` and any `promotions:` ([checks](checks) page has
+the format). The replacement's kind and slot must equal the
 requested selector, or, for a legacy selector, its kind and provenance
 key; either way it must be retained, and a result set must be complete
 (supervisor step 5a, 2026-09-26, amending this sentence for slot;

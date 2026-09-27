@@ -161,15 +161,20 @@ after-instance. Any ancestor that is not `current` or `superseded` must
 be `accepted`; one that is `pending`, `rejected`, `unselected`,
 `scratch`, `incomplete` or `deleted` refuses the whole promotion, exit
 64, naming the after-instance, the ancestor, its kind, its state and the
-check or custody behind it: "... depends on 01... (difference-image,
-rejected: difference-image-statistics@1 failed; accept it with `check
-accept` or replace it)". A refusal changes no selection or custody; the
-transaction raises before anything is written.
+check or custody behind it: "after instance '01...' depends on '01...'
+(difference-image, rejected: difference-image-statistics@1 failed under
+rebuild-trial@1; accept it with `check accept` or replace it); refusing".
+A refusal changes no selection or custody; the transaction raises before
+anything is written.
 
-Rollback skips both gates: it restores a selection an earlier promotion
-already admitted, the same treatment the released-image check and the
-dependency walk above give it (R4, 2026-09-24, amended by the plan
-review, 2026-09-24; the transitive walk, supervisor step 6, 2026-09-26).
+Rollback skips both gates, the check-policy gate and the ancestor walk:
+it restores a selection an earlier promotion already admitted, the same
+treatment the released-image check gives it (R4, 2026-09-24, amended by
+the plan review, 2026-09-24; the walk, supervisor step 6, 2026-09-26).
+Each direct dependency of the restored selection must still be complete,
+retained and in project custody, as before this step; only the walk past
+those direct dependencies, and the check-result states above it, are
+skipped.
 
 ## Acceptance
 
