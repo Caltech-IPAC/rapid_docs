@@ -5,8 +5,7 @@
 Companion to the specification's Runs section, the [stage contract](stage-contract)
 and the [products](products) page: how runs, units of work, attempts, product
 instances, result sets and the three custody states are held in the database
-and laid out in storage. Written 2026-09-21, revised on a Codex review and on
-the lead's schema ruling; direction approved by the lead.
+and laid out in storage.
 ## In plain terms
 
 A run is a row that says who started a pass over which inputs with
@@ -33,7 +32,7 @@ deletes run data.
 | `product_members` | file in a bundle | instance, role, path, bytes, sha256 |
 | `result_sets` | one-to-one extension of an instance that is rows | instance, complete flag, row count |
 | `promotions` | promotion action | id, who, when, reason, check-policy version, check result ids, request context |
-| `promotion_changes` | affected slot, or provenance key for a legacy row, in a promotion | promotion, kind, provenance key, slot (nullable, supervisor step 5a, 2026-09-26), before instance (nullable), after instance (nullable) |
+| `promotion_changes` | affected slot, or provenance key for a legacy row, in a promotion | promotion, kind, provenance key, slot (nullable), before instance (nullable), after instance (nullable) |
 | `checks` | verification result | instance, check name, version, required flag, outcome, when, detail |
 | `dependencies` | provenance edge | consumer instance, producer instance |
 
@@ -43,8 +42,7 @@ companions) are kept with their names and columns. Each gains `run`,
 `attempt` and `instance` (or `result_set`) columns, and where a
 uniqueness constraint would block two runs holding the same logical
 product it is widened to include the run or set. Nothing is renamed and
-nothing is dropped (lead, 2026-09-21: changing confuses the team;
-`smdc` deleted too much).
+nothing is dropped.
 
 ## Rules
 
@@ -58,13 +56,12 @@ usable only within their own run. Production runs use the one
 production database; scratch runs may name a trial database. A run
 becomes eligible to finish once every unit is terminal, but finishing
 is an explicit `finish` and not automatic; a finished run is never
-reopened (supervisor step 3, 2026-09-24). Seeding a new run copies
+reopened. Seeding a new run copies
 configuration and permitted input selections; it does not authorise
 reuse of another run's scratch outputs. A run the processing-date loop
 creates carries its spec's owner as its own owner and the spec's
 location as its `input_selection_ref`; a promotion the loop performs
-records `who = scheduler` (the [loop](loop) page, supervisor step 7,
-2026-09-24).
+records `who = scheduler` (the [loop](loop) page).
 
 `run create --seed <run> --only-failed` is the recovery form of
 seeding, and what it copies
@@ -90,15 +87,15 @@ inputs and settings from the seed, since later stages must regenerate
 their inputs within the new run exactly as a fresh run does. It
 refuses, exit 64, when the seed
 has no non-complete unit or is deleting or deleted; `--only-failed`
-without `--seed` is a usage error (supervisor step 6, 2026-09-24).
+without `--seed` is a usage error.
 
 Scratch runs receive a default `expires_at` of fourteen days after
 creation. `pinned` holds a run past that date. An expiry sweep deletes
 unpinned scratch runs past their `expires_at`, through the same
 operation as `run delete`. The sweep runs as an explicitly authorised
 actor, not the run's owner; under the run lock it re-checks the run's
-kind, pin and expiry and refuses the delete if any no longer holds
-(supervisor step 3, 2026-09-24). The sweep's warning mechanics are not
+kind, pin and expiry and refuses the delete if any no longer holds.
+The sweep's warning mechanics are not
 decided here.
 
 **Units.** A unit is pending until its declared input set is complete
@@ -114,12 +111,12 @@ own unit id is `<producing stage>/<producing unit id>` (for example
 `admit/e20260821001234/SCA07`, `difference/e20260821001234/SCA07`),
 derived from the manifest `register` reads: one `register` unit follows
 every producer, with no occurrence counter, and it is runnable singly
-for one producer at a time (lead, 2026-09-23). This applies from the
-next run; rows a run wrote before it stay as they are. A unit created
+for one producer at a time. Rows written under an earlier unit-id form
+stay as they are. A unit created
 by `run create --seed <run> --only-failed` carries
 `units.seeded_from_unit`, the seed run's unit it re-runs; it enters the
 state machine above as an ordinary new `pending` unit, with no separate
-path (supervisor step 6, 2026-09-24).
+path.
 
 **Input-set composition.** A stage declares its input set by product
 kind and role. The launcher resolves each entry from this run's own
@@ -130,8 +127,7 @@ detector). It never resolves an entry from an unrelated run unless the
 input selection names that instance explicitly. The resolved binding is
 written to `unit_inputs` before execution, and the manifest a stage
 reads is generated from that binding; a hand-composed manifest is a
-test path, not how a production run assembles its inputs (lead,
-2026-09-23). Before any write for a submission (`run submit`, `run
+test path, not how a production run assembles its inputs. Before any write for a submission (`run submit`, `run
 start`, `run local`), the launcher reads `manifest.json` at the
 `--inputs` location, local or `s3://`; collects every output entry's
 `instance` and every `inputs.result_sets` entry -- not `inputs.products`,
@@ -149,10 +145,9 @@ nothing new. Binding takes each producer instance's run row for share
 and refuses, exit 65, when that run is deleting or deleted, as
 `register_manifest` does; an uncommitted binding therefore holds the
 producer's run against deletion. The fence also covers `run inputs` and
-the loop's own binding. The deletion guard's basis is this binding
-(supervisor step 9, ruling R4, 2026-09-25).
+the loop's own binding. The deletion guard's basis is this binding.
 
-One primitive now backs both composers, `run inputs` and `run start`'s
+One primitive backs both composers, `run inputs` and `run start`'s
 `compose_inputs` and the loop's maintain, crossmatch and alerts sites:
 `rapidpipe.runs.binding.bind_input_set(conn, storage, *, run_id, stage,
 unit_kind, unit_id, dest, compose, reuse_existing=True)`. The
@@ -162,11 +157,10 @@ primitive only the id rule. Its order is fixed: check whether
 `manifest.json` already exists at `dest` (refused when reuse is not
 allowed -- `run inputs`, exit 64 -- and reused under `run start` and by
 the loop); admit the unit, through `add_unit`, the run fence, before
-anything is copied. Admission is now the first write-side check of
+anything is copied. Admission is the first write-side check of
 every composition, before the template and producer manifests are read
 and before an existing manifest is parsed, so a finished, deleting or
-deleted run is refused before its inputs are inspected (before this
-step a missing template was reported first; both exit 64, ruling R13).
+deleted run is refused, exit 64, before its inputs are inspected.
 The composer then reads the existing manifest, or calls its own
 `compose` callable, which does the copying and builds the manifest;
 collects the manifest's instance ids by one rule, `manifest_instances`,
@@ -179,13 +173,10 @@ bind, never a skipped bind and never a rewrite. A manifest on storage
 means its bindings were committed; if the write fails after the commit,
 the next call finds no manifest and composes again. Both
 `compose_inputs` and the loop's composer call this primitive, and a
-test fails if either binds or writes a manifest on its own. Two
-corrections follow from it: `run inputs` now binds a template's
-`inputs.result_sets` as well as its output entries, where before it
-read only the output entries; and a deleting or deleted producer met
-at `run inputs`'s bind now exits 65, not 64, which is what "the fence
-also covers `run inputs` and the loop's own binding" above already
-implied (supervisor step 2, 2026-09-26).
+test fails if either binds or writes a manifest on its own. So `run
+inputs` binds a template's `inputs.result_sets` as well as its output
+entries, and a deleting or deleted producer met at `run inputs`'s bind
+exits 65.
 
 **Attempts.** Each try is an attempt with a fresh id and an exclusive
 output location; an attempt has no disposition while queued or running.
@@ -201,8 +192,7 @@ fails the unit. `lost` means the scheduler lost the job: unresolved
 execution, treated as a possible writer until resolved. `submit_unit`
 records the input-set and settings locations it resolved for the
 attempt on `attempts.inputs_location` and `attempts.settings_location`,
-alongside the frozen bindings `unit_inputs` already carries (supervisor
-step 6, 2026-09-24). `run reconcile --resolve-jobless [--older-than
+alongside the frozen bindings `unit_inputs` already carries. `run reconcile --resolve-jobless [--older-than
 SECONDS]`, default 600 seconds, first looks for a scheduler job under
 the attempt's own deterministic job name; exactly one match repairs the
 attempt, recording that job id rather than treating it as job-less, and
@@ -211,9 +201,8 @@ disposition, no scheduler job and no repair, past that age, does
 reconcile lock it and record it `lost`, with a null exit code and a
 reconcile note explaining why; the unit returns to `ready` while
 attempts remain under its allowance, or `failed` otherwise. This is how
-a job-less running attempt (the one `run start` used to exit 64 on
-without a way to move past it) is resolved rather than left open
-indefinitely (supervisor step 6, 2026-09-24).
+a job-less running attempt is resolved rather than left open
+indefinitely.
 
 A retry's own `done_check` -- whether a database-writing stage reuses
 an already-complete result set instead of writing a new one -- reads an
@@ -230,8 +219,8 @@ never the selected attempt. `load`'s, `crossmatch`'s, `statistics`' and
 `prune`'s `done_check` all resolve through this one rule,
 `db/sources.find_complete_source_set` and
 `db/objects.find_complete_result_set`, each joining `attempts` for the
-producing attempt's disposition (supervisor step 9, ruling R1,
-2026-09-25; the per-stage pages record each `done_check`'s own key).
+producing attempt's disposition (the per-stage pages record each
+`done_check`'s own key).
 
 **Instances.** `register` preserves the instance ids and the producing
 run, stage and attempt recorded in the manifest, and records the
@@ -247,25 +236,22 @@ model by an import run: `reference-import` for a reference `dev`
 registered, `psf-import` for a PSF `dev` registered, each a production
 run whose one unit registers that product with a run, an attempt and an
 instance of its own, so the imported instance is a candidate in project
-custody and a production run that depends on it can be promoted
-(supervisor step 3, 2026-09-24, amending the lead's 2026-09-23 wording:
+custody and a production run that depends on it can be promoted:
 `dev`'s registered products are the project's, and a scratch import
-would refuse every production promotion that depends on it). It can be
-named as a frozen input like any other instance. The two
-`reference-import` runs registered in `rapid_rebuild` before this
-ruling were re-kinded to production by hand on 2026-09-24 and their
-instances made candidates (supervisor step 3, 2026-09-24).
+would refuse every production promotion that depends on it. It can be
+named as a frozen input like any other instance.
 
 **Custody.** Scratch never leaves scratch. Candidate becomes current by
 promotion; current becomes candidate again when superseded. Two partial
-unique indexes now govern the current selection, both live: the older
-one still holds at most one current instance per kind and provenance
-key, for every current row; a newer one, additive beside it, holds at
-most one current instance per kind and slot, wherever the fill has
-resolved a slot for it (supervisor step 5a, 2026-09-26; [products](products)
+unique indexes govern the current selection: one holds at most one
+current instance per kind and provenance key, for every current row;
+the other holds at most one current instance per kind and slot,
+wherever the fill has resolved a slot for it ([products](products)
 page has the fill). The current selection is a view over the instance
 table and includes file products and result sets alike. A consumer
 resolves a related selection from one database snapshot.
+
+Withdrawn by the {ref}`acceptance ruling <decision-acceptance>` (the `accepted` ancestor state and the `acceptance:` block) and the {ref}`legacy compatibility ruling <decision-legacy-compatibility>` (the legacy selector): the code still behaves as described here until that change lands, and this passage changes with it.
 
 **Promotion eligibility.** Automatic and manual promotion require
 completed, selected outputs, a recorded image digest identifying a
@@ -273,32 +259,24 @@ released artifact, and passing results for every required check under
 the resolved check-policy version: an explicit `--check-policy`, then
 the run's own `check_policy_ref`, then the default `rebuild-trial@1`;
 no unchecked exception exists, so a deliverable of a kind the policy
-covers always goes through the gate ([checks](checks) page, supervisor
-step 6, 2026-09-24). Missing or failed required checks refuse
+covers always goes through the gate ([checks](checks) page). Missing or failed required checks refuse
 promotion. Every provenance dependency, followed through the whole
 chain to its roots and not only the instances named directly, must be
 `current`, `superseded` or `accepted`; anything else refuses the
 promotion, naming the ancestor and the deciding check ([checks](checks)
-page has the states and the walk; supervisor step 6, 2026-09-26,
-replacing the direct-dependency check this paragraph stated before).
+page has the states and the walk).
 `run show` prints an `acceptance:` block at the end of its listing, one
 line per candidate or current instance in those same states, after
 `units:`, `attempts:` and any `promotions:` ([checks](checks) page has
 the format). The replacement's kind and slot must equal the
 requested selector, or, for a legacy selector, its kind and provenance
 key; either way it must be retained, and a result set must be complete
-(supervisor step 5a, 2026-09-26, amending this sentence for slot;
-[products](products) page has the two keys). Validation against a
-released image digest is now
-implemented, closing the trial exception recorded here for step 3: every
+([products](products) page has the two keys). Every
 deliverable's selected producing attempt must have an execution record
 whose image digest is a complete release's digest, or the promotion is
 refused unless the operator passes the explicit unreleased exception
-(the [releases](releases) page has the record and the check; supervisor
-step 5, 2026-09-24). Validation against the check-policy version above
-is unaffected by this and remains as stated. Automatic promotion stays
-disabled
-until the lead approves its policy; reprocessing is a production run
+(the [releases](releases) page has the record and the check). Automatic
+promotion stays disabled until the team approves its policy; reprocessing is a production run
 with auto-promote off.
 
 **Promotion.** `promote_run` first fills the run's own rows through
@@ -310,36 +288,33 @@ slot); intermediate revisions and unselected attempts are excluded. A
 candidate whose slot, or whose identity, is still null is refused,
 naming it, since a slot never exists without its identity ([products](products)
 page); two candidates sharing one slot are refused, since a promotion
-needs exactly one replacement per kind and slot (supervisor step 5a,
-2026-09-26, amending step 3, 2026-09-24, which grouped by provenance
-key). Piecemeal
+needs exactly one replacement per kind and slot. Piecemeal
 promotion names an explicit subset of that list and passes the same
 validation. A change may also name no replacement, withdrawing a slot:
 the replaced instance returns to candidate, and the promotion record's
-after-instance for that slot is null (supervisor step 3, 2026-09-24).
+after-instance for that slot is null.
 Expected-before per slot is whichever instance currently holds it, or
 none; a current instance whose own slot is still null is invisible to
 slot promotion, neither replaced nor withdrawn by it, until an operator
 resolves it by hand.
 
-Promotion now replaces by slot: a change whose after-instance shares its
+Promotion replaces by slot: a change whose after-instance shares its
 predecessor's (kind, slot) supersedes it outright, whatever settings or
 upstream instances differ between the two. A reprocessing with changed
 settings therefore replaces the old difference images in their slots,
-rather than sitting beside them as a new instance, as this page said
-before this ruling (supervisor step 5a, 2026-09-26).
+rather than sitting beside them as a new instance.
 
 A promotion can be planned and frozen ahead of applying it. `run
 promote-plan <run>` reads the run's slot groupings under the lock and
 prints them without writing anything; `run promote <run> --plan <file>`
 applies that same file later, under a fresh lock, and refuses, exit 64,
 naming the first slot whose actual current instance or whose candidate
-no longer matches the plan, writing nothing (supervisor step 5a,
-2026-09-26; [tool](tool) page has the commands). The plan file itself
+no longer matches the plan, writing nothing ([tool](tool) page has the
+commands). The plan file itself
 must hold a non-empty JSON list of `{kind, slot, before, after}`
 entries; anything else, a JSON `null`, an empty list, a different
 shape, exits 64 before the file is even read as a plan, let alone
-anything written (supervisor step 5a, 2026-09-26).
+anything written.
 
 A change into an `association-set` slot whose expected-before is not
 null is refused unless the before instance is an ancestor of the after
@@ -347,59 +322,55 @@ instance, walked through the provenance key's `base` field, so a live
 batch cannot replace a reprocessing campaign's chain head with its own
 older chain by accident. Rollback's own recorded inverse is the one
 exception: it bypasses this rule, since it is undoing a change that
-already passed it once (supervisor step 5a, 2026-09-26). Ordinary slot
+already passed it once. Ordinary slot
 replacement is never a substitute for the chain switch operations.md
 describes, the one promotion that moves a whole stream from one catalog
-chain to another: that switch is still not built, and `loop_dates.kind
-= 'switch'` exists from step 4's migration with nothing yet writing it.
+chain to another: that switch is not built, and nothing writes
+`loop_dates.kind = 'switch'`.
 
 Only a production run's outputs can be promoted; scratch never leaves
 scratch. On rows a run wrote, `vbest` is a current-membership flag: 1
 while the instance is current, 0 otherwise. Rows `dev` wrote, with `run`
 null, including those an import run links through `instance`, keep
 `dev`'s own flag. A mapped kind whose instance has no row refuses the
-promotion (lead, 2026-09-22; restated by the supervisor, step 3,
-2026-09-24). All promotions take one transaction-scoped advisory lock;
+promotion. All promotions take one transaction-scoped advisory lock;
 after acquiring it the transaction checks every expected previous
 selection, including expected absence, against the actual selection and
 refuses the whole request on any mismatch, then validates dependencies,
 updates custody and records the action. Each promotion records a before
 and after instance for every affected slot, either nullable, and
-`promotion_changes` carries the slot alongside the provenance key
-(supervisor step 5a, 2026-09-26).
+`promotion_changes` carries the slot alongside the provenance key.
+
+Withdrawn by the {ref}`legacy compatibility ruling <decision-legacy-compatibility>` (the provenance-key selector and recorded inverse): the code still behaves as described here until that change lands, and this passage changes with it.
 
 Rollback inverts the exact recorded change: by slot, when the promotion
 recorded one; by provenance key, for a promotion recorded before this
 migration whose instances never resolved a slot. Reversal is itself a
 promotion, carrying the inverse mapping and `request_context.rollback_of`,
-and is refused if the recorded after-selection is no longer current
-(supervisor step 3, 2026-09-24). `promote()` accepts a bare
+and is refused if the recorded after-selection is no longer current.
+`promote()` accepts a bare
 provenance-key selector only when rollback is the caller reversing one
 of those pre-migration changes; anywhere else, a provenance-key
 selector, or a slot selector naming an instance whose own slot is null,
-is refused (supervisor step 5a, 2026-09-26).
+is refused.
 
 **Deletion.** `run delete` is allowed on a scratch run by its owner,
 finished or not: a finished run admits no new unit, attempt or input
-binding, but that alone does not block its deletion (supervisor step 3,
-2026-09-24). It first locks the run, verifies the owner, refuses if any
+binding, but that alone does not block its deletion. It first locks the run, verifies the owner, refuses if any
 attempt is queued, running or unresolved, meaning it carries no
 disposition at all; `lost` is itself a recorded resolution of that
 uncertainty, written only once reconcile finds the scheduler no longer
 returns the job, or once `run reconcile --resolve-jobless` finds no job
 under the attempt's name, so a `lost` attempt does not by itself block
-deletion (supervisor step 6, 2026-09-24), if any frozen input binding
+deletion, if any frozen input binding
 of unfinished work or any provenance dependency of a retained output
 outside the run points into it, or if a row in `xsources` references
 one of the run's rows (that table is not in the cleanup set below, so
-such a reference refuses the whole delete rather than leaving an orphan;
-supervisor step 3, 2026-09-24), or if a row in `refimimages`,
+such a reference refuses the whole delete rather than leaving an orphan),
+or if a row in `refimimages`,
 `refimcatalogs` or `refimmeta` belonging to a *different* run's
-reference references one of the run's rows -- its own reference's
-satellite rows are removed by cleanup below, not refused (supervisor
-step 8, 2026-09-24, amending step 3's wording, which had none of the
-three in the cleanup set at all and so refused even a run's own
-reference) -- and marks the run deleting, in one transaction. Attempt
+reference references one of the run's rows (its own reference's
+satellite rows are removed by cleanup below, not refused), and marks the run deleting, in one transaction. Attempt
 allocation, input binding and result acceptance use the same run fence
 and refuse a deleting or deleted run.
 
@@ -411,14 +382,12 @@ instance's `deletion_state` is other than `deleted`. Tombstone rows are
 never removed; a consumer run that is still `deleting` still blocks,
 and only a consumer run that has finished deleting stops counting
 against the run that produced what it once consumed. The refusal itself
-is unchanged: `run delete` still exits 64 (supervisor step 9, ruling R3,
-2026-09-25). This is what makes the input binding above safe to write
+is exit 64 from `run delete`. This is what makes the input binding above safe to write
 at submission rather than at output registration: a unit's frozen
 bindings, recorded through `bind_unit_inputs` before its attempt starts,
 make it a live consumer of its declared inputs from that point, and the
-guard now sees that consumer as soon as it exists, not only once it has
-produced something of its own to depend on (supervisor step 9,
-2026-09-25).
+guard sees that consumer as soon as it exists, not only once it has
+produced something of its own to depend on.
 
 Before touching storage, every attempt's output location must lie in
 the scratch bucket under `runs/<run-id>/`; otherwise the whole delete
@@ -426,43 +395,38 @@ is refused. Cleanup then removes the run's object versions; a storage
 delete that reports a per-object error leaves the run deleting and
 touches no row, so a retry resumes at storage. Once storage cleanup is
 clean, one transaction removes the science rows, marks the run's
-instance rows deleted (`deletion_state`) and marks the run deleted
-(supervisor step 3, 2026-09-24). The science-row cleanup set is
+instance rows deleted (`deletion_state`) and marks the run deleted.
+The science-row cleanup set is
 `l2files`, `l2filemeta`, `refimages`, `diffimages`, `diffimmeta`,
 `psfs` and `sources` (the parent delete reaches the children), each
 where the `run` column equals the run being deleted; `l2files` and
 `l2filemeta` join the set because a scratch run's admitted rows are
 its own, and the fence already refuses when another run binds them
-(supervisor step 3, 2026-09-24). `refimimages`, `refimcatalogs` and
-`refimmeta` carry no `run` column of their own -- they are reached only
-through the `refimages` row's `rfid` -- so the same transaction deletes
+`refimimages`, `refimcatalogs` and
+`refimmeta` carry no `run` column of their own (they are reached only
+through the `refimages` row's `rfid`), so the same transaction deletes
 them first, joined through this run's own `refimages` rows, before
 deleting those `refimages` rows; a reference belonging to another run is
 untouched, and the refusal check above already keeps this run's rows
-from being deleted out from under it (supervisor step 8, 2026-09-24,
-amending step 3, which left the three tables out of the cleanup set
-entirely). Rows with `run` NULL, which is
-everything `dev` wrote, are never touched (lead, 2026-09-23). Failure
+from being deleted out from under it. Rows with `run` NULL, which is
+everything `dev` wrote, are never touched. Failure
 before the final transaction leaves the run deleting, and re-running
-cleanup on a deleting run resumes it from wherever it stopped
-(supervisor step 3, 2026-09-24). Custody stays separate from deletion
+cleanup on a deleting run resumes it from wherever it stopped. Custody stays separate from deletion
 state. Run, unit, attempt and instance rows remain as tombstones with
 their provenance. Scratch expiry calls the same operation after the
 run's expiry date, with a warning first and a pin to hold a run.
 
 ## Storage layout
 
-Two buckets separate personal and project custody: `s3://roman-rapid-scratch/rapidpipe`
-for scratch runs, `s3://roman-rapid-products/rapidpipe` for production
+Two buckets separate personal and project custody: `s3://<scratch-bucket>/rapidpipe`
+for scratch runs, `s3://<products-bucket>/rapidpipe` for production
 runs. The launcher chooses the root from the run's kind at submission.
 A scratch run reads `RAPIDPIPE_OUTPUTS_ROOT_SCRATCH`, falling back to
 `RAPIDPIPE_OUTPUTS_ROOT` when it is unset. A production run requires
 `RAPIDPIPE_OUTPUTS_ROOT_PRODUCTION`; it never falls back to the
-unsuffixed variable, which is the scratch fallback only (supervisor
-step 3, 2026-09-24). Runs written under `rapidpipe-firstrun/` before
-2026-09-24 stay where they were written; their attempt rows carry that
-location rather than moving to the new root (supervisor step 3,
-2026-09-24). Candidate and current objects share the project bucket and
+unsuffixed variable, which is the scratch fallback only. Runs written
+under `rapidpipe-firstrun/` stay where they were written; their attempt
+rows carry that location rather than moving to the new root. Candidate and current objects share the project bucket and
 never move at promotion. Ordinary execution roles cannot delete
 completed objects; only the cleanup role deletes, and only through
 `run delete`. Within either bucket:
@@ -480,29 +444,26 @@ container's location and each alert's block locator, the offset and
 size of the Avro block holding its record plus the record's position
 within that block and within the container, since Avro compresses
 records per block and a single record has no byte range of its own
-(supervisor step 2, 2026-09-24; the [alerts](alerts) page has
-the outbox's full column list).
+(the [alerts](alerts) page has the outbox's full column list).
 
 Each kind runs under its own Batch job definition. Scratch runs use
 `rapid-rebuild`, whose job role can write only the scratch bucket;
 production runs use `rapid-rebuild-production`, whose job role can
 write `rapidpipe/*` of the products bucket and never delete, and also
 reads the scratch bucket's `rapidpipe*` prefixes, where staged inputs,
-settings overlays and input-set manifests live today (supervisor step
-3, 2026-09-24). A scratch run reads `RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH`,
+settings overlays and input-set manifests live. A scratch run reads `RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH`,
 falling back to `RAPIDPIPE_BATCH_JOB_DEFINITION` when it is unset. A
 production run requires `RAPIDPIPE_BATCH_JOB_DEFINITION_PRODUCTION`; it
-never falls back to the unsuffixed variable (supervisor step 3,
-2026-09-24).
+never falls back to the unsuffixed variable.
 
 Deletion runs under different credentials than execution. `run delete`
 runs launcher-side, under the caller's own credentials, not a Batch
-job's. On rapid-rusholme, the instance role holds `rapid-scratch-cleanup`,
+job's. On a workstation, the instance role holds `rapid-scratch-cleanup`,
 which can delete object versions under the scratch bucket's
 `rapidpipe*/runs/*` prefix and nothing else; the deletion code itself
-refuses to touch any object outside the scratch bucket. A dedicated
-cleanup principal for workstation submission is a later step
-(supervisor step 3, 2026-09-24).
+refuses to touch any object outside the scratch bucket. The dedicated
+cleanup principal for workstation submission is on the [tool](tool)
+page.
 
 ## Identifiers
 
@@ -519,8 +480,7 @@ uses the product vocabulary's unit identifiers.
 The run-model tables above land as one migration beside the baseline.
 The additive columns and widened keys on the `dev` product tables land
 one kind at a time, difference image first, each with the stage that
-writes it. Ruled by the lead 2026-09-21: the `dev` schema coexists and is
-kept as far as possible; the rebuild adds, it does not rename or drop.
+writes it. The `dev` schema coexists and is kept as far as possible; the rebuild adds, it does not rename or drop.
 
 ## Trial database
 
@@ -548,32 +508,30 @@ at an SSM tree `/rapid/<tier>/db/*` (name, host, port, secret id) that
 resolves the trial database's name, host and port, with the service
 login's password in Secrets Manager under
 `rapid/db/service/<tier>-pipeline`. Each tier runs under its own Batch
-job definition, revision-pinned to an image digest. Practised
-2026-09-22/23: trial database `rapid_rebuild`, service login
+job definition, revision-pinned to an image digest. The rebuild's own
+tier is trial database `rapid_rebuild`, service login
 `rapid_rebuild_pipeline`, tree `/rapid/rebuild`, job definition
 `rapid-rebuild`. A run created under a release submits to the revision
 that release's record deployed for the run's kind, not whatever
 revision the job definition currently pins (the [releases](releases)
-page has the mechanism; supervisor step 5, 2026-09-24).
+page has the mechanism).
 
 ## Python interface
 
 `rapidpipe.runs`, in its `repository` and `cleanup` modules,
 `rapidpipe.launch.batch`, and `rapidpipe.checks`, in its `policy` and
 `runner` modules, are the interface the command-line tool and the
-scheduler build on, as the specification's Tools section names them
-(supervisor step 3, 2026-09-24; the `checks` package added supervisor
-step 6, 2026-09-24).
+scheduler build on, as the specification's Tools section names them.
 
 | Function | Does |
 |---|---|
 | `create_run(conn, kind, owner, purpose, selected_stages, code_revision, image_digest, schema_version, settings_overlay_ref, input_selection_ref, lane, resource_profile, database_target, max_attempts_per_unit, auto_promote, check_policy_ref, seed_run=None, expires_at=None) -> run_id` | Inserts the run row and returns its id; validates that `check_policy_ref` names a real policy and refuses `auto_promote` unless that policy permits it (`CheckPolicyRefused`). |
 | `submit_unit(conn, *, run_id, stage, unit_kind, unit_id, inputs_location, settings_location=None, outputs_root=None, job_definition=None, client=None) -> BatchSubmission` | Binds the unit's inputs (`bind_unit_inputs`, below) before allocating the attempt, then starts it on Batch; when not given, the outputs root and job definition are resolved from the run's kind, production failing closed if its configuration is missing rather than falling back to scratch's; records the resolved `inputs_location`/`settings_location` on the attempt. |
-| `bind_unit_inputs(conn, *, unit_id, manifest) -> list[str]`, in `rapidpipe.runs.repository` | Writes a `unit_inputs` row for every `instance` the manifest names, in `inputs.products` and `inputs.result_sets`, that is a registered product instance; a name that resolves to no instance binds nothing and is logged, not refused; called by `submit_unit` and `run local` before allocating the attempt (supervisor step 9, 2026-09-25). |
+| `bind_unit_inputs(conn, *, unit_id, manifest) -> list[str]`, in `rapidpipe.runs.repository` | Writes a `unit_inputs` row for every `instance` the manifest names, in `inputs.products` and `inputs.result_sets`, that is a registered product instance; a name that resolves to no instance binds nothing and is logged, not refused; called by `submit_unit` and `run local` before allocating the attempt. |
 | `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
 | `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
-| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, selector, expected_before, after)`, either instance nullable; `selector` is `{"slot": {...}}`, or, only when rollback is the caller, `{"logical_key": {...}}` for a pre-migration change. Validated under `check_policy` ([checks](checks) page) (supervisor step 5a, 2026-09-26). |
-| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy: Policy \| str \| None = None, allow_unreleased=False, plan=None) -> promotion_id` | Fills the run's rows, builds its default deliverable list grouped by slot, optionally narrowed to `kinds`, and calls `promote` with it; given `plan` (the list `run promote-plan` printed), refuses under `StalePlan` if the actual current selection or the run's own candidates have moved since the plan was made (supervisor step 5a, 2026-09-26). |
+| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, selector, expected_before, after)`, either instance nullable; `selector` is `{"slot": {...}}`, or, only when rollback is the caller, `{"logical_key": {...}}` for a pre-migration change; that `logical_key` form is withdrawn by the {ref}`legacy compatibility ruling <decision-legacy-compatibility>` and stays until that change lands. Validated under `check_policy` ([checks](checks) page). |
+| `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy: Policy \| str \| None = None, allow_unreleased=False, plan=None) -> promotion_id` | Fills the run's rows, builds its default deliverable list grouped by slot, optionally narrowed to `kinds`, and calls `promote` with it; given `plan` (the list `run promote-plan` printed), refuses under `StalePlan` if the actual current selection or the run's own candidates have moved since the plan was made. |
 | `rollback_promotion(conn, promotion_id, who, reason) -> promotion_id` | Submits a past promotion's inverse mapping as a new promotion. |
 | `finish_run(conn, run_id) -> None` | Marks a run finished; refuses unless every unit is terminal. |
 | `mark_run_deleting(conn, run_id, requested_by, *, expiry=False) -> None` | The deletion fence: locks the run, runs the pre-deletion checks, and marks it deleting. `delete_run` calls it first; `expiry=True` marks the caller as the expiry sweep rather than the run's owner. |
@@ -589,12 +547,8 @@ step 6, 2026-09-24).
 | `record_attempt_locations(conn, attempt_id, inputs_location, settings_location) -> None`, in `rapidpipe.runs.repository` | Records the input-set and settings locations `submit_unit` resolved for an attempt, on `attempts.inputs_location` and `attempts.settings_location`. |
 | `resolve_jobless(conn, *, run_id, older_than_seconds, client=None) -> list[Reconciled]`, in `rapidpipe.launch.batch` | Implements `run reconcile --resolve-jobless`: for each job-less attempt, looks first for a scheduler job under its deterministic job name and repairs the attempt on exactly one match, otherwise records it `lost` once past the age threshold. |
 
-The command-line tool's `run create`, `submit`, `reconcile`, `cancel`,
-`promote`, `rollback`, `delete`, `finish`, `pin` and `unpin` are thin
-wrappers over these (supervisor step 3, 2026-09-24). Its shape is on the
-[tool](tool) page, which adds `run start`, `run status`, `run inputs`,
-`run compare` and `run expire` over these same functions (supervisor
-step 4, 2026-09-24).
+The command-line tool's `run` and `check` subcommands are thin wrappers
+over these; the [tool](tool) page has the command surface.
 
 ## Not decided here
 

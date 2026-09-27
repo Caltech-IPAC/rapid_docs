@@ -2,10 +2,9 @@
 
 **Status: DRAFT**
 
-Detail beneath the specification's "The stage contract" section, written
-2026-09-21 from the specification, the `dev` stage inventory and the `smdc`
-salvage, revised on a Codex review and approved in direction by the lead.
-A stage implementation is accepted only if it meets this contract.
+Detail beneath the specification's "The stage contract" section, drawn
+from the specification, the `dev` stage inventory and the `smdc`
+salvage. A stage implementation is accepted only if it meets this contract.
 ## In plain terms
 
 A stage is one program that takes one declared piece of work, reads the
@@ -59,12 +58,10 @@ condition that makes each input set complete.
 
 Stage names are a stable list: `admit`, `reference`, `difference`,
 `finalize`, `register`, `load`, `maintain`, `crossmatch`, `statistics`,
-`prune`, `alerts`, `photometry`, `export` (`maintain` added by the
-supervisor step 1, 2026-09-24: the stage was created by the lead's
-ruling of 2026-09-23, described on the [load](load) page, but this list
-was not amended until the port landed). Units of work are `exposure`,
+`prune`, `alerts`, `photometry`, `export` (`maintain` is described on
+the [load](load) page). Units of work are `exposure`,
 `detector-image`, `field`, `processing-date` and `detector-date`
-(`detector-date` added the same day, for `maintain`'s unit -- see
+(`detector-date` is `maintain`'s unit; see
 [maintain](maintain), "Unit").
 
 Transform stages (`reference`, `difference`, `finalize`, `photometry`)
@@ -75,8 +72,8 @@ named source sets but writing none of its own. `crossmatch`, `statistics`
 and `prune` read named, completed database result sets and write new
 run-scoped result sets; their manifests identify those input and output
 sets. `alerts` and `export` both read named, completed database result
-sets; `export` writes files only, with no database writes of its own
-(supervisor step 8, ruling R9, 2026-09-24). No stage changes another run's results or the current selection.
+sets; `export` writes files only, with no database writes of its own.
+No stage changes another run's results or the current selection.
 
 The run records the catalog versions and epoch range crossmatch used.
 Each downstream stage names its exact predecessor result set. A
@@ -116,8 +113,7 @@ own body runs, so a stage that needs to validate its kind-specific
 inputs before that return passes a `validate_inputs` callable to
 `run_stage(..., validate_inputs=<callable>)`; the runner calls it with
 the built `StageContext` after its own generic validation and before
-the `--dry-run` return, not inside the body (supervisor step 8,
-2026-09-24, a Codex plan-review finding).
+the `--dry-run` return, not inside the body.
 
 ### The manifest
 
@@ -157,7 +153,7 @@ attempt identity, completion or retry safety.
 These six are the stage subset (`STAGE_EXIT_CODES` in
 `rapidpipe/stages/contract.py`) of the one vocabulary in
 `rapidpipe/exitcodes.py`, whose full table is on the [tool](tool) page;
-a stage never exits 1 or 2 (supervisor step 1, 2026-09-26).
+a stage never exits 1 or 2.
 
 Code 69 is `sysexits`' `EX_UNAVAILABLE`, chosen over 64 (which would
 misreport a correct invocation as a usage error) and 70 (which calls
@@ -165,8 +161,7 @@ for investigation): a stub stage that validates its arguments and
 settings and then declines to run is neither of those things.
 `disposition_for` maps it to `failed`. `photometry` and `export` are
 declared stages that exit 69 for every invocation past validation in
-this build (supervisor step 8, ruling R9, 2026-09-24; see
-[photometry](photometry) and [export](export)).
+this build (see [photometry](photometry) and [export](export)).
 
 The entrypoint maps argument errors to 64 and unhandled exceptions to
 70. Forced termination is reported by the launcher, not the stage.
@@ -197,11 +192,11 @@ or paths. `make db` starts a local PostgreSQL with Q3C and applies the
 migrations; fixture setup loads the seed data. CI uses the same
 commands. The same fixture also runs through `rapidpipe selftest
 --stage <name>` on Batch, as an ordinary job against the deployed image
-and digest, replacing the docker run on rapid-admin that served until it existed; the submitted job's
+and digest; the submitted job's
 execution record is the evidence that it ran, distinct from the
-real-tool fixture gate below (lead, 2026-09-23). Each rebuilt science
+real-tool fixture gate below. Each rebuilt science
 stage also has an IMSS comparison on fixed inputs, with differences and
-tolerances approved by the lead before operational use.
+tolerances approved by the team before operational use.
 
 ## What this replaces
 
@@ -217,6 +212,6 @@ and report its outputs.
 - Each remaining kind's registration metadata; the vocabulary and the
   difference-image example are on the [products](products) page.
 - Whether delivered statistics describe associations before or after
-  pruning. A science decision for the lead.
+  pruning. A science decision left to the team.
 - The exact Batch infrastructure-failure patterns to retry.
 - The C tool packaging beneath `rapidpipe.science`.
