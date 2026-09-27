@@ -4,8 +4,8 @@
 
 This page covers what the `statistics` stage reads and what it computes.
 It also records what lands in `astroobjectsmeta`, the result set the
-stage records, its settings and its exit codes. Written 2026-09-24 from
-the port on the pipeline repository's `rebuild` branch:
+stage records, its settings and its exit codes. The stage lands on the
+pipeline repository's `rebuild` branch:
 
 - `rapidpipe/stages/statistics.py`;
 - `rapidpipe/science/statistics/lightcurve.py`;
@@ -14,8 +14,8 @@ the port on the pipeline repository's `rebuild` branch:
 - migrations `20260924-03` to `-06`.
 
 The port is of `dev`'s `pipeline/computeStatisticsForAstroObjects.py`.
-It follows the lead's rule of 2026-09-22: minimise differences to
-`dev`, and design in, off by default, anything that can be left unused.
+Every ported stage minimises differences from `dev` and designs in,
+off by default, anything that could be left unused.
 The [products](products) page fixes the vocabulary; this page records
 how the stage meets it.
 
@@ -34,8 +34,8 @@ set it reads.
 
 ## Inputs
 
-`--inputs` is `crossmatch`'s completion manifest (supervisor step 1,
-ruling R2, 2026-09-24). The stage reads its one `association-set` entry:
+`--inputs` is `crossmatch`'s completion manifest. The stage reads its
+one `association-set` entry:
 
 | Field | Used for |
 |---|---|
@@ -51,9 +51,8 @@ the stage resolves everything else through the database by instance id.
 
 ### The membership
 
-An association set is **base plus delta** (supervisor step 1, ruling
-R3, 2026-09-24): its membership is its own rows plus the membership of
-its base, recursively. The stage takes the chain of instances from
+An association set is **base plus delta**: its membership is its own
+rows plus the membership of its base, recursively. The stage takes the chain of instances from
 `objects.association_chain`, the input set first, and requires every
 set in it to be a complete, retained `association-set`.
 
@@ -66,7 +65,7 @@ This one rule replaces three steps in `dev`: its `l2files` overlap lookup
 of candidate child tables, its `pg_class` check that they exist, and its
 `diffimages.vbest > 0` join. An association set names exactly the source
 sets it was made from, so "best" is already decided upstream, by the
-launcher's input selection (supervisor step 1, ruling R7, 2026-09-24).
+launcher's input selection.
 
 ## What it runs
 
@@ -81,7 +80,7 @@ which are ported:
 | one UNION ALL query, one SELECT per child table, filtered to `diffimages.vbest > 0` | ported; one SELECT per source set, filtered by the membership instead of `vbest` |
 | delete `astroobjects_<field>` rows of objects with no best source | not ported: a stage never mutates another set's rows |
 | per object, `compute_radec_statistics`, flux mean and standard deviation, source count | ported verbatim |
-| one CSV, COPY into `astroobjectsmeta_<field>` | ported, with the run columns and through a temporary table with `ON CONFLICT DO NOTHING` (ruling R4) |
+| one CSV, COPY into `astroobjectsmeta_<field>` | ported, with the run columns and through a temporary table with `ON CONFLICT DO NOTHING` |
 | drop and recreate `astroobjectsmeta_<field>` before, index and CLUSTER it after, VACUUM ANALYZE or drop it if empty | not ported: the table is made once, with its indexes, and appended to; each attempt writes a new set beside the old ones |
 
 In order, inside one transaction:
@@ -92,10 +91,9 @@ In order, inside one transaction:
 2. With `[statistics] done_check` on, reuse a complete, retained
    statistics set with the same key already written in this run, only
    when that set's producing attempt is the calling attempt or an
-   attempt whose disposition is `succeeded` (ruling R14; the
-   attempt-disposition join is supervisor step 9, ruling R1, 2026-09-25,
-   `db/objects.find_complete_result_set` -- the [runs](runs) page has
-   the general rule). A set left by an attempt that committed rows and
+   attempt whose disposition is `succeeded` (the attempt-disposition
+   join is `db/objects.find_complete_result_set`; the [runs](runs) page
+   has the general rule). A set left by an attempt that committed rows and
    then failed, or by another attempt still without a disposition, is
    not reused; a fresh attempt writes its own set instead.
 3. Make `astroobjectsmeta_<field>` if it does not exist, through
@@ -201,13 +199,13 @@ or are never used. The rebuild's unit and input replace them.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `[statistics] done_check` | true | reuse a complete statistics set with the same key already written in this run (ruling R14) |
+| `[statistics] done_check` | true | reuse a complete statistics set with the same key already written in this run |
 | `[statistics] membership` | `association` | what the statistics describe; `pruned` is refused with 64 |
 
 Delivered statistics describe the association set, as `dev` computes
 them: `dev` runs crossmatch, then statistics, then prune. The pruned
 set as a statistics input is designed in, since the key already names
-either kind of set, and left unused (products page, lead, 2026-09-22).
+either kind of set, and left unused ([products](products) page).
 The setting names that choice so turning it on later is a settings
 change plus the code behind it.
 
@@ -240,5 +238,4 @@ set with the done check off, and base plus delta.
   deletes repeated `aid` rows of `astroobjects_<field>`, keeping the
   last written. How repeats arose in `dev`, and whether the rebuild's
   keep-the-first `ON CONFLICT` choice matches what `dev` intended,
-  remains a question for Russ (supervisor step 1, ruling R7,
-  2026-09-24).
+  remains a question for Russ.

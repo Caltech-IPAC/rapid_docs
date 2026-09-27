@@ -3,14 +3,14 @@
 **Status: DRAFT**
 
 What the `finalize` stage reads, what it republishes, the header stamp it
-writes, and its settings and exit codes. Written 2026-09-24 from the port
-landing on the pipeline repository's `rebuild` branch
+writes, and its settings and exit codes. The stage lands on the
+pipeline repository's `rebuild` branch
 (`rapidpipe/stages/finalize.py`, `rapidpipe/science/finalize/headers.py`,
 `rapidpipe/settings/finalize.toml`, `rapidpipe/products/diffimage.py`),
 ported from `dev`'s post-processing pipeline, `ppid` 17
-(`pipeline/awsBatchSubmitJobs_runSinglePostProcPipeline.py`). The port
-follows the lead's rule of 2026-09-22: minimise differences to `dev`, and
-design in, off by default, anything that can be left unused. The
+(`pipeline/awsBatchSubmitJobs_runSinglePostProcPipeline.py`). Every
+ported stage minimises differences from `dev` and designs in, off by
+default, anything that could be left unused. The
 [products](products) page fixes the vocabulary; this page records how
 the stage meets it.
 
@@ -29,8 +29,7 @@ stamp is not ported: a reference is the `reference` stage's own
 product, already an instance in its own right, and `finalize` never
 rewrites it.
 
-Chain order is `difference -> finalize -> register -> load` (supervisor
-step 2, 2026-09-24), one `register` pass, matching `dev`'s one
+Chain order is `difference -> finalize -> register -> load`, one `register` pass, matching `dev`'s one
 `diffimages` row per image. `register_manifest` writes a dependency edge
 for every producer named in `inputs.products`, and that edge has a
 foreign key to `product_instances`, so `inputs.products` can only name
@@ -150,7 +149,7 @@ written with the FITS long-string convention, `&` continuation plus
 |---|---|---|
 | `[finalize] differencer` | `zogy` | which of the input manifest's `difference-image` entries this attempt republishes, `load`'s own convention; must be `zogy` or `sfft` |
 | `[pipelines] zogy` | 15 | the `pipelines` row `PPID` records for a ZOGY-differenced image, `dev`'s science-pipeline row |
-| `[pipelines] sfft` | 16 | the `pipelines` row `PPID` records for an SFFT-differenced image, the row the lead assigned 2026-09-24 |
+| `[pipelines] sfft` | 16 | the `pipelines` row `PPID` records for an SFFT-differenced image, the row the team assigned |
 
 An invalid `[finalize] differencer`, or a non-positive value in
 `[pipelines]`, fails settings validation.
