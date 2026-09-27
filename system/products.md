@@ -4,11 +4,8 @@
 
 Companion to the [stage contract](stage-contract): the product vocabulary the
 stages' `consumes` and `produces` declarations name, what makes each product
-unique, and the metadata `register` needs from its manifest entry. Written
-2026-09-21 from the `dev` schema and the stage contract, revised on a Codex
-review, direction approved by the lead. The difference-image and l2-image
-registration field lists were fixed later the same day.
-The `dev` schema is kept (lead, 2026-09-21): its tables and columns
+unique, and the metadata `register` needs from its manifest entry.
+The `dev` schema is kept: its tables and columns
 stay as the team knows them, and this vocabulary maps onto them. Where
 the vocabulary needs something the tables lack, a column or table is
 added; nothing is renamed or dropped. The tables are named below so the
@@ -26,7 +23,7 @@ apart, and promotion says which instance consumers see.
 
 ## Identity
 
-Every instance carries three keys now (supervisor step 5a, 2026-09-26).
+Every instance carries three keys.
 The **provenance key** is what a manifest entry has always called
 `key`: for a difference image, which detector image against which
 reference with which differencer and settings. It names the exact
@@ -54,7 +51,7 @@ the database fills the rest afterward.
 The derivation, one row per kind. `k` is the provenance key; `V(x)` is
 producer instance `x`'s own identity, and `P(x)` is the slot fields
 projected from it, since every slot is a subset of its kind's identity
-fields (supervisor step 5a, 2026-09-26). Because `P(x)` reads `x`'s
+fields. Because `P(x)` reads `x`'s
 identity rather than its slot column, a producer whose own slot was
 withheld by a collision (below) does not block its
 descendants: each row still derives its own slot and identity
@@ -94,8 +91,7 @@ kind. The identity stage runs pass after pass, resolving every row
 whose own producers already have theirs, until one pass converts
 nothing more; no fixed pass count bounds it, only a very large guard
 against a cycle, and if that guard trips the call assigns no slots at
-all and counts every remaining row unresolved (supervisor step 5a,
-2026-09-26). Only once identities have settled does the fill derive
+all and counts every remaining row unresolved. Only once identities have settled does the fill derive
 every still-null slot, in one further pass, straight off each row's
 own now-filled identity; the collision rule applies exactly once at
 that point, over every current instance's slot, already held or
@@ -146,11 +142,11 @@ differencer; `kernel`, the matching-kernel solution, is a named
 optional role for SFFT. A role a differencer declares but does not
 deliver fails registration. Which member the catalog stage detects on
 is a per-differencer setting recorded with the instance: significance
-for ZOGY, difference for SFFT (lead, 2026-09-22).
+for ZOGY, difference for SFFT.
 
 The port of the difference stage minimises differences to the `dev`
 branch; improvements come later. A mechanism that can be designed in
-but left unused is designed in, off by default (lead, 2026-09-22).
+but left unused is designed in, off by default.
 
 The reference recipe names the reference pipeline and its settings, so
 two ways of building a reference for one field never share a version
@@ -163,17 +159,15 @@ logical product and a different selection is a new one.
 `refimages.version` is not this digest -- it is the legacy per-(field,
 fid, ppid) counter the table has always carried, allocated at
 registration like every other legacy version column below, globally
-across every run rather than scoped to one (supervisor step 8, ruling
-R5, 2026-09-24; corrected on scope by a Codex plan-review finding the
-same day -- see the reference-image field list and
-[reference](reference)).
+across every run rather than scoped to one (see the reference-image
+field list and [reference](reference)).
 
 `finalize` reads an immutable input instance and writes a new instance
 of the same kind in its own attempt location. Its manifest records the
 input instance, the output revision, and the sizes and checksums of the
 finalized files. `register` consumes the selected finalized instance.
 The chain, the stamped header and the source-catalog republication are
-fixed on the [finalize](finalize) page (supervisor step 2, 2026-09-24).
+fixed on the [finalize](finalize) page.
 
 Alert names are not a file product. `alerts` writes one record per
 alert (name, candidate id, first-seen time, position) into the alert
@@ -182,7 +176,7 @@ container. The outbox row's locator is a block offset and length plus
 the record's ordinal position, not a per-alert byte range, and `alerts`
 registers the container and its alert-set itself, with `register`
 validating and replaying them; both are fixed on the [alerts](alerts)
-page (supervisor step 2, 2026-09-24).
+page.
 
 ## Database result sets
 
@@ -212,7 +206,7 @@ mutated. A statistics set names the exact membership it describes, so
 Delivered statistics describe the association set, as `dev` computes
 them: `dev` runs crossmatch, then statistics, then prune. The pruned
 set as a statistics input is designed in, since the `statistics-set`
-row already keys on either, and left unused (lead, 2026-09-22).
+row already keys on either, and left unused.
 
 Every row carries the run id, the attempt id that wrote it and its
 result-set id. Keys are set-scoped: statistics for one object in two
@@ -227,15 +221,18 @@ that no active attempt or retained output depends on.
 Crossmatch needs the sources of earlier epochs, which earlier runs
 produced. Current result sets are therefore readable by any run as
 frozen inputs, by instance id; scratch result sets are readable only
-within their own run. Ruled by the lead 2026-09-21 as an amendment to
-the specification's sharing rule, so that production can accumulate a
-catalog across processing dates.
+within their own run. This amends the specification's sharing rule, so
+that production can accumulate a catalog across processing dates.
+Whether selected candidates are readable across runs, as the table below
+allows, is pending team review
+({ref}`sharing rule <decision-pending-sharing-rule>`).
 
 "Readable by any run" is narrower than it sounds, and reading is a
 different question from promotion: a stage may read an input it may
 not publish from. The table gives both answers for every product
-instance, file products and result sets alike (supervisor step 6,
-2026-09-26):
+instance, file products and result sets alike.
+
+Withdrawn by the {ref}`acceptance ruling <decision-acceptance>`: the code still behaves as described here until that change lands, and this passage changes with it.
 
 | Input's state | A stage of another run may read it | A product built from it may be promoted |
 |---|---|---|
@@ -258,6 +255,8 @@ distinguish a checked candidate from an unchecked one. Only a promotion
 needs more: complete, retained, and current, superseded or accepted,
 followed through the whole chain of dependencies, not only the instance
 named directly ([checks](checks) page has the walk).
+
+Withdrawn by the {ref}`acceptance ruling <decision-acceptance>`: the code still behaves as described here until that change lands, and this passage changes with it.
 
 Each instance settles to one of nine states, computed once by
 `rapidpipe.runs.eligibility.acceptance_state`: `deleted`, `incomplete`,
@@ -333,8 +332,7 @@ meaning the team knows:
   its SHA-256 and carries it in the registration block as `md5`; the
   SHA-256 goes to `product_members`. Nothing is stored under a name that
   misdescribes it. The MD5 carry is kept rather than dropped, which
-  would need relaxing `l2files.checksum`'s NOT NULL constraint (lead,
-  2026-09-22).
+  would need relaxing `l2files.checksum`'s NOT NULL constraint.
 - **Legacy version columns are allocated the way the team's procedures
   allocated them**, the next number for the table's logical pair, except
   where the version is delivered (the l2 image). Where registration
@@ -346,14 +344,12 @@ meaning the team knows:
   same pair at once are serialised by a transaction-level advisory
   lock, `pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`
   for `refimages`, taken before the allocation and released
-  automatically at the transaction's end (supervisor step 8, 2026-09-24,
-  a Codex plan-review finding, correcting this bullet's earlier "within
-  the run" wording).
+  automatically at the transaction's end.
 - **Legacy current flags are never set at registration.** `vbest` is 0
   on every row a run writes; custody lives on the instance row.
   Promotion maintains `vbest` on the `dev` tables for the team's
   existing queries, alongside `current_selection`; consumers moving to
-  `current_selection` is a later improvement (lead, 2026-09-22).
+  `current_selection` is a later improvement.
 
 For the difference image (`difference` makes it, `register` records it):
 
@@ -361,14 +357,14 @@ For the difference image (`difference` makes it, `register` records it):
 |---|---|---|
 | l2 instance | manifest identity | `diffimages.rid`, with `expid` and `sca` copied from that `l2files` row |
 | reference instance | manifest identity | `diffimages.rfid`: that instance's `refimages` row, through the `instance` column added with the `difference` stage; for a reference registered by `dev`, which has no instance, the legacy rfid the registration block carries as `reference_rfid` |
-| differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage. When the stage runs both ZOGY and SFFT, both register, each its own `difference-image` instance with its own `diffimages` row and `ppid` (ZOGY 15, SFFT 16); `[sfft] register_sfft` turns SFFT's registration off (lead, 2026-09-26). Which instance consumers read is a promotion choice under the planned slot supersession, not a code default. `dev`'s own stored sources for the control exposure it processed are its SFFT difference's, not ZOGY's (`log/2026-09-26-direction-review.md`, "Science verification"), so the rebuild does not copy `dev`'s choice here; it registers both. The naive subtraction is an optional diagnostic file, never a registered instance. |
+| differencer | manifest identity | `diffimages.ppid`: the `pipelines` row for the differencer; the name-to-row mapping is fixed with the `difference` stage. When the stage runs both ZOGY and SFFT, both register, each its own `difference-image` instance with its own `diffimages` row and `ppid` (ZOGY 15, SFFT 16); `[sfft] register_sfft` turns SFFT's registration off. Which instance consumers read is a promotion choice under the planned slot supersession, not a code default. `dev`'s own stored sources for the control exposure it processed are its SFFT difference's, not ZOGY's, so the rebuild does not copy `dev`'s choice here; it registers both. The naive subtraction is an optional diagnostic file, never a registered instance. |
 | settings hash | manifest identity | the instance's provenance key only; no legacy column |
 | field, filter, observation time | lookup on the l2 instance | `field`, `fid`, `jd` (from that row's `mjdobs`), on `diffimages` and `diffimmeta` |
 | image centre and four corners (RA, Dec) | manifest, from the difference WCS | `ra0`, `dec0` to `ra4`, `dec4` |
 | reference info bits | manifest, `infobits_reference` | `infobitsref`: the reference instance's info bits |
 | catalog-outcome mask | manifest, `catalog_outcome_bits`, set per job when no Photutils catalog was produced | `infobitssci`, its `dev` meaning kept: a six-bit mask, one bit per differencer and sign (see below). The manifest also carries `infobits_science`, the l2 image's quality bits; only the mask is registered. |
-| source counts per catalog type and sign | manifest | `diffimmeta.source_counts`, all of them as the manifest carries them; `diffimmeta.nsexcatsources` holds the SExtractor positive count for the team's existing queries. Both catalog families, SExtractor and Photutils, are retained in the rebuild (lead, 2026-09-22). |
-| registration residuals: x and y RMS and median | manifest | `dxmedianfin`, `dymedianfin`: the measured offsets. `dxrmsfin`, `dyrmsfin`: the measured astrometric residual RMS from gain matching, not the value ZOGY itself is fed; ZOGY's own astrometric input (`[zogy] astrometric_sigma`, a named stage setting) stays 0.0 as `dev`'s override (lead, 2026-09-23, superseding the 2026-09-22 ruling that registered 0.0). |
+| source counts per catalog type and sign | manifest | `diffimmeta.source_counts`, all of them as the manifest carries them; `diffimmeta.nsexcatsources` holds the SExtractor positive count for the team's existing queries. Both catalog families, SExtractor and Photutils, are retained in the rebuild. |
+| registration residuals: x and y RMS and median | manifest | `dxmedianfin`, `dymedianfin`: the measured offsets. `dxrmsfin`, `dyrmsfin`: the measured astrometric residual RMS from gain matching, not the value ZOGY itself is fed; ZOGY's own astrometric input (`[zogy] astrometric_sigma`, a named stage setting) stays 0.0 as `dev`'s override. |
 | reference scale factor | manifest | `scalefacref` |
 | spatial indexes | derived from the centre at registration | `hp6`, `hp9` on both tables |
 | file path | manifest primary member, resolved against the attempt's output location | `filename` |
@@ -388,8 +384,7 @@ For the difference image (`difference` makes it, `register` records it):
 - bit 4: naive positive
 - bit 5: naive negative
 
-For the reference image (`reference` makes it, `register` records it;
-supervisor step 8, rulings R6-R7, 2026-09-24):
+For the reference image (`reference` makes it, `register` records it):
 
 | Field | Source | Column |
 |---|---|---|
@@ -413,10 +408,9 @@ supervisor step 8, rulings R6-R7, 2026-09-24):
 | file path | manifest primary member | `refimages.filename` |
 | software version | allocation from the run's code revision | `refimages.svid`: one `swversions` row per code revision, made on first use, as `difference` allocates |
 | current flag, status | allocation; never current at registration | `refimages.vbest` 0, `status`: the block's `status`, 1 |
-| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` -- `psfs`, `diffimages` and `l2files` record the registering attempt instead, so `refimages` is the one exception (WP-B's finding, supervisor step 8, 2026-09-24) |
+| run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` -- `psfs`, `diffimages` and `l2files` record the registering attempt instead, so `refimages` is the one exception |
 
-For the reference catalog (`reference` makes it, `register` records it;
-supervisor step 8, rulings R6-R7, 2026-09-24):
+For the reference catalog (`reference` makes it, `register` records it):
 
 | Field | Source | Column |
 |---|---|---|
@@ -537,7 +531,7 @@ lookups and defaults. It does not read product files.
   stage. `light-curve`'s declared contract, pending the real port, is on
   the [photometry](photometry) page. `catalog-export`'s registration
   field list is fixed with the `export` stage, on the [export](export)
-  page (supervisor step 8, 2026-09-24, ruling R12). The source set's
+  page. The source set's
   rows and result-set record, and the `psf` block, are on the
   [load](load) page. The `alert-container` registration block and the
   `alert-set` result set are on the [alerts](alerts) page.
@@ -545,8 +539,4 @@ lookups and defaults. It does not read product files.
   output location.
 - Closed by the Identity section above: a derived product's science
   identity, and the slot it supersedes by, are now derived for every
-  kind, not only `l2-image` (supervisor step 5a, 2026-09-26). This was
-  the design decision recorded open at supervisor step 9, ruling R6,
-  2026-09-25, carried from step 6; the specification's own "Not decided
-  here" list still points at that ruling and needs its pointer updated
-  to this section (flagged, not this step's file to edit).
+  kind, not only `l2-image`.
