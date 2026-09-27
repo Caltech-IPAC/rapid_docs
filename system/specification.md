@@ -2,10 +2,11 @@
 
 **Status: DRAFT**
 
-Written 2026-09-21 from a stepwise interview with the pipeline lead, revised
-on a Codex review and on the lead's reading. It replaces the earlier design
-corpus, which remains in this repository's history. The team reviews this
-page at the cutover to SMDC; nothing becomes ADOPTED without that review.
+This page replaces the earlier design corpus, which remains in this
+repository's history. The team owns the design it states. Rulings are
+recorded on the [decisions](decisions) page, and a ruling is the team's
+once it is there. The team reviews this page at the cutover to SMDC;
+nothing becomes ADOPTED without that review.
 ## Purpose
 
 RAPID (Roman Alerts Promptly from Image Differencing) finds transients in
@@ -126,7 +127,8 @@ reserved for regular operations.
 - **Current**: what consumers see now.
 
 Regular operations produce candidates that become current automatically
-when their checks pass. Reprocessing produces candidates that a person
+when their checks pass under a policy the team has approved for automatic
+promotion. Reprocessing produces candidates that a person
 promotes after verification. Experiments produce scratch and stop there.
 Superseded current outputs return to candidate with their history
 retained.
@@ -149,9 +151,19 @@ conflicting promotions are refused for review. Each promotion records
 who did it, why, and the previous and replacement selections, so an
 earlier selection can be restored.
 
-Automatic promotion stays off until the lead approves the checks that
-gate it. Each candidate records its check results; a failed or missing
-check leaves it a candidate.
+A candidate is eligible for promotion when the required checks of its
+check policy pass; there is no separate acceptance record, and a check
+that fails falsely is fixed in the policy file. A dependency is satisfied
+when the instance it names is current or superseded, or is promoted in
+the same request. Each candidate records its check results; a failed or
+missing check leaves it a candidate.
+
+Automatic promotion happens only under a check policy the team has
+approved for it. The scheduled loop promotes through the same gate as a
+person's `run start`, so under a trial policy a date's production run
+stays a candidate until a person promotes it
+({ref}`loop promotion <decision-loop-promotion>`,
+{ref}`acceptance <decision-acceptance>`).
 
 ### Attempts, retries and deletion
 
@@ -176,7 +188,7 @@ affected run identifier and a meaningful exit status. Each stage is also
 a plain script that the tool calls and a person can call directly.
 Design the interface around these operations and the stage contracts;
 the previous tool is not the starting point. The tool's subcommands are
-on the [tool](tool) page (supervisor step 4, 2026-09-24).
+on the [tool](tool) page.
 
 ## Repositories
 
@@ -211,7 +223,7 @@ released artifact; tagging related source afterwards is not enough.
 Schema deployment documents migration order, compatibility with active
 runs, and recovery, before operations move to a release. The release
 mechanism, its record and its command are on the [releases](releases)
-page (supervisor step 5, 2026-09-24).
+page.
 
 ## Edges
 
@@ -245,8 +257,15 @@ write the manifests and are outside this specification.
   live in `rapid_systems`.
 - Protected branches with required CI checks on `main` in all three
   repositories.
-- Requirements carried from the retired issue backlog on 2026-09-21,
-  each still binding on the rebuild:
+- Latency, provisional until the team confirms or replaces it: each
+  detector image's alerts are current within an hour of its delivery,
+  typically, with a longer tail accepted for dense fields; RAPID's share
+  is kept short against the exposure-to-L2 delay
+  ({ref}`latency <decision-latency>`). Per-delivery batches, fan-out
+  within a date over detector images, and the difference stage's runtime
+  as the binding constraint follow from this number.
+- Requirements carried from the retired issue backlog, each still
+  binding on the rebuild:
   - The alert stream retains two months at the project level; the
     stream itself is not the archive, so an archive sink with stated
     retention and ownership is required before alerts are published.
@@ -264,8 +283,7 @@ write the manifests and are outside this specification.
     resolve the endpoint and credential in one order: an explicit
     `endpoint=`/`credentials=` argument first; then the `PG*` environment
     when those variables are set (`RAPID_DB_SECRET_ID` still resolves the
-    credential from Secrets Manager ahead of `PGUSER`/`PGPASSWORD`); then,
-    designed in but unused by any caller as of 2026-09-22, the Batch
+    credential from Secrets Manager ahead of `PGUSER`/`PGPASSWORD`); then the Batch
     estate's `RAPID_PARAMETER_PATH` SSM parameter tree, whose
     `db/server`/`db/port`/`db/name`/`db/secret-id` keys supply the
     endpoint and, via the same Secrets Manager resolver, the credential.
@@ -279,7 +297,7 @@ write the manifests and are outside this specification.
 ## Sequencing
 
 Specification first, then the rebuild by part, each part a pull request
-that CI verifies and the lead merges. Proposed order, earliest first:
+that CI verifies and a team member merges. Proposed order, earliest first:
 
 1. Repository boundaries: move schema, glue and build recipe into
    `rapid`; strip personal tooling and residue from all three repos;
@@ -289,7 +307,7 @@ that CI verifies and the lead merges. Proposed order, earliest first:
    requirements and recording why each remaining issue is closed.
 2. Stage entrypoints: one runnable script per stage against a local
    fixture, with the test data to exercise it. Each rebuilt science stage
-   is compared with the IMSS reference on fixed inputs, and the lead
+   is compared with the IMSS reference on fixed inputs, and the team
    approves expected differences and tolerances before it enters regular
    operations.
 3. Runs, attempts and the three output states in the schema and storage
@@ -301,13 +319,10 @@ that CI verifies and the lead merges. Proposed order, earliest first:
    the above have been exercised ([loop](loop) page).
 8. Slower pipelines and exports.
 
-Part 1 was partly done before the run of 2026-09-24 (the schema, glue
-and build recipe live in `rapid`); the `smdc` branch's inventory
-against `dev` and the triage of existing issues against this
-specification were not carried out as a discrete pass and remain open.
-Parts 2 through 8 landed as prototypes on the
-`rebuild` branch, each under one or more of releases rebuild-v0.1
-through rebuild-v0.6, cut 2026-09-24 and 2026-09-25: part 2 (stage
+Part 1 is partly done: the schema, glue and build recipe live in
+`rapid`; the `smdc` branch's inventory against `dev` and the triage of
+existing issues against this specification remain open. Parts 2 through
+8 exist as prototypes on the `rebuild` branch: part 2 (stage
 entrypoints) on [stage-contract](stage-contract) and the per-stage
 pages [reference](reference), [difference](difference), [load](load),
 [maintain](maintain), [crossmatch](crossmatch), [statistics](statistics),
@@ -316,31 +331,29 @@ pages [reference](reference), [difference](difference), [load](load),
 [export](export); part 3 (runs, attempts, the three output states) on
 [runs](runs); part 4 (the command-line tool) on [tool](tool); part 5
 (releases) on [releases](releases); part 6 (candidate checks, promotion
-and recovery by hand) on [checks](checks) and the recovery rulings on
+and recovery by hand) on [checks](checks) and the recovery rules on
 [runs](runs); part 7 (the scheduled processing-date loop) on
-[loop](loop), proved by one unattended trigger running two processing
-dates end to end; part 8 (slower pipelines and exports) on
+[loop](loop); part 8 (slower pipelines and exports) on
 [reference](reference) and [export](export), with the light-curve HATS
 catalog and forced photometry still declared stubs on
-[photometry](photometry). Every part is a prototype pending the lead's
+[photometry](photometry). Every part is a prototype pending the team's
 review at the SMDC cutover; none is ADOPTED.
 
 ## Not decided here
 
 - The checks that gate automatic promotion: their content is scientific
-  and the lead's. The rebuild ships `rebuild-trial@1`, approved at trial
-  level by this supervisor step, under which a person can promote by
-  hand; a lead-approved policy, and whether it permits automatic
-  promotion, remain open ([checks](checks) page).
+  and the team's. The rebuild ships `rebuild-trial@1`, a trial-level
+  policy under which a person promotes by hand; a team-approved policy,
+  and whether it permits automatic promotion, remain open
+  ([checks](checks) page).
 - The boundary between mission-supplied data and RAPID-derived
   products, and what each side's retention and provenance owe.
 - Admission rules for duplicate, incomplete or corrected inputs: the
   delivery-side handling (identical re-delivery refused, checksum
   conflict quarantined, a corrected version deferred) now lives on the
-  [loop](loop) page's discovery and classification rule (supervisor
-  step 4, 2026-09-26). Still open: the science half of the input
-  contract (discovery, completeness, versioning), and a date's boundary
-  in wall-clock or observatory time (supervisor step 7, 2026-09-27).
+  [loop](loop) page's discovery and classification rule. Still open:
+  the science half of the input contract (discovery, completeness,
+  versioning), and a date's boundary in wall-clock or observatory time.
 - Reference-image eligibility and selection rules, and where the
   reference PSF is resolved from. The [reference](reference) page
   records `dev`'s selection rule as the launcher's to implement; the
@@ -358,5 +371,5 @@ review at the SMDC cutover; none is ADOPTED.
   by default in the shipped [alerts](alerts) stage; which protocol, if
   any, replaces that default is still open.
 
-Stage contracts and the promotion rules must be approved before their
-implementations are accepted.
+Stage contracts and the promotion rules must be approved by the team
+before their implementations are accepted.
