@@ -1,6 +1,6 @@
 # Unported forced photometry
 
-Not ported. The rebuild carries no photometry stage. Forced
+**Status: DRAFT.** Not ported. The rebuild carries no photometry stage. Forced
 photometry stays `dev`'s standalone script,
 `pipeline/forcedPhotometryForField.py`, given a field and a CSV of
 `reqid, ra, dec` sky positions; no `ppid` row exists for it in `dev`'s
