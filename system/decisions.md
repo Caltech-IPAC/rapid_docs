@@ -145,8 +145,8 @@ or removes it here.
   `catalog-counts-vs-reference` advisory. (2026-09-24, 2026-09-26)
 - `run_policy_checks` fills every candidate's slot before any check
   runs. (2026-09-26)
-- Known defect, recorded not fixed: the dependency walk can miss a
-  check-result row committed after the gate's read. (2026-09-27)
+- Known defect, recorded not fixed: the gate can miss a check-result
+  row committed after its read. (2026-09-27)
 - Checks run outside the pipeline image, on a workstation or the
   launcher host, reaching the database through the instance role.
   (2026-09-24)

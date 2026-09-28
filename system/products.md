@@ -237,7 +237,7 @@ instance, file products and result sets alike.
 | Scratch, own run | yes | no, scratch never leaves scratch |
 | Scratch, another run | no, exit 65 | no |
 | Candidate, from an unselected attempt | no, exit 65 | no |
-| Candidate, selected | yes | yes, once its own required checks pass under the resolved check policy ([checks](checks) page has the gate) |
+| Candidate, selected | yes | yes, once it is itself promoted, earlier or in the same request, where it passes the gate on its own ([checks](checks) page has the gate) |
 | Current | yes | yes |
 | Superseded (current before, candidate now) | yes, as any candidate from a selected attempt | yes |
 
