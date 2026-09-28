@@ -2,39 +2,32 @@
 
 **Status: DRAFT**
 
-What the `reference` stage reads, what it runs, what it publishes, what
-`register` records for it, and the settings it takes. The stage is
-planned from the inventory of
-`dev`'s reference pipeline, `ppid` 12
+The `reference` stage coadds already-admitted science frames for one
+field and filter with `awaicgen`, catalogs the coadd with SExtractor,
+and stamps bookkeeping keywords on the result. It ports `dev`'s chain
+as a transform stage: an input set names the frames, the tools run in
+the same order, and the stage writes one reference-image bundle and one
+reference-catalog instance. It declares no database access and touches
+no database. `register` records both products afterwards, the same
+division `difference` and `finalize` already use.
+
+The stage is planned from the inventory of `dev`'s reference pipeline,
+`ppid` 12
 (`pipeline/awsBatchSubmitJobs_launchSingleReferenceImagePipeline.py`,
 `pipeline/referenceImageSubs.py`), onto the pipeline
 repository's `rebuild` branch as `rapidpipe/stages/reference.py`,
 `rapidpipe/science/reference/`, `rapidpipe/settings/reference.toml` and
 the packaged `cdf/rapidSex*RefImage*` files. Every ported stage
 minimises differences from `dev` and designs in, off by default,
-anything that could be left unused. The
-[products](products) page fixes the vocabulary; this page records how
-the stage meets it.
-
-## In plain terms
-
-`dev` builds a reference image for one field and filter by coadding a
-handful of already-admitted science frames with `awaicgen`, cataloging
-the coadd with SExtractor, and stamping the result with bookkeeping
-keywords before registering it. The rebuild ports that chain as a
-transform stage: `reference` reads an input set naming the frames to
-coadd, runs the same tools in the same order, and writes one
-reference-image bundle and one reference-catalog instance. It touches
-no database; `register` records both afterwards, the same division
-`difference` and `finalize` already use.
+anything that could be left unused. The [products](products) page fixes
+the vocabulary.
 
 ## Inputs
 
-Stage `reference`, unit kind `field`, unit id `<rtid>/<filter>` (for
-example `4711398/W146`): one reference per (field, filter) per run, the
-filter part of the logical key so a run may build several filters of
-one field. `reference` is a transform stage and declares no database
-access.
+Stage `reference` has unit kind `field` and unit id `<rtid>/<filter>`
+(for example `4711398/W146`). It builds one reference per (field,
+filter) per run. The filter is part of the logical key, so a run may
+build several filters of one field.
 
 Filter names are RAPID's own spelling, `W146` not `F146`: FITS `FILTER`
 headers and the `filters` table carry `W146`, and lookups against
@@ -50,14 +43,12 @@ the unit's filter, checks `N >= [selection] min_frames` (`dev` 2) and
 coadds at most `[selection] max_frames` (`dev` 25) frames in manifest
 order; any violation of those three checks exits 65.
 
-Which frames overlap the field is not this stage's decision: it is the
-launcher's selection rule, `dev`'s `get_overlapping_l2files` --
-science images of the same filter, `overlapfields @> field`, `vbest >
+The launcher selects overlapping frames to build the manifest, using
+`dev`'s `get_overlapping_l2files`: science images of the same filter,
+`overlapfields @> field`, `vbest >
 0`, `mjdobs` in `[start, end)`, ordered by `mjdobs` then distance from
-the tile centre. That rule is recorded here because it is the rule
-the launcher implements to build the manifest `reference` reads;
-`reference` itself does not check it and reads no database. Eligibility
-and selection beyond that sentence stay not decided (see
+the tile centre. `reference` does not check this selection rule.
+Eligibility and selection beyond it remain undecided (see
 [specification](specification), "Not decided here").
 
 ## What it runs
@@ -65,14 +56,14 @@ and selection beyond that sentence stay not decided (see
 The steps are `dev`'s, in `dev`'s order, one module each under
 `rapidpipe.science.reference`:
 
-1. **Per-frame preparation.** For each input frame: HDU 1's data is
-   divided by `EXPTIME` (`BUNIT` becomes `DN/s`), then scaled to the
-   filter zero point by `× 10^(0.4 × (zprefimg − ZPTMAG))`. An
-   uncertainty image is built from a gain and read-noise model,
+1. **Per-frame preparation.** Divide HDU 1's data by `EXPTIME`
+   (`BUNIT` becomes `DN/s`), then scale it to the filter zero point by
+   `× 10^(0.4 × (zprefimg − ZPTMAG))`. Build an uncertainty image from
+   a gain and read-noise model,
    `sqrt(|data_norm| · exptime / gain + rn²) / exptime × scale`. Both
    are written as PRIMARY-HDU FITS files carrying the frame's SCI
-   header. The JD range and the total exposure time are accumulated
-   across the frames as they are prepared.
+   header. Accumulate the JD range and total exposure time across the
+   frames.
 2. **awaicgen.** Run from the stage's work directory over the prepared
    image and uncertainty lists, tile-centred, at the mosaic geometry in
    `[mosaic]` and 0.11 arcsec pixels:
@@ -92,8 +83,6 @@ The steps are `dev`'s, in `dev`'s order, one module each under
    | `-o1`, `-o2`, `-o3` | output mosaic image, coverage map, uncertainty image |
    | `-v` | verbose |
 
-   awaicgen writes the mosaic image, a coverage map and an uncertainty
-   image.
 3. **SExtractor.** Runs on the mosaic image with the uncertainty image
    as its weight, the same convention `dev`'s
    `generateSExtractorReferenceImageCatalog` uses, against the packaged
@@ -103,9 +92,6 @@ The steps are `dev`'s, in `dev`'s order, one module each under
    (median, min, max, read from the SExtractor catalog as `dev`'s
    `parse_ascii_text_sextractor_catalog` does) are computed exactly as
    `dev` computes them for `refimmeta`.
-
-Fake-source injection is not ported: it is a test-only branch in `dev`,
-recorded here and left out.
 
 ## Outputs and the header
 
@@ -123,45 +109,47 @@ run-model stamp `finalize` already uses (`RUN`, `ATTEMPT`, `INSTANCE`,
 `STAGE`). Both files are rewritten with astropy's `checksum=True`, so
 `CHECKSUM` and `DATASUM` are recomputed.
 
-Three departures from `dev` are recorded here rather than hidden in the
-code: `FID` is not stamped, because it is a database id and `register`
-derives it, not the stage; `[psfcat]` -- `dev`'s Photutils reference
-catalog -- is designed in and off, since it needs a PSF input this step
-does not produce; and fake-source injection is not ported at all.
+`FID` is not stamped: it is a database id that `register` derives.
+The other departures from `dev` concern optional work. `[psfcat]`,
+`dev`'s Photutils reference catalog, is designed in and off because it
+needs a PSF input this step does not produce. Fake-source injection,
+a test-only branch in `dev`, is not ported.
+
+Gain matching in `difference` reads `zero_point` from the reference
+image's `MAGZP` header keyword. Its `[awaicgen] zprefimg` setting
+remains available only as an explicit override of that header value.
 
 ## Identity
 
 The reference-image logical key is `{"field": "<rtid>", "filter":
 "<name>", "recipe": "awaicgen", "version": "<selection digest>"}`. The
-selection digest is the full SHA-256 digest, hex-encoded, over the
-sorted constituent `l2-image` instance ids, joined by newlines, plus the
-resolved settings hash: rebuilding the same selection makes another
-instance of the same logical product, and a different selection makes a
-new one; the full digest is kept rather than a truncated prefix, since
-truncating buys nothing here and only adds collision risk.
-`refimages.version` is
-not this digest -- it is the legacy per-(`field`, `fid`, `ppid`) counter
-the table has always carried, allocated at registration the way
-[products](products) describes for every legacy version column.
+selection digest is the full hex-encoded SHA-256 digest over the sorted
+constituent `l2-image` instance ids, joined by newlines, plus the
+resolved settings hash. Rebuilding the same selection makes another
+instance of the same logical product; a different selection makes a
+new product. Truncating the digest offers no benefit and adds collision
+risk, so the full digest is kept.
 
-Because registration keeps `dev`'s `addRefImage` unchanged, that counter
-is allocated globally across every run, `coalesce(max(version), 0) + 1`
-over the whole `refimages` table for the triple, not scoped to the
-registering run; the run is still recorded on the row, on `run`,
-`attempt` and `instance`, but does not bound the counter (correcting an
-earlier "within the run" wording). Two attempts racing to register a
-reference for the same
-`(field, fid, ppid)` are serialised by a transaction-level advisory
-lock, `pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`,
+`refimages.version` is a separate legacy per-(`field`, `fid`, `ppid`)
+counter, allocated at registration as [products](products) describes
+for every legacy version column. `dev`'s unchanged `addRefImage`
+allocates `coalesce(max(version), 0) + 1` over the whole `refimages`
+table for that triple, across all runs. The row records `run`,
+`attempt` and `instance`, but the run does not bound the counter. This
+corrects the earlier "within the run" wording.
+
+A transaction-level advisory lock,
+`pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`,
+serialises attempts registering the same `(field, fid, ppid)`. It is
 taken before `addRefImage` allocates the version and released
-automatically at the transaction's end, rather than left to race on
-`MAX(version) + 1`; still not decided beyond that lock (see Not decided
-here).
+automatically at transaction end, preventing a race on
+`MAX(version) + 1`. Concurrency beyond that lock remains undecided
+(see Not decided here).
 
 ## Registration
 
-`register` learns both new kinds, `rapidpipe/products/refimage.py` and
-`rapidpipe/db/refimages.py`.
+`register` handles both new kinds through
+`rapidpipe/products/refimage.py` and `rapidpipe/db/refimages.py`.
 
 The `reference-image` registration block: `md5` (the primary member),
 `status` 1, `infobits` 0 (`dev`'s TODO; no code sets bits yet), `field`
@@ -172,21 +160,15 @@ instance ids), `nframes`, `mjdobs_min`, `mjdobs_max`, `jd_start`,
 `medncov`, `medpixunc`, `npixnan`, `clmean`, `clstddev`, `clnoutliers`,
 `gmedian`, `datascale`, `gmin`, `gmax`, `fwhmmedpix`, `fwhmminpix`,
 `fwhmmaxpix`, `nsexcatsources`, `npucatsources`, `settings_hash`. The
-block's `nsexcatsources` field maps to `refimmeta.nsxcatsources` --
-`dev`'s column, not the block's spelling. `npucatsources` is null when
-`[psfcat]` is off; `refimmeta.npucatsources` is `NOT NULL` in the
-baseline schema, so a new migration, `20260924-09`, drops that
-constraint before a null can be written. `dev`'s `refimmeta` names
-are kept for the measurements
-because they are the target columns. The `reference-catalog` block:
+block's `nsexcatsources` field maps to `dev`'s column
+`refimmeta.nsxcatsources`, whose spelling differs. The measurements
+keep `dev`'s `refimmeta` names because they are the target columns.
+`npucatsources` is null when `[psfcat]` is off; the migration needed
+for that null is described below.
+
+The `reference-catalog` block:
 `md5`, `status` 1, `catalog_type` (`sextractor` maps to `cattype` 1,
 `psf` to 2), `source_count`.
-
-The zero-point handoff to `difference` is settled: gain matching reads
-`zero_point` from the reference image it is given, by its `MAGZP`
-header keyword, rather than from a setting of its own. The stage's
-`[awaicgen] zprefimg` setting still exists, but
-only as an explicit override of the header value.
 
 Registration writes four tables:
 
@@ -194,17 +176,15 @@ Registration writes four tables:
   `hp6`/`hp9` from the centre, `fid` from the `filters` table by name,
   `ppid` 12, `status`, `filename` (the primary member's location),
   `checksum` (`md5`), `infobits`, `svid`, then `run` and `instance` set
-  the way `psfs.py` sets them. `attempt` departs from that pattern: it
-  is the *producing* attempt, the `reference` attempt that wrote the
-  manifest and is carried in it, not the attempt running `register`.
+  as in `psfs.py`. `attempt` is the *producing* `reference` attempt
+  carried in the manifest it wrote.
   `psfs.py`, `diffimages` and `l2files` all record the *registering*
   attempt in their own `attempt` columns instead; `refimages` is the one
-  exception. `vbest` stays 0; promotion is the promotion ruling's job,
-  not registration's.
+  exception. `vbest` stays 0; the promotion ruling governs promotion.
 - `refimmeta`, one row, through `registerRefImMeta` with the block's
   measurements.
 - `refimimages`, one `(rfid, rid)` row per constituent whose
-  `l2files.instance` matches an admitted frame -- a constituent without
+  `l2files.instance` matches an admitted frame. A constituent without
   a matching `l2files` row fails registration, exit 65: the run must
   register its admitted frames before it can register a reference built
   from them.
@@ -213,22 +193,22 @@ Registration writes four tables:
   manifest, or already present in `refimages`), `ppid` 12, `cattype`,
   and `field`/`hp6`/`hp9`/`fid` copied from the `refimages` row.
 
-Replay is checked against the registration block, not only against
-`register_manifest`'s identity and member-metadata comparison: an
-instance already registered whose stored block matches the manifest's is
-a no-op, and writes no satellite row a second time; a block that
-differs from what is already stored is an error, since `addRefImage`
-and `registerRefImCatalog` would otherwise silently update an existing
-row. Two migrations are needed, not none:
-`20260923-02-refimages-instance.sql`
-already covers `refimages`, and `20260924-09` drops `npucatsources`'s
-`NOT NULL` constraint (above). The three satellite tables carry no run
-column of their own and are reached only through their owning
-`refimages` row's `rfid`; deletion does not already handle them on that
-account alone -- what cleanup does with a scratch run's own reference is
-fixed on the [runs](runs) page's deletion section, amending its
-cleanup-set sentence. Where a stored function the trial database lacks
-is needed, it is ported inline into the register code, as `sources.py`
+Replay checks the registration block as well as `register_manifest`'s
+identity and member-metadata comparison. If an already-registered
+instance's stored block matches the manifest's, replay is a no-op and
+writes no satellite row twice. A different block is an error:
+`addRefImage` and `registerRefImCatalog` would otherwise silently update
+an existing row.
+
+Two migrations are needed. `20260923-02-refimages-instance.sql` already
+covers `refimages`; `20260924-09` drops the baseline schema's `NOT NULL`
+constraint on `refimmeta.npucatsources` before a null can be written.
+The three satellite tables have no run column and are reached only
+through their owning `refimages` row's `rfid`. That relationship alone
+does not provide deletion handling. The [runs](runs) page's deletion
+section fixes cleanup of a scratch run's own reference, amending its
+cleanup-set sentence. Any needed stored function missing from the trial
+database is ported inline into the register code, as `sources.py`
 already does, and recorded.
 
 ## Settings
@@ -269,20 +249,22 @@ on `dev`:
 
 ## Local execution
 
+The invocation form is shared by every stage
+([stage-contract](stage-contract)):
+
 ```
 rapidpipe stage reference --run <run-id> --unit <rtid>/<filter> --attempt <attempt-id> \
     --inputs <dir-or-s3-prefix> --outputs <dir-or-s3-prefix> \
     [--settings <toml>] [--dry-run]
 ```
 
-the one invocation form every stage shares ([stage-contract](stage-contract)).
 A selftest fixture is planned under `rapidpipe/selftest/fixtures/reference/`:
 three tiny synthetic frames under 1 MB, a fake `awaicgen` that mean-stacks
 the reformatted inputs onto a small TAN mosaic, and the existing fake
 `sex` pattern; `--real-tools` runs the image's own `awaicgen` and `sex`
-on the same frames. Registered in `selftest/runner.py`'s `STAGE_NAMES`
-and the Makefile as `stage-reference`, the same pattern every other
-stage's fixture follows.
+on the same frames. The fixture is registered in `selftest/runner.py`'s
+`STAGE_NAMES` and the Makefile as `stage-reference`, following the other
+stages' fixture pattern.
 
 ## Not decided here
 
