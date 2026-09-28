@@ -2,15 +2,14 @@
 
 **Status: DRAFT**
 
-Any team member edits this page directly, adding one dated line per
-ruling with the author's name; CI on `main` is the only gate. A ruling is
-the team's once it is on this page, and the design pages state the rule
-itself and cite this page where the attribution matters.
+Any team member can add a ruling directly, with one dated line and the
+author's name. CI on `main` is the only gate. Once recorded here, a
+ruling belongs to the team. Design pages state the rule and cite this
+page where attribution matters.
 
 ## Rulings
 
-Ben's rulings of 2026-09-27 on the open questions of the rebuild, as he
-gave them.
+Ben's rulings of 2026-09-27 on the rebuild's open questions.
 
 (decision-trial-database)=
 **SMDC database**: dedicated to the rebuild. dev's scripts never run
@@ -19,22 +18,22 @@ swversions) are a cutover item, not a defect. (Ben, 2026-09-27)
 
 (decision-science-flow)=
 **dev-to-rebuild science flow**: the rebuild side owns it. Each ported
-module under `rapidpipe/science` pins the dev file and commit it was
-copied from; a CI script on `rebuild` reports dev commits since each pin
-that touched the source; porting stays by hand. (Ben, 2026-09-27)
+module under `rapidpipe/science` pins its source dev file and commit.
+A CI script on `rebuild` reports later dev commits that touched each
+pinned source. Porting stays by hand. (Ben, 2026-09-27)
 
 (decision-loop-promotion)=
-**Loop promotion**: the spec. The loop uses the same auto-promote gate as
-`run start`; under a trial policy a date's production run stays a
-candidate until a person promotes it or a team-approved policy with
-automatic promotion exists. loop.md and the unit test that expects the
-opposite change. (Ben, 2026-09-27)
+**Loop promotion**: follow the spec. The loop uses the same auto-promote
+gate as `run start`. Under a trial policy a date's production run stays
+a candidate until a person promotes it or a team-approved policy with
+automatic promotion exists. Change loop.md and the unit test that
+expects the opposite. (Ben, 2026-09-27)
 
 (decision-acceptance)=
 **Acceptance**: "required checks pass" only. The acceptances table,
-`check accept` and the nine derived ancestor states go; the ancestor walk
-reduces to "every ancestor is current or superseded"; a false failure is
-fixed in the policy file. (Ben, 2026-09-27)
+`check accept` and the nine derived ancestor states go. The ancestor
+walk reduces to "every ancestor is current or superseded". Fix a false
+failure in the policy file. (Ben, 2026-09-27)
 
 (decision-legacy-compatibility)=
 **Legacy compatibility**: remove without a probe. The `logical_key`
@@ -43,15 +42,15 @@ selector and `_recorded_inverse` path in promote,
 go; rapid_rebuild is disposable. (Ben, 2026-09-27)
 
 (decision-latency)=
-**Fan-out and latency**: rough requirement stated: **within an hour per
-detector image, from its delivery to its alert current, typical, with a
-dense-field tail accepted; RAPID's time short against the exposure-to-L2
-delay.** Consequences: per-delivery batches with an event or ~30-minute
-window trigger (operations.md's own rule); within-date fan-out over
-detector images; the difference stage's ~58 min runtime (mostly Photutils
-PSF fits) is the binding constraint. Parallel dates and lanes follow the
-number. (Ben, 2026-09-27; provisional, the team confirms or replaces the
-number)
+**Fan-out and latency**: the rough requirement is within an hour per
+detector image, from delivery until its alert is current, typically,
+with a dense-field tail accepted. RAPID's time is short against the
+exposure-to-L2 delay. This requires per-delivery batches with an event
+or ~30-minute window trigger (operations.md's own rule) and within-date
+fan-out over detector images. The difference stage's ~58 min runtime
+(mostly Photutils PSF fits) is the binding constraint. Parallel dates
+and lanes follow the number. (Ben, 2026-09-27; provisional, the team
+confirms or replaces the number)
 
 (decision-step-ledgers)=
 **Step ledgers**: stay ephemeral. The 632 "supervisor step / R / A"
@@ -60,31 +59,31 @@ implement; the 313 dated narration lines leave the pages.
 (Ben, 2026-09-27)
 
 (decision-authority)=
-**Authority**: the lead is removed; the team owns the design. A decisions
-page in rapid_docs, edited directly by any team member, one dated line
-per ruling with the author's name; a ruling is the team's once it is on
-the page, no review gate; CI on `main` stays. Every "the lead's" on the
-pages becomes the team's. The rulings above go on that page as Ben's,
-dated today. Team communication about the rebuild remains Ben's to open.
+**Authority**: remove the lead role; the team owns the design. Any team
+member can edit the decisions page in rapid_docs directly, adding one
+dated line per ruling with its author. Once recorded, a ruling is the
+team's, with no review gate; CI on `main` stays. Every "the lead's" on
+the pages becomes the team's. Record the rulings above as Ben's, dated
+today. Team communication about the rebuild remains Ben's to open.
 (Ben, 2026-09-27)
 
 ## Earlier rulings
 
-Rulings Ben made while he held the lead role. Under the authority ruling
-they are the team's; each page states the rule.
+Ben made these rulings while he held the lead role. The authority ruling
+makes them the team's; each page states the rule.
 
-- 2026-09-21: the `dev` schema is kept: nothing is renamed or dropped;
-  new columns and tables are added where the vocabulary needs them
+- 2026-09-21: keep the `dev` schema: rename or drop nothing; add
+  columns and tables where the vocabulary needs them
   ([products](products)). The rebuild's schema coexists with `dev`'s and
   writes it ([runs](runs)).
-- 2026-09-21: nothing about a run's records is ever dropped; deleting a
-  run's data changes state, not history ([runs](runs)).
+- 2026-09-21: retain run records in full; deleting a run's data changes
+  state, not history ([runs](runs)).
 - 2026-09-21: current result sets are readable by any run as frozen
   inputs, by instance id; scratch result sets only within their own run
   ([products](products)).
 - 2026-09-22: every ported stage minimises differences from `dev` and
-  designs in, off by default, anything that could be left unused (every
-  stage page). The catalog stage's detection member is per-differencer
+  makes anything that could be left unused optional and off by default
+  (every stage page). The catalog stage's detection member is per-differencer
   and recorded with the instance; `vbest` stays the query surface
   ([products](products)).
 - 2026-09-22: all promotions take one transaction-scoped advisory lock
@@ -92,8 +91,8 @@ they are the team's; each page states the rule.
 - 2026-09-23: `dev`'s once-per-date CLUSTER and ANALYZE move to their
   own `maintain` stage ([maintain](maintain), [load](load)).
 - 2026-09-23: only one producer's frozen inputs bind at a time
-  ([runs](runs)); everything `dev` wrote is never touched by rebuild
-  deletion or cleanup ([runs](runs)).
+  ([runs](runs)); rebuild deletion and cleanup never touch anything
+  `dev` wrote ([runs](runs)).
 - 2026-09-23: no per-child UNIQUE on `(pid, id, isdiffpos)`; SFFT loads
   against its own `pid`; a psf instance's `version` equals the allocated
   legacy number and `psfs`' key stays global ([load](load)).
@@ -103,8 +102,8 @@ they are the team's; each page states the rule.
   ([difference](difference), [finalize](finalize)).
 - 2026-09-26: gain matching reads the reference's own `MAGZP` header by
   default, with `[awaicgen] zprefimg` as an override; SFFT registers as
-  its own `difference-image` instance by default; which differencer's
-  instance is current downstream is a promotion choice
+  its own `difference-image` instance by default; promotion chooses which
+  differencer's instance is current downstream
   ([difference](difference), [reference](reference)).
 - 2026-09-26: each source's field is its own tessellation tile, a stated
   departure from `dev` ([load](load)).
@@ -112,77 +111,37 @@ they are the team's; each page states the rule.
 
 ## Carried from the build, pending team review
 
-Rulings made during the rebuild by its build sessions and their reviews.
-Each is in force as its page states it until the team confirms, changes
-or removes it here.
+These rulings come from build sessions and their reviews. Each remains
+in force as its page states it until the team confirms, changes or
+removes it here.
 
-(decision-slot-identity)=
-- **Association-set identity.** The slot-identity table on
-  [products](products) is the one statement. An association set's identity
-  adds the field, the crossmatch settings hash, the sorted identities of
-  its source sets, and a hash of its base's own identity; the proposal's
-  shorter wording, which omitted the base, is withdrawn with the table
-  copy it sat in. (2026-09-27)
+### Checks
 
-(decision-pending-sharing-rule)=
-- **Sharing rule widening.** The specification lets any run read
-  *current* result sets and keeps scratch within its run; the eligibility
-  table on [products](products) also lets another run's stage read a
-  *selected candidate*, whatever its check outcome. The team decides
-  whether selected candidates are readable across runs and aligns the
-  specification or the table. (2026-09-26)
 - **Trial policy.** `rebuild-trial@1`'s `approval: trial` is a trial
   approval, not the team's sign-off; promotion refuses a policy with
   `approval: none`, and automatic promotion needs a team approval and
   `auto_promote: true` ([checks](checks)). (2026-09-24, 2026-09-25)
-- **Package layer order.** The subpackage layer order on
-  [stage-contract](stage-contract) is enforced by a unit test over
-  every module and top-level import, lazy and relative imports
-  included. (2026-09-27)
-- **`tests/cli` scope.** A `tests/cli` edit may change only the module
-  path of a monkeypatch target or an import, when the patched code
-  moves; its assertions, scenarios and fixtures do not change. (2026-09-27)
-- **CLI surface on `launch`.** `rapidpipe.cli` takes from
-  `rapidpipe.launch` only its public functions and the exceptions they
-  raise; a unit test enforces it. (2026-09-27)
-- **Sky-partition geometry.** The pure HEALPix and tessellation
-  derivations `db` needs live in `rapidpipe.products`, not
-  `rapidpipe.science`; `products` is no longer standard-library only,
-  since it imports numpy, healpy and the tessellation code.
-  ([stage-contract](stage-contract)) (2026-09-27)
-- **Running checks against a run.** That code lives in `rapidpipe.runs`,
-  not `rapidpipe.checks`, since `checks` sits below `runs` in the layer
-  order. ([stage-contract](stage-contract), [runs](runs)) (2026-09-27)
-- **`run --help` grouping.** `rapidpipe run --help` groups its
-  subcommands under five titled sections, lifecycle, recovery,
-  promotion, housekeeping and inspection ([tool](tool)); no subcommand
-  name changes. (2026-09-27)
-
-### Checks
-
-- A check always records a row, and a check that raises records
-  `failed`. (2026-09-24)
+- Every check records a row; one that raises records `failed`. (2026-09-24)
 - `catalog-counts-vs-reference@1` finds its reference by slot;
   `rebuild-trial@1` marks `difference-image-statistics` required and
   `catalog-counts-vs-reference` advisory. (2026-09-24, 2026-09-26)
 - `run_policy_checks` fills every candidate's slot before any check
   runs. (2026-09-26)
-- Known defect, recorded not fixed: the gate can miss a check-result
-  row committed after its read. (2026-09-27)
+- Known, unfixed defect: the gate can miss a check-result row committed
+  after its read. (2026-09-27)
 - Checks run outside the pipeline image, on a workstation or the
   launcher host, reaching the database through the instance role.
   (2026-09-24)
 
 ### Runs and promotion
 
-- `promotion_changes` carries a nullable `slot`; a replacement's kind
-  and slot must equal the requested selector; `StalePlan` refuses when
-  the selection or the run's candidates moved since the plan.
+- `promotion_changes` carries a nullable `slot`. A replacement's kind
+  and slot must match the requested selector. `StalePlan` refuses if
+  the selection or the run's candidates have moved since the plan.
   (2026-09-26)
-- A bare after-instance with no before is accepted only when the slot
-  has no current occupant; a change into an `association-set` slot with
-  a non-null expected-before must have the before as an ancestor of the
-  after. (2026-09-24)
+- An after-instance with no before is accepted only if the slot has no
+  current occupant. In an `association-set` slot with a non-null
+  expected-before, the before must be an ancestor of the after. (2026-09-24)
 - Promotion's dependency walk covers every ancestor recursively;
   rollback skips the check-policy gate, the walk and the
   association-set chain-direction rule. (2026-09-24, 2026-09-26,
@@ -190,15 +149,15 @@ or removes it here.
 - Released-image validation and check-policy validation are separate.
   (2026-09-24, 2026-09-26)
 - A same-request ancestor passes the dependency walk and is validated
-  on its own, against the same eligibility rule and check policy any
-  other after-instance answers to. (2026-09-27)
+  separately against the same eligibility rule and check policy as any
+  other after-instance. (2026-09-27)
 - Rollback reverses by slot only; a recorded change with no slot is
   refused as not reversible. (2026-09-27)
 - A policy refusal (`PromotionRefused`, `StalePlan`,
   `CheckPolicyRefused`) exits 1; an argument-shaped refusal or an
   unknown run, instance or promotion id exits 64. (2026-09-27)
-- The check-policy gate's `FOR SHARE` lock on the `checks` rows it
-  relies on stays; the pipeline role can update `checks` rows, so the
+- The check-policy gate keeps its `FOR SHARE` lock on the `checks`
+  rows it reads. The pipeline role can update `checks` rows, so the
   table is not append-only. (2026-09-27)
 - The `approval` value `lead` is renamed `team`. (2026-09-27)
 - Seeding a replacement run from a failed one is `--seed --only-failed`;
@@ -208,8 +167,8 @@ or removes it here.
   frozen input binding depends on it or a reference row would be
   orphaned; the science-row cleanup set is fixed on [runs](runs).
   (2026-09-24)
-- Every submission binds its input set before allocating the attempt; a
-  name that resolves to nothing is logged, not refused; an unreadable
+- Every submission binds its input set before allocating the attempt.
+  A name that resolves to nothing is logged, not refused. An unreadable
   manifest refuses with exit 65 before anything is written. (2026-09-25)
 - A retry after a failed commit writes a fresh result set; only the
   calling attempt's own prior try or a succeeded attempt's set is reused
@@ -217,13 +176,13 @@ or removes it here.
   (2026-09-25)
 - A scratch run reads the `_SCRATCH`-suffixed job definition and never
   falls back to the unsuffixed one. (2026-09-24)
-- **The launcher retries, not Batch.** The rebuild's job definitions
-  carry one Batch attempt; the launcher resubmits a unit after exit 75,
-  a reclaimed host or a container that never started, each time as a
-  fresh attempt within the run's maximum attempts per unit, which
-  therefore also counts reclaims. The default maximum stays 1, so a run
-  that wants retries sets it. Carried from the build, pending team
-  review. (Claude for Ben, 2026-09-28)
+- **Launcher retries.** The rebuild's job definitions carry one Batch
+  attempt. After exit 75, a reclaimed host or a container that never
+  started, the launcher resubmits the unit as a fresh attempt. The run's
+  maximum attempts per unit includes reclaims and defaults to 1. Retries
+  stay within that limit; a run must set it to allow them.
+  Carried from the build, pending team review.
+  (Claude for Ben, 2026-09-28)
 - Runs written under the first-run prefix stay where they were written.
   (2026-09-24)
 
@@ -241,15 +200,36 @@ or removes it here.
   already-current sky continues the existing schedule until a chain
   switch exists. (2026-09-27)
 - A finished run takes no new units. (2026-09-25)
-- Discovery: identical re-delivery refused, checksum conflict
-  quarantined, a corrected version deferred ([loop](loop)). (2026-09-26)
+- Discovery refuses identical re-delivery, quarantines a checksum
+  conflict and defers a corrected version ([loop](loop)). (2026-09-26)
 - Under a check policy without automatic promotion, the loop leaves a
-  date's run a candidate rather than refusing it; the next date's base
-  still binds to it, so a person promotes in date order, an earlier
-  date first. (2026-09-27)
+  date's run a candidate rather than refusing it. The next date's base
+  still binds to it, so a person promotes in date order, earlier dates
+  first. (2026-09-27)
 
 ### Stage contract and tool
 
+- **Package layer order.** A unit test enforces the subpackage layer
+  order on [stage-contract](stage-contract) across every module and
+  top-level import, including lazy and relative imports. (2026-09-27)
+- **`tests/cli` scope.** When patched code moves, a `tests/cli` edit may
+  change only the module path of a monkeypatch target or an import.
+  Assertions, scenarios and fixtures stay unchanged. (2026-09-27)
+- **CLI surface on `launch`.** `rapidpipe.cli` takes from
+  `rapidpipe.launch` only its public functions and the exceptions they
+  raise; a unit test enforces it. (2026-09-27)
+- **Sky-partition geometry.** The pure HEALPix and tessellation
+  derivations `db` needs live in `rapidpipe.products`, not
+  `rapidpipe.science`; `products` is no longer standard-library only,
+  since it imports numpy, healpy and the tessellation code.
+  ([stage-contract](stage-contract)) (2026-09-27)
+- **Running checks against a run.** That code lives in `rapidpipe.runs`,
+  not `rapidpipe.checks`, since `checks` sits below `runs` in the layer
+  order. ([stage-contract](stage-contract), [runs](runs)) (2026-09-27)
+- **`run --help` grouping.** `rapidpipe run --help` groups its
+  subcommands under five titled sections, lifecycle, recovery,
+  promotion, housekeeping and inspection ([tool](tool)); no subcommand
+  name changes. (2026-09-27)
 - `maintain` is a fifth stage and `detector-date` a fifth unit kind.
   (2026-09-24)
 - `alerts` and `export` read named, completed result sets; `export`
@@ -265,8 +245,7 @@ or removes it here.
 - **Photometry stub removed.** The rebuild carries no photometry stage;
   forced photometry stays `dev`'s `forcedPhotometryForField.py`. Exit
   code 69 stays reserved in the stage contract, since no stage in this
-  build returns it now. Carried from the build, pending team review.
-  (2026-09-27)
+  build returns it now. Carried from the build, pending team review. (2026-09-27)
 - `run cancel` from a workstation needs `batch:TerminateJob` on the
   workstation role, not yet granted. (2026-09-24)
 - **Custody database access.** A stage's database access is `none`,
@@ -274,44 +253,42 @@ or removes it here.
   read guard. `admit`, `reference`, `difference` and `finalize` declare
   it, since the guard needs the database whenever their input names a
   registered instance, and `none` skips the guard ([stage
-  contract](stage-contract), "Declaration"). Carried from the build,
-  pending team review. (Claude for Ben, 2026-09-28)
-- A stage declaration carries no argument schema and no resource
-  defaults: nothing read them, and the Batch job definition owns
-  resources ([stage contract](stage-contract)). `run create` takes no
-  `--lane`, `--profile` or `--db-target`; the run's lane, resource
-  profile and database target columns keep their defaults (`local`,
-  `local`, the connection's database) and nothing reads them to decide
-  anything. (2026-09-27)
+  contract](stage-contract), "Declaration"). Carried from the build, pending team review. (Claude for Ben, 2026-09-28)
+- A stage declaration carries no argument schema or resource defaults:
+  nothing read them, and the Batch job definition owns resources
+  ([stage contract](stage-contract)). `run create` takes no `--lane`,
+  `--profile` or `--db-target`. The run's lane, resource profile and
+  database target columns keep their defaults (`local`, `local`, the
+  connection's database) but control no behaviour. (2026-09-27)
 
 ### Releases
 
-- The release command, tag form (`rebuild-v0.<n>`, annotated, remote
-  authoritative), the `releases` and `release_deployments` tables,
-  account-specific steps as hooks, migrations applied with recorded
-  checksums before a cut records, a run submitting only to its release's
-  job-definition revision, released-image provenance at promotion, one
-  pin row per consumer per cut, selftests as evidence not a gate
-  ([releases](releases)). (2026-09-24)
+- [Releases](releases) defines the release command, tag form
+  (`rebuild-v0.<n>`, annotated, remote authoritative), and `releases`
+  and `release_deployments` tables. Account-specific steps are hooks.
+  Migrations are applied with recorded checksums before a cut records.
+  A run submits only to its release's job-definition revision;
+  promotion requires released-image provenance. Each consumer has one
+  pin row per cut. Selftests are evidence, not a gate. (2026-09-24)
 - Migrations are additive while an earlier release's runs are open;
   `cut` refuses while any release row is incomplete unless resumed.
   (2026-09-25)
 
 ### Stages
 
-- `alerts` is the first registrar of `alert-container` and `alert-set`;
-  the outbox locator is an Avro block offset and length plus the
-  record's ordinal; an input naming the wrong base or two pruned sets
-  for one association set exits 65. (2026-09-24, 2026-09-25)
+- `alerts` first registers `alert-container` and `alert-set`. The outbox
+  locator is an Avro block offset and length plus the record's ordinal.
+  An input naming the wrong base or two pruned sets for one association
+  set exits 65. (2026-09-24, 2026-09-25)
 - Finalize's chain order is `difference -> finalize -> register ->
   load`, one `register` pass. (2026-09-24)
-- `reference` is a transform stage with no database access; filter
-  spellings are normalised; frame counts are bounded; steps run in
-  `dev`'s order; fake-source injection is not ported; the catalog key,
-  the full SHA-256 selection digest, the global `refimages.version`
-  counter under an advisory lock, `refimages.attempt` recording the
-  producing attempt, nullable `npucatsources`, and replay checked against
-  the stored block are as [reference](reference) states. (2026-09-24)
+- `reference` is a transform stage with no database access. It
+  normalises filter spellings, bounds frame counts and runs steps in
+  `dev`'s order; fake-source injection is not ported. [Reference](reference)
+  defines the catalog key, full SHA-256 selection digest, global
+  `refimages.version` counter under an advisory lock, `refimages.attempt`
+  recording the producing attempt, nullable `npucatsources`, and replay
+  checked against the stored block. (2026-09-24)
 - `statistics` reads crossmatch's completion manifest; an association
   set is its own rows plus its base's, recursively; its source sets
   already decide "best". (2026-09-24)
@@ -324,9 +301,24 @@ or removes it here.
 
 ### Products
 
-- Every instance carries a provenance key, an identity key and a slot,
-  derived in the database; a cycle-guard failure leaves the whole batch
-  unresolved; identity and slot are derived for every kind. (2026-09-26)
+(decision-slot-identity)=
+- **Association-set identity.** The slot-identity table on
+  [products](products) is the sole statement. An association set's
+  identity adds the field, crossmatch settings hash, sorted source-set
+  identities, and a hash of its base's own identity. Withdraw the
+  proposal's shorter wording, which omitted the base, and its table
+  copy. (2026-09-27)
+
+(decision-pending-sharing-rule)=
+- **Sharing rule widening.** The specification lets any run read
+  *current* result sets and keeps scratch within its run; the eligibility
+  table on [products](products) also lets another run's stage read a
+  *selected candidate*, whatever its check outcome. The team must decide
+  whether selected candidates are readable across runs, then align the
+  specification or the table. (2026-09-26)
+- The database derives every instance's provenance key, identity key
+  and slot, with identity and slot derived for every kind. A cycle-guard
+  failure leaves the whole batch unresolved. (2026-09-26)
 - The reading and promotion-eligibility table applies identically to
   file products and result sets. (2026-09-26)
 - The `refimages` field lists and the `catalog-export` registration
