@@ -54,10 +54,11 @@ date's exposures:
 5. Register results: record each completed job's products in the
    database.
 6. Load source catalogs into the database.
-7. Crossmatch sources across epochs into objects.
-8. Compute object statistics.
-9. Prune non-best associations.
-10. Produce alerts: one Avro container per detector image.
+7. Maintain: cluster and analyze the date's loaded source table.
+8. Crossmatch sources across epochs into objects.
+9. Compute object statistics.
+10. Prune non-best associations.
+11. Produce alerts: one Avro container per detector image.
 
 **Slower and on-demand pipelines**, run outside the loop:
 
