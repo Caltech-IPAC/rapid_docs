@@ -183,6 +183,26 @@ removes it here.
   stay within that limit; a run must set it to allow them.
   Carried from the build, pending team review.
   (Claude for Ben, 2026-09-28)
+- **Promoting a retried date.** A `--retry-failed` run cannot be
+  promoted alone: its after-instances depend on the seed run's
+  candidates and on the field's reference. Today a person promotes the
+  reference run, the seed run and the retry run in that order, and
+  rolls them back in reverse. The team decides whether `run
+  promote-plan` of a seeded run includes its seed chain's candidates in
+  one request. Carried from the build, pending team review.
+  (Claude for Ben, 2026-09-28)
+- **Imported references are unreleased.** A reference imported
+  launcher-side by `tools/register-reference.py` ran no released image,
+  so its promotion records a `--allow-unreleased` exception. The team
+  decides whether reference import runs through a released image.
+  Carried from the build, pending team review.
+  (Claude for Ben, 2026-09-28)
+- **Checks before promotion.** Neither the loop's failed run nor a
+  hand-run `--retry-failed` run carried check results, so promotion
+  refused under `rebuild-trial@1`; a person ran `check run` on both
+  before promoting. The team decides whether the loop and the retry
+  path run the policy's checks themselves. Carried from the build,
+  pending team review. (Claude for Ben, 2026-09-28)
 - Runs written under the first-run prefix stay where they were written.
   (2026-09-24)
 
@@ -206,6 +226,10 @@ removes it here.
   date's run a candidate rather than refusing it. The next date's base
   still binds to it, so a person promotes in date order, earlier dates
   first. (2026-09-27)
+- **No retry in the window.** The scheduled window cannot retry a
+  failed date because `op-processing-date-loop.sh` passes no
+  `--retry-failed`; a person runs the retry by hand. Carried from the
+  build, pending team review. (Claude for Ben, 2026-09-28)
 
 ### Stage contract and tool
 
