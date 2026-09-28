@@ -222,6 +222,13 @@ or removes it here.
   validation where not yet ported. (2026-09-24)
 - `run cancel` from a workstation needs `batch:TerminateJob` on the
   workstation role, not yet granted. (2026-09-24)
+- A stage declaration carries no argument schema and no resource
+  defaults: nothing read them, and the Batch job definition owns
+  resources ([stage contract](stage-contract)). `run create` takes no
+  `--lane`, `--profile` or `--db-target`; the run's lane, resource
+  profile and database target columns keep their defaults (`local`,
+  `local`, the connection's database) and nothing reads them to decide
+  anything. (2026-09-27)
 
 ### Releases
 

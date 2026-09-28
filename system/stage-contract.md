@@ -50,9 +50,10 @@ versions and build inputs are pinned by the container build.
 ### Declaration
 
 Every stage exports a declaration containing its name, unit of work,
-argument and settings schemas, versioned input and output product kinds,
-database reads and writes, resource defaults, and supported exit codes.
-Importing the declaration performs no I/O. Dependencies specify the
+settings schema, versioned input and output product kinds, database
+reads and writes, and supported exit codes. The declaration carries no
+resources: the Batch job definition sets them. Importing the
+declaration performs no I/O. Dependencies specify the
 required product kinds, their mapping to upstream units, and the
 condition that makes each input set complete.
 
