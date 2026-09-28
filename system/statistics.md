@@ -2,40 +2,37 @@
 
 **Status: DRAFT**
 
-This page covers what the `statistics` stage reads and what it computes.
-It also records what lands in `astroobjectsmeta`, the result set the
-stage records, its settings and its exit codes. The stage lands on the
-pipeline repository's `rebuild` branch:
+`statistics` computes object positions, fluxes and source counts from a
+field's association set and records them in `astroobjectsmeta`. The
+[products](products) page fixes the vocabulary.
 
-- `rapidpipe/stages/statistics.py`;
-- `rapidpipe/science/statistics/lightcurve.py`;
-- `rapidpipe/settings/statistics.toml`;
-- `rapidpipe/db/objects.py`;
-- migrations `20260924-03` to `-06`.
-
-The port is of `dev`'s `pipeline/computeStatisticsForAstroObjects.py`.
-Every ported stage minimises differences from `dev` and designs in,
-off by default, anything that could be left unused.
-The [products](products) page fixes the vocabulary; this page records
-how the stage meets it.
+The stage is ported from `dev`'s
+`pipeline/computeStatisticsForAstroObjects.py` onto the pipeline
+repository's `rebuild` branch: `rapidpipe/stages/statistics.py`,
+`rapidpipe/science/statistics/lightcurve.py`,
+`rapidpipe/settings/statistics.toml`, `rapidpipe/db/objects.py`, and
+migrations `20260924-03` to `-06`. Every ported stage minimises
+differences from `dev` and leaves optional features designed in but off
+by default.
 
 ## In plain terms
 
 `crossmatch` groups a field's sources into objects: each object is a
-row of `astroobjects_<field>`, and each `merges_<field>` row links an
-object to one of its sources. For one field's association set, the
-`statistics` stage gathers every source of every object. From them it
-computes the object's mean position and flux, their spread, and how
-many sources there are, exactly as `dev` does. It writes one row per
-object into `astroobjectsmeta_<field>`. Everything the stage writes for
-one association set is one statistics set: a named group of rows that
-is either complete or absent. The stage never changes the association
-set it reads.
+row of `astroobjects_<field>`, and each `merges_<field>` row links it to
+one source. `statistics` gathers every source of every object in the
+field's association set. It computes each object's mean position and
+flux, their spread and the source count, exactly as `dev` does, then
+writes one row per object into `astroobjectsmeta_<field>`. These rows
+form one statistics set, a named group that is either complete or absent.
+The association set stays unchanged.
 
 ## Inputs
 
-`--inputs` is `crossmatch`'s completion manifest. The stage reads its
-one `association-set` entry:
+`--inputs` is `crossmatch`'s completion manifest, though the manifest's
+own `stage` need not be `crossmatch`. It must carry exactly one
+`association-set` entry for the unit's field. That set must already be
+registered; the stage resolves everything else through the database by
+instance id:
 
 | Field | Used for |
 |---|---|
@@ -44,33 +41,26 @@ one `association-set` entry:
 | `key.base` | read from the database, not the manifest: the base the set extends |
 | `key.source_sets` | read from the database, not the manifest: the source sets the set was made from |
 
-The stage does not require the input manifest's own `stage` to be
-`crossmatch`, only that it carries exactly one `association-set` entry
-for the unit's field. The association set must already be registered:
-the stage resolves everything else through the database by instance id.
-
 ### The membership
 
-An association set is **base plus delta**: its membership is its own
-rows plus the membership of its base, recursively. The stage takes the chain of instances from
-`objects.association_chain`, the input set first, and requires every
-set in it to be a complete, retained `association-set`.
+An association set contains its own rows plus its base's, recursively:
+base plus delta. `objects.association_chain` supplies the chain of
+instances, input set first. Every set in the chain must be a complete,
+retained `association-set`.
 
-The sources an object's statistics are drawn from are the rows of the
-source sets named in the `source_sets` key of every set in the chain.
-Each source set resolves to its `sources_<yyyymmdd>_<sca>` child table by
-instance (`objects.source_set_table`).
+The statistics use sources from the source sets named in every chain
+member's `source_sets` key. `objects.source_set_table` resolves each
+source set by instance to its `sources_<yyyymmdd>_<sca>` child table.
 
-This one rule replaces three steps in `dev`: its `l2files` overlap lookup
-of candidate child tables, its `pg_class` check that they exist, and its
-`diffimages.vbest > 0` join. An association set names exactly the source
-sets it was made from, so "best" is already decided upstream, by the
-launcher's input selection.
+This membership replaces three steps in `dev`: the `l2files` overlap
+lookup of candidate child tables, the `pg_class` existence check and the
+`diffimages.vbest > 0` join. The association set names exactly the source
+sets it was made from; the launcher's input selection has already
+decided which are best.
 
 ## What it runs
 
-The stage runs `dev`'s per-field steps, in `dev`'s order, and states
-which are ported:
+The stage follows `dev`'s per-field order, with these changes:
 
 | `dev` step | In the rebuild |
 |---|---|
@@ -83,19 +73,19 @@ which are ported:
 | one CSV, COPY into `astroobjectsmeta_<field>` | ported, with the run columns and through a temporary table with `ON CONFLICT DO NOTHING` |
 | drop and recreate `astroobjectsmeta_<field>` before, index and CLUSTER it after, VACUUM ANALYZE or drop it if empty | not ported: the table is made once, with its indexes, and appended to; each attempt writes a new set beside the old ones |
 
-In order, inside one transaction:
+The stage runs in one transaction:
 
 1. Resolve the chain, the source sets and their child tables. When the
    chain names no source sets at all, exit 65; `dev` exits 7 when it
    finds no source tables.
 2. With `[statistics] done_check` on, reuse a complete, retained
-   statistics set with the same key already written in this run, only
-   when that set's producing attempt is the calling attempt or an
-   attempt whose disposition is `succeeded` (the attempt-disposition
-   join is `db/objects.find_complete_result_set`; the [runs](runs) page
-   has the general rule). A set left by an attempt that committed rows and
-   then failed, or by another attempt still without a disposition, is
-   not reused; a fresh attempt writes its own set instead.
+   statistics set with the same key already written in this run only if
+   its producer is the calling attempt or has disposition `succeeded`.
+   The attempt-disposition join is
+   `db/objects.find_complete_result_set`; the [runs](runs) page has the
+   general rule. A fresh attempt writes its own set if the earlier
+   attempt committed rows then failed, or is another attempt still
+   without a disposition.
 3. Make `astroobjectsmeta_<field>` if it does not exist, through
    `create_astroobjectsmeta_child_table`. The function applies `dev`'s
    fillfactor 70, unlogged storage, its `nsources` and Q3C `meanradec`
@@ -113,20 +103,20 @@ In order, inside one transaction:
 5. Group the rows by `aid`, as `dev` does. An `(aid, sid)` pair that
    appears under two sets of the chain counts once; the count of such
    repeats goes in the execution record.
-6. Per object, in ascending `aid` order: `compute_radec_statistics`
-   (`dev`'s `rapid_pipeline_subs.py`, verbatim), `np.mean` and `np.std`
-   of the fluxes, and the source count. Then one CSV line in `dev`'s
-   column order, then the run columns.
+6. For each object in ascending `aid` order, run
+   `compute_radec_statistics` (`dev`'s `rapid_pipeline_subs.py`,
+   verbatim), compute `np.mean` and `np.std` of the fluxes, and count
+   the sources. Write one CSV line in `dev`'s column order, followed by
+   the run columns.
 7. Register the statistics set, COPY the CSV, read back the row count
    for the set (it must equal the lines written, else exit 70), and
    commit.
 
-`compute_radec_statistics` averages the sources' unit vectors, so the
-0/360 RA wrap and the poles are handled. The RA spread is the standard
-deviation of the shortest signed RA difference scaled by cos(Dec). Its
+`compute_radec_statistics` averages the sources' unit vectors to handle
+the 0/360 RA wrap and the poles. The RA spread is the standard deviation
+of the shortest signed RA difference scaled by cos(Dec). The function's
 fifth value, the RMS angular spread, is only logged by `dev`:
-`astroobjectsmeta` has no column for it. Two consequences, both as in
-`dev`:
+`astroobjectsmeta` has no column for it. As in `dev`:
 
 - A one-source object has standard deviations 0.0, not NaN, because
   `np.std` is the population standard deviation.
@@ -139,10 +129,10 @@ same.
 
 ## What lands in `astroobjectsmeta`
 
-One row per object with at least one source in the membership, in
-`astroobjectsmeta_<field>`. `dev`'s columns keep their meaning; the last
-three are added by migration `20260924-03`, nullable, all set or all
-null, and are set on every row the rebuild writes.
+`astroobjectsmeta_<field>` holds one row per object with at least one
+source in the membership. `dev`'s columns keep their meaning. Migration
+`20260924-03` adds the last three: nullable, all set or all null, and set
+on every row the rebuild writes.
 
 | Column | Source |
 |---|---|
@@ -155,18 +145,16 @@ null, and are set on every row the rebuild writes.
 | `attempt` | the statistics attempt that wrote the row |
 | `result_set` | the statistics set's instance |
 
-Keys are set-scoped (products page): `UNIQUE (result_set, aid)`.
-Statistics for one object under two sets are two rows. `dev`'s
-table-wide primary key on `aid` is not copied onto the rebuild's
-per-field tables.
+The set-scoped key is `UNIQUE (result_set, aid)` (products page), so
+one object's statistics under two sets occupy two rows. The rebuild's
+per-field tables do not copy `dev`'s table-wide primary key on `aid`.
 
 ## The statistics set
 
-One `statistics-set` result set per attempt, the products page's
-database result set. Its unit is the field and its logical key is
-`{"membership": <association-set instance>}`, which names the exact
-membership it describes. The stage writes three things in the same
-transaction as the rows:
+Each attempt writes one `statistics-set`, the products page's database
+result set. Its unit is the field; its logical key,
+`{"membership": <association-set instance>}`, names the exact membership
+it describes. In the same transaction as the rows, the stage records:
 
 - its `product_instances` row: kind `statistics-set`, stage
   `statistics`, this attempt as producer and registrar, custody by run
@@ -175,8 +163,8 @@ transaction as the rows:
   statistics;
 - a dependency edge to the association set.
 
-An association set whose membership has no `merges` rows gives an empty
-set, still complete.
+An association set with no `merges` rows in its membership produces an
+empty, complete set.
 
 The manifest entry has no members; its `registration` block is
 informational:
@@ -193,21 +181,21 @@ source sets resolved.
 
 ## Settings
 
-`rapidpipe/settings/statistics.toml`. `dev`'s script reads no
-load-bearing setting: its `.ini` reads serve its processing-date scan
-or are never used. The rebuild's unit and input replace them.
+Settings live in `rapidpipe/settings/statistics.toml`. `dev`'s script
+reads no setting that affects the computation: its `.ini` reads serve
+the processing-date scan or go unused. The rebuild's unit and input
+replace them.
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `[statistics] done_check` | true | reuse a complete statistics set with the same key already written in this run |
 | `[statistics] membership` | `association` | what the statistics describe; `pruned` is refused with 64 |
 
-Delivered statistics describe the association set, as `dev` computes
-them: `dev` runs crossmatch, then statistics, then prune. The pruned
-set as a statistics input is designed in, since the key already names
-either kind of set, and left unused ([products](products) page).
-The setting names that choice so turning it on later is a settings
-change plus the code behind it.
+Delivered statistics describe the association set, following `dev`'s
+order: crossmatch, statistics, prune. Pruned-set input is designed in
+but unused ([products](products) page): the key can already name either
+kind of set. Enabling it later needs a settings change and the code
+behind it.
 
 ## Exit codes
 
@@ -234,8 +222,8 @@ set with the done check off, and base plus delta.
 
 ## Open
 
-- `dev`'s aid self-dedupe (`computeStatisticsForAstroObjects.py:214`)
-  deletes repeated `aid` rows of `astroobjects_<field>`, keeping the
-  last written. How repeats arose in `dev`, and whether the rebuild's
-  keep-the-first `ON CONFLICT` choice matches what `dev` intended,
-  remains a question for Russ.
+`dev`'s aid self-dedupe (`computeStatisticsForAstroObjects.py:214`)
+deletes repeated `aid` rows of `astroobjects_<field>`, keeping the last
+written. How repeats arose in `dev`, and whether the rebuild's
+keep-the-first `ON CONFLICT` choice matches what `dev` intended,
+remains a question for Russ.
