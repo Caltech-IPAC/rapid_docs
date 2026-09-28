@@ -232,18 +232,14 @@ different question from promotion: a stage may read an input it may
 not publish from. The table gives both answers for every product
 instance, file products and result sets alike.
 
-Withdrawn by the {ref}`acceptance ruling <decision-acceptance>`: the code still behaves as described here until that change lands, and this passage changes with it.
-
 | Input's state | A stage of another run may read it | A product built from it may be promoted |
 |---|---|---|
 | Scratch, own run | yes | no, scratch never leaves scratch |
 | Scratch, another run | no, exit 65 | no |
 | Candidate, from an unselected attempt | no, exit 65 | no |
-| Candidate, selected, required checks not yet run | yes | no, until its checks run and pass |
-| Candidate, selected, required checks passed, or its kind has none | yes | yes, it is accepted and stays a candidate |
-| Candidate, selected, a required check failed | yes | no, until a person accepts it with a recorded reason or it is replaced |
+| Candidate, selected | yes | yes, once its own required checks pass under the resolved check policy ([checks](checks) page has the gate) |
 | Current | yes | yes |
-| Superseded (current before, candidate now) | yes, as any candidate from a selected attempt | yes, it was accepted when it was promoted |
+| Superseded (current before, candidate now) | yes, as any candidate from a selected attempt | yes |
 
 A read needs completeness and retention always. A same-run read needs
 nothing more, so a run may still name its own orphaned set. Only a
@@ -252,21 +248,18 @@ its producing attempt to be selected; a candidate whose promotion was
 refused by checks is readable all the same, since a failed or missing
 check leaves a candidate, not a scratch instance, and reading does not
 distinguish a checked candidate from an unchecked one. Only a promotion
-needs more: complete, retained, and current, superseded or accepted,
-followed through the whole chain of dependencies, not only the instance
-named directly ([checks](checks) page has the walk).
+needs more: complete, retained, and current, superseded, or itself a
+member of the same promotion request, followed through the whole chain
+of dependencies, not only the instance named directly ([checks](checks)
+page has the walk).
 
-Withdrawn by the {ref}`acceptance ruling <decision-acceptance>`: the code still behaves as described here until that change lands, and this passage changes with it.
-
-Each instance settles to one of nine states, computed once by
-`rapidpipe.runs.eligibility.acceptance_state`: `deleted`, `incomplete`,
-`scratch` and `unselected` rule an instance out first; what remains is
-`current`, `superseded`, or, weighed against its governing policy's
-required checks, `accepted`, `pending` or `rejected` (a kind with no
-required checks is accepted once selected, complete and retained). The
-promotion walk, `check show`, `run show` and `check accept` all read
-this one state rather than re-deriving it ([checks](checks) page has
-the commands).
+Each instance settles to one of seven states, computed once by
+`rapidpipe.runs.eligibility.instance_state`: `deleted`, `incomplete`,
+`scratch` and `unselected` rule an instance out first, from custody,
+completeness and selection facts only; what remains is `current`,
+`superseded`, or `candidate`. The promotion walk and `run show` both
+read this one state rather than re-deriving it ([checks](checks) page
+has the states; the [tool](tool) page has `run show`'s format).
 
 `register_manifest` applies the read rule to every dependency edge now:
 a foreign file product's edge is refused on the same terms as a foreign

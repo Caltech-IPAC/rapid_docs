@@ -88,13 +88,13 @@ and `catalog-counts-vs-reference` advisory, required false.
 A check policy is a named, versioned TOML file shipped in the package,
 at `rapidpipe/checks/policies/<name>@<version>.toml`, loaded by the
 same `name@version` key as a check. Its fields are `name`, `version`,
-`approval` (`none`, `trial` or `lead`), `approved_by` (nullable; who
+`approval` (`none`, `trial` or `team`), `approved_by` (nullable; who
 granted the recorded approval level), `auto_promote` (boolean), and a
 `[[checks]]` table per check listing its name, version, kind, required
 flag and params. A policy is immutable once landed; a change to any of
 these is a new version, never an edit in place. Promotion, manual or
 automatic, refuses a policy whose `approval` is `none`; automatic
-promotion additionally requires `lead` and `auto_promote` true, so a
+promotion additionally requires `team` and `auto_promote` true, so a
 `trial`-approved policy can gate a person's promotion but never an
 automatic one.
 
@@ -132,7 +132,7 @@ version and the policy's own params for it, with outcome `passed` when
 the policy marks it required; ties in `happened_at` break by row id, and
 the read locks the rows it relies on, so a check recorded after the read
 started is not counted. A missing or failed required check refuses the
-whole promotion, exit 64, naming the instance, the check and the
+whole promotion, exit 1, naming the instance, the check and the
 outcome in the message; a failed or missing advisory check is recorded
 but does not refuse. The promotion row records `check_policy_version`
 and `check_result_ids`, the rows it relied on. A kind the policy names
@@ -140,30 +140,26 @@ no check for passes trivially, and there is no unchecked-exception
 flag: a deliverable of a kind the policy does cover always goes through
 this gate.
 
-Withdrawn by the {ref}`acceptance ruling <decision-acceptance>`: the
-code still behaves as described here until that change lands, and this
-passage changes with it.
-
 Promotion also walks every dependency to its roots, not only the
-after-instances themselves.
-`_validate_promotion_eligibility` follows `dependencies` recursively for
-each after-instance, cycle-guarded rather than depth-capped. An ancestor
-that is itself `current` or `superseded` passes, since its own chain was
-judged when it was promoted, but the walk continues past it rather than
-stopping there, so a rejected grandparent behind a current parent still
+after-instances themselves. `_refuse_unpromoted_ancestor` follows
+`dependencies` recursively for each after-instance, cycle-guarded
+rather than depth-capped, reading the same instance states `run show`
+prints ([runs](runs) page, "Rules"). An ancestor that is itself
+`current` or `superseded` passes, since its own chain was judged when
+it was promoted, but the walk continues past it rather than stopping
+there, so a `candidate` grandparent behind a current parent still
 refuses the promotion. An ancestor that is itself an after-instance of
-the same promotion gets no exemption from this walk: it is judged by
-its own run's resolved policy like any other ancestor, and the
-promotion's own gate above still covers it separately as an
-after-instance. Any ancestor that is not `current` or `superseded` must
-be `accepted`; one that is `pending`, `rejected`, `unselected`,
-`scratch`, `incomplete` or `deleted` refuses the whole promotion, exit
-64, naming the after-instance, the ancestor, its kind, its state and the
-check or custody behind it: "after instance '01...' depends on '01...'
-(difference-image, rejected: difference-image-statistics@1 failed under
-rebuild-trial@1; accept it with `check accept` or replace it); refusing".
-A refusal changes no selection or custody; the transaction raises before
-anything is written.
+the same promotion request also passes the walk, but gets no exemption
+from validation: it is judged in its own right, against the same
+eligibility rule and the same check policy every after-instance
+answers to. Any ancestor that is neither `current` nor `superseded` nor
+a member of the request's own after-instances refuses the whole
+promotion, exit 1, naming the after-instance, the ancestor, its kind
+and its state: "after instance '01...' depends on '01...'
+(difference-image, candidate: not current or superseded; promote it
+first or in the same request); refusing", the hint appearing only for
+a `candidate` ancestor. A refusal changes no selection or custody; the
+transaction raises before anything is written.
 
 Rollback skips both gates, the check-policy gate and the ancestor walk:
 it restores a selection an earlier promotion already admitted, the same
@@ -181,44 +177,20 @@ an accepted defect, not fixed.
 
 ## Acceptance
 
-Withdrawn by the {ref}`acceptance ruling <decision-acceptance>`: the
-code still behaves as described here until that change lands, and this
-passage changes with it.
-
-Acceptance is separate from selection. The dependency walk above treats
-a candidate instance as eligible once it is `accepted`, and neither the
-walk nor `check accept` itself changes an instance's custody: an
-accepted instance stays a candidate. Acceptance is recorded, not
-inferred. An `acceptances` row (`instance`, `who`, `reason`,
-`policy_ref`, `check_ids`, `happened_at`, `detail`) names who accepted
-an instance, why, which check-policy version was in force, and the
-latest row of every policy check for the instance's kind as the
-evidence.
-
-`rapidpipe check accept <run> --instance <id> --reason "<text>"
-[--who]` records one. It refuses, exit 64, unless the instance belongs
-to the run and its state is `rejected`: a `pending` instance says run
-the checks first; an `accepted`, `current` or `superseded` instance says
-it is already accepted; an `unselected`, `scratch`, `incomplete` or
-`deleted` instance is not acceptable at all. Acceptance applies to any
-kind an instance can take, file products included: `rebuild-trial@1`
-already requires `difference-image-statistics` on difference images,
-so a difference image is exactly the kind of instance `check accept`
-exists for, the same as a result set.
-
-There is no revocation: a wrong acceptance is corrected by
-replacing the product, not by unmarking the acceptance row. Acceptance
-survives supersession, since the state `superseded` is decided before
-`accepted` (above): an instance accepted as a candidate keeps that
-acceptance once it is promoted and later superseded.
+Acceptance is required checks pass, nothing more ({ref}`acceptance
+ruling <decision-acceptance>`). There is no acceptance record separate
+from a `checks` row: the promotion gate above re-reads the latest
+result of every required check each time it runs, and that check
+result, not a stored judgement on the instance, is the durable record
+of what let a candidate through.
 
 ## Automatic promotion
 
 Automatic promotion is designed in and switched off. `run create
 --auto-promote [--check-policy P]` is accepted only when the named
-policy carries the team's approval, recorded as `approval: lead` in the
+policy carries the team's approval, recorded as `approval: team` in the
 policy file, and its `auto_promote` is true; otherwise it is refused,
-exit 64, with a message naming the policy and stating that team
+exit 1, with a message naming the policy and stating that team
 approval is pending. Neither shipped policy carries the team's
 approval, so neither permits it. At the end
 of a `run start` walk, once every unit is complete, the tool calls
@@ -239,9 +211,9 @@ call, fills every candidate's slot before running a single check, so
 `catalog-counts-vs-reference` never sees a slot the fill itself could
 have resolved. Checks run on the workstation, reaching the database
 through the instance role; none of this touches the pipeline image. The
-full command surface, `check list`, `check run`, `check show` and
-`check accept`, including every flag, print format and exit code, is on
-the [tool](tool) page.
+full command surface, `check list`, `check run` and `check show`,
+including every flag, print format and exit code, is on the
+[tool](tool) page.
 
 ## Not decided here
 
