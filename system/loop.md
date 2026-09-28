@@ -290,22 +290,29 @@ new exposures, rather than starting a new schedule name.
 
 ## Promotion
 
-Withdrawn by the {ref}`loop promotion ruling <decision-loop-promotion>`:
-the code still behaves as described here until that change lands, and
-this passage changes with it.
+Once every unit of a date's run is complete, the loop resolves the
+check policy (the spec's, else the run's, else the default), runs its
+checks over the run's candidates and records each result as
+`scheduler`. It calls `promote_run` only when the policy permits
+automatic promotion, the same gate `run start`'s own automatic
+promotion uses ([checks](checks) page, "Automatic promotion"): a
+team-approved policy with `auto_promote` true. No shipped policy does.
+Under `rebuild-trial@1`, the policy every scheduled date has run under
+so far, the run stays a candidate and the `loop_dates` row records
+`promotion = candidate; promotion is a person's (policy <ref>)`. A
+refusal from a policy that does permit automatic promotion is recorded
+the same way, `refused: <reason>`, not as a failure of the date.
+`finish_run` follows either way, and the date exits 0 regardless of
+which text the row got.
 
-Once every unit of a date's run is complete, the loop promotes it under
-the spec's check policy: `promote_run(conn, run_id, who="scheduler",
-reason="processing date <D>", check_policy=…)`, once the
-[checks](checks) page's check-policy gate has landed, or today's
-released-image-only `promote_run` with the gap recorded on the date's
-row. A refusal, a failed or missing
-required check, is a science outcome, not an operation failure: the
-`loop_dates` row records `promotion = refused: <reason>`, the run is
-finished, and the loop moves to the next date regardless, since the next
-date's crossmatch binds this date's association set by instance whether
-or not it was promoted. `finish_run` follows promotion or refusal either
-way, and the date exits 0.
+A date whose run stays a candidate still supplies the next date's base:
+the next date's crossmatch binds this date's association set by
+instance, whether or not it was promoted, and the field's
+`base_promoted` entry (Base catalog, above) records `false`. Promoting
+a candidate afterward is a person's job, `rapidpipe run promote`, and
+it goes in date order: a later date's own association set depends on
+the earlier one, so the [runs](runs) page's ancestor rule refuses its
+promotion while the earlier date's run is still a candidate.
 
 ## Concurrency and recovery
 

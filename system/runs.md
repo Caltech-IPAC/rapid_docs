@@ -251,27 +251,25 @@ page has the fill). The current selection is a view over the instance
 table and includes file products and result sets alike. A consumer
 resolves a related selection from one database snapshot.
 
-Withdrawn by the {ref}`acceptance ruling <decision-acceptance>` (the `accepted` ancestor state and the `acceptance:` block) and the {ref}`legacy compatibility ruling <decision-legacy-compatibility>` (the legacy selector): the code still behaves as described here until that change lands, and this passage changes with it.
-
 **Promotion eligibility.** Automatic and manual promotion require
 completed, selected outputs, a recorded image digest identifying a
 released artifact, and passing results for every required check under
 the resolved check-policy version: an explicit `--check-policy`, then
 the run's own `check_policy_ref`, then the default `rebuild-trial@1`;
 no unchecked exception exists, so a deliverable of a kind the policy
-covers always goes through the gate ([checks](checks) page). Missing or failed required checks refuse
-promotion. Every provenance dependency, followed through the whole
-chain to its roots and not only the instances named directly, must be
-`current`, `superseded` or `accepted`; anything else refuses the
-promotion, naming the ancestor and the deciding check ([checks](checks)
-page has the states and the walk).
-`run show` prints an `acceptance:` block at the end of its listing, one
-line per candidate or current instance in those same states, after
+covers always goes through the gate ([checks](checks) page). Missing or
+failed required checks refuse promotion, exit 1. Every provenance
+dependency, followed through the whole chain to its roots and not only
+the instances named directly, must be `current`, `superseded`, or
+itself an after-instance of the same promotion request, validated in
+its own right; anything else refuses the promotion, exit 1, naming the
+ancestor and its state ([checks](checks) page has the states and the
+walk). `run show` prints a `state:` block at the end of its listing,
+one line per candidate or current instance in those same states, after
 `units:`, `attempts:` and any `promotions:` ([checks](checks) page has
-the format). The replacement's kind and slot must equal the
-requested selector, or, for a legacy selector, its kind and provenance
-key; either way it must be retained, and a result set must be complete
-([products](products) page has the two keys). Every
+the format). The replacement's kind and slot must equal the requested
+selector; it must be retained, and a result set must be complete
+([products](products) page has the identity). Every
 deliverable's selected producing attempt must have an execution record
 whose image digest is a complete release's digest, or the promotion is
 refused unless the operator passes the explicit unreleased exception
@@ -307,7 +305,7 @@ rather than sitting beside them as a new instance.
 A promotion can be planned and frozen ahead of applying it. `run
 promote-plan <run>` reads the run's slot groupings under the lock and
 prints them without writing anything; `run promote <run> --plan <file>`
-applies that same file later, under a fresh lock, and refuses, exit 64,
+applies that same file later, under a fresh lock, and refuses, exit 1,
 naming the first slot whose actual current instance or whose candidate
 no longer matches the plan, writing nothing ([tool](tool) page has the
 commands). The plan file itself
@@ -341,18 +339,18 @@ updates custody and records the action. Each promotion records a before
 and after instance for every affected slot, either nullable, and
 `promotion_changes` carries the slot alongside the provenance key.
 
-Withdrawn by the {ref}`legacy compatibility ruling <decision-legacy-compatibility>` (the provenance-key selector and recorded inverse): the code still behaves as described here until that change lands, and this passage changes with it.
-
-Rollback inverts the exact recorded change: by slot, when the promotion
-recorded one; by provenance key, for a promotion recorded before this
-migration whose instances never resolved a slot. Reversal is itself a
-promotion, carrying the inverse mapping and `request_context.rollback_of`,
-and is refused if the recorded after-selection is no longer current.
-`promote()` accepts a bare
-provenance-key selector only when rollback is the caller reversing one
-of those pre-migration changes; anywhere else, a provenance-key
-selector, or a slot selector naming an instance whose own slot is null,
-is refused.
+Rollback inverts the exact recorded change, by slot: the recorded
+after-instance becomes the expected before, and the recorded
+before-instance, possibly null, becomes the new after. A change
+recorded before slot identity, with no slot, is refused as not
+reversible ({ref}`legacy compatibility ruling
+<decision-legacy-compatibility>`); every promotion `rapid_rebuild` has
+made was recorded after slot identity, so the refusal is reachable only
+against a disposable database. Reversal is itself a promotion, carrying
+the inverse mapping and `request_context.rollback_of`, and is refused if
+the recorded after-selection is no longer current. `promote()` accepts
+only a slot selector; anywhere else a selector naming an instance whose
+own slot is null is refused.
 
 **Deletion.** `run delete` is allowed on a scratch run by its owner,
 finished or not: a finished run admits no new unit, attempt or input
@@ -530,7 +528,7 @@ scheduler build on, as the specification's Tools section names them.
 | `bind_unit_inputs(conn, *, unit_id, manifest) -> list[str]`, in `rapidpipe.runs.repository` | Writes a `unit_inputs` row for every `instance` the manifest names, in `inputs.products` and `inputs.result_sets`, that is a registered product instance; a name that resolves to no instance binds nothing and is logged, not refused; called by `submit_unit` and `run local` before allocating the attempt. |
 | `reconcile(conn, run_id, ...)` | Records the attempts Batch has finished since the last call and selects among them. |
 | `cancel(conn, *, attempt_id, reason)` | Terminates a queued or running attempt. |
-| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, selector, expected_before, after)`, either instance nullable; `selector` is `{"slot": {...}}`, or, only when rollback is the caller, `{"logical_key": {...}}` for a pre-migration change; that `logical_key` form is withdrawn by the {ref}`legacy compatibility ruling <decision-legacy-compatibility>` and stays until that change lands. Validated under `check_policy` ([checks](checks) page). |
+| `promote(conn, who, reason, changes, check_policy: Policy \| None = None, request_context=None, *, allow_unreleased=False) -> promotion_id` | Runs one promotion from an explicit `changes` list of `(kind, selector, expected_before, after)`, either instance nullable; `selector` is `{"slot": {...}}`. Validated under `check_policy` ([checks](checks) page). |
 | `promote_run(conn, run_id, who, reason, *, kinds=None, check_policy: Policy \| str \| None = None, allow_unreleased=False, plan=None) -> promotion_id` | Fills the run's rows, builds its default deliverable list grouped by slot, optionally narrowed to `kinds`, and calls `promote` with it; given `plan` (the list `run promote-plan` printed), refuses under `StalePlan` if the actual current selection or the run's own candidates have moved since the plan was made. |
 | `rollback_promotion(conn, promotion_id, who, reason) -> promotion_id` | Submits a past promotion's inverse mapping as a new promotion. |
 | `finish_run(conn, run_id) -> None` | Marks a run finished; refuses unless every unit is terminal. |

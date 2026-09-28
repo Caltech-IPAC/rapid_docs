@@ -206,10 +206,10 @@ Of the loop's five calls, two stay open here; the others are on the
 Proposed as `rebuild-production@1`, with `auto_promote = true`
 requested. Approval semantics: a policy is immutable once landed
 ([checks](checks)), so the file lands once, already carrying the
-team's approval, recorded as `approval = "lead"` with `approved_by` set
+team's approval, recorded as `approval = "team"` with `approved_by` set
 to the approver's login, in a pull request the team approves; until
 then its content lives only in the table below, and no file for it
-exists to be edited. No other path raises a policy to `lead`.
+exists to be edited. No other path raises a policy to `team`.
 `rebuild-trial@1` stays at trial approval. Team approval of this policy
 is pending.
 
@@ -237,11 +237,9 @@ run's source set, never with a reference catalog ([checks](checks)).
 
 ## Reference eligibility and selection
 
-The acceptance this proposal names is withdrawn by the {ref}`acceptance ruling <decision-acceptance>`; the proposal is revisited with that change.
-
 Proposed: a reference image is eligible for a field and filter when it
 is current in that slot, built by the recipe the stream's spec names,
-from constituents that are all current or accepted. Selection is then
+from constituents that are all current or superseded. Selection is then
 trivial: the one current reference in the (field, filter) slot, which is
 `dev`'s rule (the reference with `vbest` set). A new reference promoted
 mid-stream is used by later batches; difference images made against the

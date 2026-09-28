@@ -131,10 +131,6 @@ or removes it here.
   *selected candidate*, whatever its check outcome. The team decides
   whether selected candidates are readable across runs and aligns the
   specification or the table. (2026-09-26)
-- **Acceptance rule.** The acceptance record, `check accept` and the
-  nine derived ancestor states on [checks](checks) and
-  [products](products) are withdrawn by the acceptance ruling above;
-  the pages keep them marked until the code change lands. (2026-09-26)
 - **Trial policy.** `rebuild-trial@1`'s `approval: trial` is a trial
   approval, not the team's sign-off; promotion refuses a policy with
   `approval: none`, and automatic promotion needs a team approval and
@@ -166,10 +162,23 @@ or removes it here.
   a non-null expected-before must have the before as an ancestor of the
   after. (2026-09-24)
 - Promotion's dependency walk covers every ancestor recursively;
-  rollback skips the check-policy gate and the walk. (2026-09-24,
-  2026-09-26)
+  rollback skips the check-policy gate, the walk and the
+  association-set chain-direction rule. (2026-09-24, 2026-09-26,
+  2026-09-27)
 - Released-image validation and check-policy validation are separate.
   (2026-09-24, 2026-09-26)
+- A same-request ancestor passes the dependency walk and is validated
+  on its own, against the same eligibility rule and check policy any
+  other after-instance answers to. (2026-09-27)
+- Rollback reverses by slot only; a recorded change with no slot is
+  refused as not reversible. (2026-09-27)
+- A policy refusal (`PromotionRefused`, `StalePlan`,
+  `CheckPolicyRefused`) exits 1; an argument-shaped refusal or an
+  unknown run, instance or promotion id exits 64. (2026-09-27)
+- The check-policy gate's `FOR SHARE` lock on the `checks` rows it
+  relies on stays; the pipeline role can update `checks` rows, so the
+  table is not append-only. (2026-09-27)
+- The `approval` value `lead` is renamed `team`. (2026-09-27)
 - Seeding a replacement run from a failed one is `--seed --only-failed`;
   seeded instances re-kinded to production become candidates.
   (2026-09-24)
@@ -205,6 +214,10 @@ or removes it here.
 - A finished run takes no new units. (2026-09-25)
 - Discovery: identical re-delivery refused, checksum conflict
   quarantined, a corrected version deferred ([loop](loop)). (2026-09-26)
+- Under a check policy without automatic promotion, the loop leaves a
+  date's run a candidate rather than refusing it; the next date's base
+  still binds to it, so a person promotes in date order, an earlier
+  date first. (2026-09-27)
 
 ### Stage contract and tool
 
