@@ -2,111 +2,106 @@
 
 **Status: DRAFT**
 
-What the `export` stage reads, what it runs, what it publishes, and its
-settings and exit codes. The stage lands on
-the pipeline repository's `rebuild` branch
+The `export` stage builds a HATS (Hierarchical Adaptive Tiling Scheme)
+source catalog from named, completed source sets and publishes it as one
+`catalog-export` instance through the manifest, like other stages'
+products. The [products](products) page fixes the vocabulary.
+
+The stage lands on the pipeline repository's `rebuild` branch
 (`rapidpipe/stages/export.py`, `rapidpipe/settings/export.toml`,
 `rapidpipe/products/catalogexport.py`), ported from `dev`'s
-`pipeline/generateSourceHATSCatalog.py`. The [products](products) page
-fixes the vocabulary; this page records how the stage meets it.
+`pipeline/generateSourceHATSCatalog.py`. That script dumps the whole
+`sources` table to CSV in `sid`-range chunks, builds the catalog with
+`hats-import` and syncs it to S3 by hand. The rebuild keeps the CSV dump
+and `hats-import` build, but reads only the named source sets and
+publishes through the manifest.
 
-## In plain terms
+The stage reads the database and writes no rows of its own
+(`database_access = "read"`). `register` records the output instance,
+as it does for `source-catalog` and `alert-container`.
 
-`dev` dumps the whole `sources` table to CSV in `sid`-range chunks, then
-builds a HATS (Hierarchical Adaptive Tiling Scheme) catalog from those
-files with `hats-import` and syncs the result to S3. The rebuild's
-`export` reads named, completed source sets instead of the whole table,
-dumps their rows to CSV the same way, and runs the same `hats-import`
-build; the result is published as one `catalog-export` instance through
-the manifest, like every other stage's products, rather than synced by
-hand. The stage reads the database and writes no rows of its own
-(`database_access = "read"`); `register` records the instance it
-produces, the way it already does for `source-catalog` and
-`alert-container`. `dev`'s light-curve catalog
-(`pipeline/generateLightCurveHATSCatalog.py`, one row per object joining
-`AstroObjects`, `Merges` and `Sources`) is not ported this step:
-requesting it, `[export] catalog_type = "light-curves"`, exits 64.
+`dev`'s light-curve catalog (`pipeline/generateLightCurveHATSCatalog.py`)
+has one row per object, joining `AstroObjects`, `Merges` and `Sources`.
+It is not ported; `[export] catalog_type = "light-curves"` exits 64.
 
 ## Inputs
 
-Stage `export`, unit kind `field`. `--inputs` is an input-set manifest
+The unit kind is `field`. `--inputs` is an input-set manifest
 (stage `input-set`) whose `inputs.result_sets` names, by instance id,
 one or more `source-set` instances and, optionally, `association-set`
-instances. Every named set must be registered, complete and retained
-(not deleted); a `statistics-set` or any other kind, or a set that fails
-any of those three checks, exits 65. At least one `source-set` must be
-named; a manifest naming only association sets exits 65 too, since there
-would be no sources to export.
+instances. Each must be registered, complete and retained (not deleted).
+A `statistics-set` or any kind other than those two exits 65, as does a
+set that fails any of those three checks. A manifest naming only
+association sets also exits 65 because it supplies no sources to export.
 
-An association set is checked but never read: it is recorded in the
-manifest's `result_sets_read` and in the execution notes, and nothing
-else touches it, since the source catalog does not use it. Neither
-source sets' nor association sets' field is checked against the unit id:
-a source set's key names its difference instance, not a field, and the
-`sources` rows carry their own `field` column.
+Association sets are checked and recorded in the manifest's
+`result_sets_read` and execution notes, but never read or otherwise
+touched: the source catalog does not use them. Neither kind's field is
+checked against the unit id. A source set's key names its difference
+instance, not a field; the `sources` rows carry their own `field` column.
 
 ## What it runs
 
-1. **Classify the named sets.** Split `inputs.result_sets` into source
-   sets and association sets by looking each one up; a source set with
-   no matching row, an incomplete one, or one no longer retained fails
-   the same way (exit 65).
+1. **Classify the named sets.** Look up each entry in `inputs.result_sets`
+   and split them into source sets and association sets, applying the
+   input checks above (exit 65).
 2. **Read the rows.** `SELECT <columns> FROM sources WHERE result_set =
    ANY(<named source sets>) [AND flags = 0] ORDER BY sid`, through the
-   `sources` parent table, the way `alerts` reads named source sets --
-   not `dev`'s whole-table `sid`-range chunking. A server-side (named)
-   cursor streams the rows in batches inside the stage's one read-only
-   transaction. `[export] flags_zero_only` (default false, since `dev`'s
-   own `SELECT` carries no flags filter) restricts the read to `flags =
-   0` rows.
-3. **Dump to CSV.** The streamed rows are written to `sources_<n>.csv`
-   files under a per-attempt work directory, one header row per file,
-   `[export] csv_rows_per_file` rows each (`dev`: 100000, hard-coded).
-   Zero rows read, with or without the flags filter, exits 65:
-   `hats-import` cannot build an empty catalog, and `dev` never ran on
-   an empty table either.
-4. **Build the HATS catalog.** `hats-import`'s `ImportArguments` --
-   `ra_column`, `dec_column`, the healpix order range, `pixel_threshold`,
+   `sources` parent table, as `alerts` reads named source sets. A
+   server-side (named) cursor streams batches within the stage's one
+   read-only transaction. `[export] flags_zero_only` restricts the read
+   to `flags = 0` rows; it defaults to false because `dev`'s `SELECT`
+   has no flags filter.
+3. **Dump to CSV.** Write the streamed rows to `sources_<n>.csv` files
+   under a per-attempt work directory, with one header row and
+   `[export] csv_rows_per_file` rows per file (`dev`: 100000, hard-coded).
+   Reading zero rows, with or without the flags filter, exits 65.
+   `hats-import` cannot build an empty catalog; `dev` never ran on an
+   empty table either.
+4. **Build the HATS catalog.** Pass `hats-import`'s `ImportArguments` to
+   `pipeline_with_client` on a local Dask `Client`: `ra_column`,
+   `dec_column`, the healpix order range, `pixel_threshold`,
    `catalog_type`, the dumped CSV files as a `CsvReader`, output artifact
-   name and path, a scratch `tmp_dir`, `resume=False`, no progress bar --
-   run by `pipeline_with_client` on a local Dask `Client` (worker count
-   and thread-versus-process mode from settings, no dashboard port bound,
-   its scratch directory under the attempt's work directory). Missing
-   `hats`, `hats-import` or `dask` in the environment exits 64; any other
-   failure inside `hats-import` exits 70.
+   name and path, a scratch `tmp_dir`, `resume=False`, and no progress
+   bar. Settings control the worker count and thread-versus-process
+   mode. No dashboard port is bound, and Dask's scratch directory is
+   under the attempt's work directory. Missing `hats`, `hats-import` or
+   `dask` exits 64; any other failure inside `hats-import` exits 70.
 
 ## Output
 
-One `catalog-export` file product (`rapidpipe.products.catalogexport`):
-members are every file `hats-import` wrote under
-`<outputs>/hats/<catalog_name>/`, with one of three roles -- `hats` for
-the catalog's root `properties` (or `hats.properties`) file, `partition`
-for each `Norder=*/Dir=*/Npix=*.parquet` leaf, `metadata` for everything
-else (`partition_info.csv`, `skymap*.fits`, `point_map.fits`,
-`dataset/_metadata`, `dataset/_common_metadata`). The primary member is
-the root `properties` file.
+The output is one `catalog-export` file product
+(`rapidpipe.products.catalogexport`). Every file `hats-import` writes
+under `<outputs>/hats/<catalog_name>/` is a member with one of three roles:
+
+- `hats`: the catalog's root `properties` (or `hats.properties`) file.
+- `partition`: each `Norder=*/Dir=*/Npix=*.parquet` leaf.
+- `metadata`: everything else (`partition_info.csv`, `skymap*.fits`,
+  `point_map.fits`, `dataset/_metadata`, `dataset/_common_metadata`).
+
+The primary member is the root `properties` file.
 
 Key: `{"field": <rtid>, "export_type": "sources", "selection": <selection
 digest>, "settings_hash": <resolved settings hash>}`. The selection
-digest is the full SHA-256 hex digest over the sorted, distinct named
-`source-set` instance ids, joined by newlines -- the same rule the
-reference-image's selection digest uses: the same set of
-source sets rebuilt, in any input order, is another instance of one
-logical product, and a different set of source sets is a new one. This
-replaces an earlier "result_set" key component naming only the first
-named source set, which let two exports over different sets that
-happened to share a first element collide.
+digest is the full SHA-256 hex digest of the sorted, distinct named
+`source-set` instance ids joined by newlines, the same rule as the
+reference-image's selection digest. Rebuilding the same set of source
+sets in any input order makes another instance of the same logical
+product; a different set makes a new product. The earlier "result_set"
+key component named only the first source set, allowing exports of
+different sets with the same first element to collide.
 
-Registration block: `row_count` (the rows dumped, checked against the
-catalog's own `properties` file), `export_type` (must equal the key's),
-`hats_version` (the installed `hats` package version), `source_sets`
-(every named source set, in input order -- provenance, kept even though
-the key's `selection` sorts them), `healpix_order` (the highest
-partition order `hats-import` actually wrote), `partition_count` (the
-number of `partition` members), `md5` (of the primary member).
-`register` validates the entry and writes nothing beyond the instance
-row: no `catalog-export`-specific table exists, the same treatment
-`source-catalog` and `alert-container` get.
+The registration block records `row_count` (rows dumped, checked against
+the catalog's `properties` file), `export_type` (must equal the key's),
+`hats_version` (installed `hats` package version), `healpix_order`
+(highest partition order `hats-import` wrote), `partition_count` (number
+of `partition` members) and `md5` (of the primary member). Its
+`source_sets` preserves every named source set in input order for
+provenance, even though the key's `selection` sorts them.
+
+`register` validates the entry and writes only the instance row. There
+is no `catalog-export`-specific table, as with `source-catalog` and
+`alert-container`.
 
 ## Settings
 
@@ -150,17 +145,18 @@ rapidpipe stage export --run <run-id> --unit <rtid> --attempt <attempt-id> \
 
 `make stage-export` runs `rapidpipe selftest --stage export` against a
 fake database (`rapidpipe.selftest.support.fakeexport`) instead of
-PostgreSQL: two named source sets, 120 and 80 rows, one unnamed source
-set of 50 rows that must not be read, and one named association set,
-recorded but unused. `flags_zero_only` is off, so all 200 named rows are
-exported. `hats-import` itself runs for real either side of
-`--real-tools`, since it is pure Python and needs no C tool the fixture
-would otherwise fake; there is one `expected.json`, not a fake-tools and
-a real-tools variant. The checks: the `catalog-export` entry validates,
-its key, row count, source sets and partition count are right, its own
-`properties` file agrees on the row count, and the fake database's
-record of what was read names only the two named source sets, never the
-unnamed one or the association set.
+PostgreSQL. The fixture has two named source sets of 120 and 80 rows,
+an unnamed source set of 50 rows that must not be read, and one named
+association set, recorded but unused. With `flags_zero_only` off, all
+200 named rows are exported.
+
+`hats-import` runs for real with or without `--real-tools`: it is pure
+Python and needs no C tool the fixture would otherwise fake. Both modes
+use one `expected.json`. The checks validate the `catalog-export` entry
+and verify its key, row count, source sets and partition count. They
+also check that its `properties` file agrees on the row count and that
+the fake database records reads of only the two named source sets,
+never the unnamed set or the association set.
 
 ## Not decided here
 
@@ -173,8 +169,7 @@ unnamed one or the association set.
   settings profile; how two exports of the same field and export type,
   or a real deployment serving several catalogs, would be named apart is
   not decided.
-- A catalog labelled by the unit's field can hold rows of another field:
-  the stage restricts what it reads by the named source sets, never by
-  field, and nothing stops a manifest from naming source sets whose rows
-  carry a different `field` than the unit's. This is deliberate, not an
-  oversight; whether it should be checked is left open.
+- Field validation: a catalog labelled by the unit's field can hold rows
+  with a different `field`. The stage deliberately restricts reads only
+  by named source sets, which a manifest can name regardless of their
+  rows' fields. Whether to check the field is left open.
