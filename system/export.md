@@ -25,9 +25,9 @@ produces, the way it already does for `source-catalog` and
 `alert-container`. `dev`'s light-curve catalog
 (`pipeline/generateLightCurveHATSCatalog.py`, one row per object joining
 `AstroObjects`, `Merges` and `Sources`) is not ported this step:
-requesting it, `[export] catalog_type = "light-curves"`, exits 64. It
-remains on the [photometry](photometry) page, unported alongside forced
-photometry.
+requesting it, `[export] catalog_type = "light-curves"`, exits 64.
+Forced photometry, the light curve's own source, is unported too; see
+[photometry](photometry).
 
 ## Inputs
 
@@ -168,7 +168,8 @@ unnamed one or the association set.
 
 - The light-curve HATS catalog: `dev`'s
   `pipeline/generateLightCurveHATSCatalog.py`, the next port, named on
-  the [photometry](photometry) page alongside forced photometry.
+  the [photometry](photometry) page alongside forced photometry, which
+  it depends on.
 - Delivery: where a `catalog-export` product is read from once made,
   since [products](products) marks it "none; exported."
 - Catalog naming: `[hats] catalog_name` fixes one directory name per

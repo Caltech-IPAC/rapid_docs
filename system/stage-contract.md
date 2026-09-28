@@ -59,13 +59,13 @@ condition that makes each input set complete.
 
 Stage names are a stable list: `admit`, `reference`, `difference`,
 `finalize`, `register`, `load`, `maintain`, `crossmatch`, `statistics`,
-`prune`, `alerts`, `photometry`, `export` (`maintain` is described on
+`prune`, `alerts`, `export` (`maintain` is described on
 the [load](load) page). Units of work are `exposure`,
 `detector-image`, `field`, `processing-date` and `detector-date`
 (`detector-date` is `maintain`'s unit; see
 [maintain](maintain), "Unit").
 
-Transform stages (`reference`, `difference`, `finalize`, `photometry`)
+Transform stages (`reference`, `difference`, `finalize`)
 declare no database access. `register` records file products from
 manifests; `load` loads source rows; `maintain` clusters and analyzes a
 `sources` child table, once per observation date and detector, reading
@@ -160,9 +160,9 @@ Code 69 is `sysexits`' `EX_UNAVAILABLE`, chosen over 64 (which would
 misreport a correct invocation as a usage error) and 70 (which calls
 for investigation): a stub stage that validates its arguments and
 settings and then declines to run is neither of those things.
-`disposition_for` maps it to `failed`. `photometry` and `export` are
-declared stages that exit 69 for every invocation past validation in
-this build (see [photometry](photometry) and [export](export)).
+`disposition_for` maps it to `failed`; the code stays reserved for a
+future stage declared but not yet implemented, since no stage in this
+build returns it (see [decisions](decisions)).
 
 The entrypoint maps argument errors to 64 and unhandled exceptions to
 70. Forced termination is reported by the launcher, not the stage.
