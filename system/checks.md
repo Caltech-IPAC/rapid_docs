@@ -98,20 +98,21 @@ promotion additionally requires `team` and `auto_promote` true, so a
 `trial`-approved policy can gate a person's promotion but never an
 automatic one.
 
-Two policies ship with the rebuild. `rebuild-trial@1`'s bounds are set
+One policy ships with the rebuild. `rebuild-trial@1`'s bounds are set
 from the control run's measured values with generous margins:
 `scalefacref` in `[1e-3, 1e5]`, `dxrmsfin` and `dyrmsfin` each at most
 2.0 pixels, `|dxmedianfin|` and `|dymedianfin|` each at most 1.0 pixel,
 `nsexcatsources` in `[1000, 1e6]`, and the SExtractor positive-to-negative
-ratio in `[0.1, 10]`. `rebuild-strict@1` runs the same two checks but
-exists only to demonstrate a refusal and exercise the gate, with bounds
-the control run cannot meet: `scalefacref` in `[0.99, 1.01]`, the same
-two RMS measurements each at most 0.01 pixel, and `nsexcatsources` at
-most 1000. Both carry `approval: trial`, `approved_by` recording who
+ratio in `[0.1, 10]`. `rebuild-strict@1`, the same two checks with
+bounds the control run cannot meet (`scalefacref` in `[0.99, 1.01]`,
+the same two RMS measurements each at most 0.01 pixel, `nsexcatsources`
+at most 1000), is a test fixture that exercises a refusal; it does not
+ship, and naming it to a command is an unknown policy. The shipped
+policy carries `approval: trial`, `approved_by` recording who
 granted it, and `auto_promote` false. This trial approval
 satisfies the mechanism the runs and specification pages ask for well
 enough to demonstrate manual promotion by hand; it is not the team's own
-sign-off, which is a recorded open item, and neither policy permits
+sign-off, which is a recorded open item, and it does not permit
 automatic promotion regardless. There is no policy table in the
 database: the promotion row records the policy's version string and the
 ids of the check rows it relied on, which is the durable record of what
@@ -166,14 +167,13 @@ it restores a selection an earlier promotion already admitted, the same
 treatment the released-image check gives it.
 Each direct dependency of the restored selection must still be complete,
 retained and in project custody; only the walk past those direct
-dependencies, and the check-result states above it, are skipped.
+dependencies is skipped.
 
 The gate's read of the latest check rows takes its lock `FOR SHARE`; a
 failed check row committed after that read is not seen by the
-promotion it should have refused. This extends to the ancestors whose
-state the walk decides from check rows too (a current, superseded or
-explicitly accepted ancestor is judged without reading them). This is
-an accepted defect, not fixed.
+promotion it should have refused. The dependency walk reads no check
+rows: an ancestor's state is custody, completeness and selection. This
+is an accepted defect, not fixed.
 
 ## Acceptance
 
@@ -191,8 +191,8 @@ Automatic promotion is designed in and switched off. `run create
 policy carries the team's approval, recorded as `approval: team` in the
 policy file, and its `auto_promote` is true; otherwise it is refused,
 exit 1, with a message naming the policy and stating that team
-approval is pending. Neither shipped policy carries the team's
-approval, so neither permits it. At the end
+approval is pending. The shipped policy does not carry the
+team's approval, so it does not permit it. At the end
 of a `run start` walk, once every unit is complete, the tool calls
 `maybe_auto_promote(conn, run_id)`: with the run's `auto_promote` flag
 true, it runs the resolved policy's checks over the run's candidates and
