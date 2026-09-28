@@ -2,42 +2,51 @@
 
 **Status: DRAFT**
 
-What the `maintain` stage reads, what it runs, its unit, its manifest,
-and its exit codes. The stage lands on the
-pipeline repository's `rebuild` branch (`rapidpipe/stages/maintain.py`,
-`rapidpipe/db/sources.py`'s `cluster_and_analyze`, migration
-`20260924-02`), following the timing the [load](load) page already
-described and the team's ruling that created the stage.
-The [products](products) page fixes the vocabulary; this page records
-how the stage meets it.
+For one observation date and detector, `maintain` clusters the `sources`
+child table on its position index and analyzes it. It runs once, after
+the date's last `load` unit and before `crossmatch` reads the table, to
+make that scan efficient. It writes no rows or result set.
 
-## In plain terms
+`dev` runs CLUSTER and ANALYZE once per processing date, after every
+image for that date has loaded. The rebuild keeps that timing in a
+separate stage, following the [load](load) page's timing and the team's
+ruling that created the stage. Running it per image would
+recluster the table on every load.
 
-`dev` runs its CLUSTER and ANALYZE of a `sources` child table once per
-processing date, after every image for that date has loaded; running it
-per image would recluster the table on every load. The rebuild keeps
-that timing in a stage of its own: for one observation date and
-detector, `maintain` clusters the child table on its position index and
-analyzes it, once, after the date's last `load` unit and before
-`crossmatch` reads the table. It writes no rows and no result set; it only makes the
-table `crossmatch` reads efficient to scan.
+The implementation is on the pipeline repository's `rebuild` branch:
+`rapidpipe/stages/maintain.py`, `rapidpipe/db/sources.py`'s
+`cluster_and_analyze`, and migration `20260924-02`. The
+[products](products) page fixes the vocabulary.
+
+## Unit
+
+The new unit kind is `detector-date`, with id `<yyyymmdd>/SCA<nn>`: the
+observation date and detector shared by a run's `load` units and used
+to name their child table, `sources_<yyyymmdd>_<sca>`.
+
+The team's ruling fixes `maintain`'s unit as "(observation date,
+detector)". None of the contract's other four kinds fits:
+`detector-image` is one image, one attempt; `processing-date` carries no
+detector; `field` is a tessellation tile; `exposure` is an admitted image
+before any detector-level product exists.
+`rapidpipe.stages.contract.UNIT_KINDS` and
+`rapidpipe.products.manifest.UNIT_KINDS` both carry the fifth value.
+Migration `20260924-02` widens the `units.unit_kind` CHECK constraint
+to match, allowing a run to record a `maintain` unit.
 
 ## Inputs
 
-`--inputs` is a manifest carrying one or more `source-set` output
-entries: either a `load` completion manifest naming one, or a stage
-input-set manifest composed from several `load` attempts for the same
-date and detector. The stage does not require any particular `stage` or
-`unit.kind` on the input manifest itself -- a `load` completion manifest
-carries unit kind `detector-image`, an input-set manifest may carry this
-stage's own `detector-date` -- only that every entry it reads is a
-`source-set` for the unit's own table.
+`--inputs` carries one or more `source-set` output entries: either a
+`load` completion manifest naming one, or a stage input-set manifest
+composed from several `load` attempts for the same date and detector.
+Every entry the stage reads must be a `source-set` whose
+`registration.table` equals the unit's child table. A different table
+or no `source-set` entries makes the input invalid. The table must
+already exist; only `load` creates it.
 
-Each entry's `registration.table` must equal the unit's child table,
-`sources_<yyyymmdd>_<sca>`; an entry naming a different table is a
-rejected input, as is an input manifest with no `source-set` entries at
-all. The child table itself must already exist -- `maintain` never
-creates one, only `load` does.
+The input manifest needs no particular `stage` or `unit.kind`. A
+`load` completion manifest carries `detector-image`; an input-set
+manifest may carry `detector-date`.
 
 ## What it runs
 
@@ -46,40 +55,26 @@ creates one, only `load` does.
 2. Read every `source-set` entry in the input manifest, and check each
    one's `registration.table` against that table.
 3. Check the table exists.
-4. Call `cluster_sources_child_table(obs_date, sca)` -- `dev`'s CLUSTER
-   on the position index and ANALYZE, the same SQL function `load` may
-   call inline (off by default there) -- and commit.
+4. Call `cluster_sources_child_table(obs_date, sca)` and commit. This
+   SQL function runs `dev`'s CLUSTER on the position index and ANALYZE;
+   `load` may also call it inline, but that option is off by default.
 
-An image whose sources are all rejected by `load` still gives a complete,
-empty source set (`load`'s page): `maintain` clusters and analyzes its
-table exactly as it would a table with rows, since an empty table is
-still `dev`'s once-per-date maintenance target.
-
-## Unit
-
-Unit kind `detector-date`, unit id `<yyyymmdd>/SCA<nn>` -- the
-observation date and detector a run's `load` units for that date and
-detector share, and the same pair the child table's own name is built
-from. This is a new kind
-because none of the contract's other four fits the team's ruling that
-`maintain`'s unit is "(observation date, detector)":
-`detector-image` is one image, one attempt; `processing-date` carries no
-detector; `field` is a tessellation tile; `exposure` an admitted image
-before any detector-level product exists. `rapidpipe.stages.contract.UNIT_KINDS`
-and `rapidpipe.products.manifest.UNIT_KINDS` both carry the fifth value,
-and migration `20260924-02` widens the `units.unit_kind` CHECK
-constraint to match, so a run can record a `maintain` unit at all.
+An image whose sources are all rejected by `load` still gives a
+complete, empty source set (`load`'s page). `maintain` clusters and
+analyzes its table just as it would a table with rows: an empty table
+is still `dev`'s once-per-date maintenance target.
 
 ## The manifest
 
-`maintain` writes no output: its manifest's `outputs` list is always
-empty. `inputs.result_sets` names every `source-set` instance the input
-manifest listed -- the stage contract's field for the stages that read
-named, completed database result sets (`maintain`, `crossmatch`,
-`statistics`, `prune`), extended to `maintain` in this port. The
-execution record's `notes` carry `table` (the child table clustered) and
-`clustered` (`true`), so a run's history shows which table each
-`maintain` attempt maintained without a result set to look it up by.
+The manifest's `outputs` list is always empty. `inputs.result_sets`
+names every `source-set` instance listed in the input manifest. The
+stage contract uses this field for stages that read named, completed
+database result sets (`maintain`, `crossmatch`, `statistics`, `prune`);
+this port extends it to `maintain`.
+
+The execution record's `notes` carry `table` (the child table clustered)
+and `clustered` (`true`). With no result set to look up, these notes
+identify the table each attempt maintained in the run's history.
 
 ## Exit codes
 
@@ -95,6 +90,6 @@ execution record's `notes` carry `table` (the child table clustered) and
 
 `make stage-maintain` runs the stage fixture
 (`tests/fixtures/maintain/`) against a fake database and checks the
-manifest and the fake database's recorded CLUSTER; the same path
-against PostgreSQL, checking `pg_index.indisclustered` on the child
-table's position index, is `tests/db/test_maintain.py`.
+manifest and the recorded CLUSTER. `tests/db/test_maintain.py` runs the
+same path against PostgreSQL, checking `pg_index.indisclustered` on the
+child table's position index.

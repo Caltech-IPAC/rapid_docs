@@ -2,44 +2,68 @@
 
 **Status: DRAFT**
 
-What the `prune` stage reads, the exclusion rule it runs, what lands in
-`prunedmerges`, the pruned set it records, its settings and exit codes.
-The stage lands on the pipeline repository's
-`rebuild` branch (`rapidpipe/stages/prune.py`, `rapidpipe/settings/prune.toml`,
-migration `20260924-05-prunedmerges.sql`, `rapidpipe/db/objects.py`'s
-`insert_pruned_merges` and the association-chain helpers), ported from
-`dev`'s `pipeline/pruneNotBestMerges.py`. The [products](products) page
-fixes the vocabulary; this page records how the stage meets it.
+For one field, `prune` excludes association pairs whose sources came
+from difference images that are not best for their positions. It records
+the excluded pairs in a new table, `prunedmerges`. The resulting
+`pruned-set` is its base association set minus those pairs; the base is
+never mutated, and a stage never drops a table. The [products](products)
+page fixes this vocabulary and rule: "A pruned set is its base association
+set minus an explicit list of excluded pairs ... the base is never mutated".
 
-## In plain terms
-
-For one field, `dev`'s `pruneNotBestMerges` deletes every `merges_<field>`
-pair whose source came from a difference image that is not the best one
-for its position (`vbest = 0`), then drops any `merges_<field>` table it
-emptied and vacuums the rest. The rebuild ports the exclusion rule but not
-the deletion: `prune` records the excluded pairs in a new table,
-`prunedmerges`, as a `pruned-set` result set -- its base association set
-minus those pairs. The base is never mutated, and a stage never drops a
-table (products page, "A pruned set is its base association set minus an
-explicit list of excluded pairs ... the base is never mutated").
+The stage is ported from `dev`'s `pipeline/pruneNotBestMerges.py` onto
+the pipeline repository's `rebuild` branch: `rapidpipe/stages/prune.py`,
+`rapidpipe/settings/prune.toml`, migration `20260924-05-prunedmerges.sql`,
+and `rapidpipe/db/objects.py`'s `insert_pruned_merges` and association-chain
+helpers. `dev`'s `pruneNotBestMerges` uses `vbest = 0` to select pairs,
+then runs `DELETE FROM merges_<field>`, drops any emptied `merges_<field>`
+table and vacuums the rest. The rebuild ports the exclusion rule; the
+deletion, table drop and VACUUM pass are not ported. Nor is
+`dev`'s `pruneNotBestSources`, a separate script that deletes `sources`
+rows by a global flag: it would delete rows another run's science still
+depends on, breaking "science rows only by their own run".
 
 ## Inputs
 
-`--inputs` is `crossmatch`'s completion manifest. The stage
-reads its one `association-set` output entry whose key names this field
-(`crossmatch` and `prune` share the `field` unit, and
-`prune` reads `crossmatch`'s manifest directly, not an accumulated
-input set). Exactly one such entry is required; zero or more than one is
-a rejected input. `inputs.result_sets` names that instance.
+`--inputs` is `crossmatch`'s completion manifest, read directly rather
+than through an accumulated input set. `crossmatch` and `prune` share
+the `field` unit. The manifest must contain exactly one `association-set`
+output entry whose key names this field; zero or more than one is a
+rejected input. `inputs.result_sets` names that instance.
+
+## The exclusion rule
+
+A pair is excluded when its source's difference image meets neither
+condition for being best:
+
+- `diffimages.vbest > 0`, maintained by promotion.
+- The image was made by this run: `diffimages.run` equals this run's id.
+  These images are registered with `vbest` 0 and promoted, if at all,
+  after the loop.
+
+`dev` also sets `vbest = 0` at registration and promotes later
+(`updatePSF`'s pattern, mirrored for difference images), but its images
+are already `vbest = 1` when it prunes. In the rebuild, a bare
+`vbest = 0` check would exclude every pair a first pass produces because
+nothing is promoted within that pass. The own-run clause therefore makes
+the first pass exclude nothing, matching `dev`'s first pass. It also
+excludes nothing for a production run's own, not-yet-promoted images.
+
+A later `prune` attempt excludes pairs whose sources' difference images
+have since been superseded (reassigned to another run, still `vbest = 0`),
+as `dev`'s `vbest = 0` does once a newer image is promoted current.
+Promotion maintains `vbest` as a current-membership flag ([runs](runs)
+page), so both clauses are exercised now: the own-run clause keeps this
+run's images, and the `vbest` clause excludes a pair once another run's
+promotion supersedes its difference image.
 
 ## What it runs
 
-One transaction, following `dev`'s per-field exclusion (`pruneNotBestMerges.py`)
-with the run model's own base-plus-delta reads in place of
-`dev`'s date scan:
+The stage runs one transaction, following `dev`'s per-field exclusion
+(`pruneNotBestMerges.py`) with the run model's base-plus-delta reads in
+place of `dev`'s date scan:
 
 1. Follow the association set's base chain (`objects.association_chain`:
-   the instance and its bases, recursively -- "base plus delta") and every
+   the instance and its bases, recursively, "base plus delta") and every
    chain member's own named source sets (`product_instances.logical_key
    ->> 'source_sets'`, resolved to their `sources` child tables with
    `objects.source_set_table`). A crossmatch pass may have read source
@@ -47,49 +71,17 @@ with the run model's own base-plus-delta reads in place of
    whole chain's sources, not just this attempt's own.
 2. Build `dev`'s not-best `sid` set, one temporary table for the whole
    field, one `UNION`ed `SELECT` per (source-set instance, its table)
-   pair -- `UNION`, not `UNION ALL`, as `dev`'s own comment explains: a
-   `sid` occurring in more than one source-set table would otherwise
-   violate the temporary table's primary key. The exclusion rule below
+   pair. As `dev`'s own comment explains, `UNION` removes duplicate `sid`
+   values across source-set tables; with `UNION ALL`, those duplicates
+   would violate the temporary table's primary key. The exclusion rule above
    replaces `dev`'s bare `vbest = 0`.
 3. Select the chain's `merges_<field>` pairs (`result_set = ANY(chain)`)
    whose `sid` is in the not-best set, deduplicated.
 4. Register the new `pruned-set` result set (below), then insert the
    excluded pairs into `prunedmerges` with `objects.insert_pruned_merges`
-   -- registration first, since `prunedmerges`' rows carry foreign keys to
-   its own `result_sets` row, as [load](load) registers before it COPYs.
-   Commit.
-
-`dev`'s `DELETE FROM merges_<field>` of the excluded pairs, its drop of an
-emptied `merges_<field>` table, and its VACUUM pass are not ported: a
-pruned set records exclusions instead of mutating its base, and a stage
-never drops a table. `dev`'s `pruneNotBestSources` -- a
-separate script that deletes `sources` rows by a global flag -- is not
-ported either: it would delete rows another run's science still depends
-on, breaking "science rows only by their own run".
-
-## The exclusion rule
-
-A pair is excluded when its
-source's difference image is not best, where best means
-`diffimages.vbest > 0` (maintained by promotion) **or** the difference
-image was made by this run (`diffimages.run` equals this run's id, whose
-rows are registered with `vbest` 0 and promoted, if at all, after the
-loop). `dev` sets `vbest = 0` at registration and promotes it later
-(`updatePSF`'s pattern, mirrored for difference images); a bare
-`vbest = 0` check would therefore exclude every pair a first pass ever
-produces, since nothing is promoted yet within one pass. The own-run
-clause is what makes a first pass exclude nothing, as `dev`'s first pass
-does -- `dev` reaches the same result because its own images are already
-`vbest = 1` by the time it prunes, this run's own images are not yet
-promoted at all. A later `prune` attempt, pruning an association set
-whose sources' difference images were since superseded (reassigned to
-another run, still `vbest = 0`), excludes them, as `dev`'s `vbest = 0`
-does once a newer image is promoted current. Promotion maintains
-`vbest` as a current-membership flag ([runs](runs) page), so both
-clauses are exercised now: the own-run clause excludes nothing for a
-production run's own images, not yet promoted within one pass, and the
-`vbest` clause excludes a pair once its difference image is superseded
-by another run's promotion.
+   before committing. Registration comes first because `prunedmerges`
+   rows carry foreign keys to the new set's `result_sets` row, as
+   [load](load) registers before it COPYs.
 
 ## What lands in `prunedmerges`
 
@@ -102,20 +94,19 @@ One row per excluded pair, `database/migrations/20260924-05-prunedmerges.sql`:
 | `aid`, `sid` | the excluded pair, from `merges_<field>` |
 | `run`, `attempt` | the run and the prune attempt that wrote the row |
 
-`PRIMARY KEY (result_set, aid, sid)`: a pair is excluded from one pruned
-set at most once; `insert_pruned_merges` inserts with `ON CONFLICT DO
-NOTHING`, so a retried insert within one attempt is a no-op. One table
-for every field, not a per-field table: the base set
-already names its field through its own logical key, and the rows are
-few.
+`PRIMARY KEY (result_set, aid, sid)` allows each pair at most once per
+pruned set. `insert_pruned_merges` uses `ON CONFLICT DO
+NOTHING`, so a retried insert within one attempt is a no-op. All fields
+share one table because the base set's logical key already names its
+field and the rows are few.
 
 ## The pruned set
 
-One `pruned-set` result set per prune attempt (products page): unit
-field, logical key `{base, settings_hash}` -- the base association-set
-instance and the resolved settings' hash, no `field` of its own (the
-base already names one). The manifest entry has no members; its
-`registration` block:
+Each prune attempt produces one `pruned-set` result set (products page),
+unit field. Its logical key, `{base, settings_hash}`, names the base
+association-set instance and the resolved settings' hash. It has no
+`field` of its own because the base already names one. The manifest
+entry has no members and carries this `registration` block:
 
 | Field | Meaning |
 |---|---|
@@ -124,28 +115,27 @@ base already names one). The manifest entry has no members; its
 | `table` | `prunedmerges` |
 | `rule` | `not-best`, the only rule (`[prune] rule`) |
 
-`inputs.result_sets` names the association-set instance `prune` read.
+The loop names each field's pruned set in every alerts input set touching
+that field. Alerts history omits the listed pairs; the base's
+`merges_<field>` rows remain unchanged. The [alerts](alerts) page has
+the binding. Alerts is the only consumer named for `prunedmerges` so far.
 
-With `[prune] done_check` on (the default), a complete,
-retained pruned set with the same key -- same base, same settings hash --
-already written in this run is reused and nothing is written, only when
-that set's producing attempt is the calling attempt or an attempt whose
-disposition is `succeeded`. A set left by an attempt that committed rows
-and then failed, or by another attempt still without a disposition, is
-not reused, so a retry after a failed commit writes a fresh set rather
-than adopting the orphaned one (`db/objects.find_complete_result_set`,
-joining `attempts`; the [runs](runs) page has the general rule).
-`[prune] done_check = false`
-forces a fresh attempt, as a
-retry after the association set's sources' promotion state has changed
-needs. `dev` has no done file for this stage at all:
+## Reuse and retries
+
+With `[prune] done_check` on (the default), the stage reuses a complete,
+retained pruned set already written in this run with the same key
+(same base and settings hash) and writes nothing. Reuse requires the
+producing attempt to be the calling attempt or to have disposition
+`succeeded` (`db/objects.find_complete_result_set`, joining `attempts`;
+the [runs](runs) page has the general rule).
+
+A set left by an attempt that committed rows and then failed, or by
+another attempt still without a disposition, is not reused. A retry
+after a failed commit therefore writes a fresh set instead of adopting
+the orphaned one. `[prune] done_check = false` forces a fresh attempt,
+as needed when retrying after the association set's sources' promotion
+state has changed. `dev` has no done file for this stage:
 `pruneNotBestMerges` always re-derives and re-deletes.
-
-Alerts read it: the loop names each field's pruned set in every alerts
-input set touching that field, and the alerts history leaves out the
-pairs it lists. The base's `merges_<field>` rows are unchanged.
-The [alerts](alerts) page has the binding; this is the only consumer
-named for `prunedmerges` so far.
 
 ## Settings
 
