@@ -135,6 +135,28 @@ or removes it here.
   approval, not the team's sign-off; promotion refuses a policy with
   `approval: none`, and automatic promotion needs a team approval and
   `auto_promote: true` ([checks](checks)). (2026-09-24, 2026-09-25)
+- **Package layer order.** The subpackage layer order on
+  [stage-contract](stage-contract) is enforced by a unit test over
+  every module and top-level import, lazy and relative imports
+  included. (2026-09-27)
+- **`tests/cli` scope.** A `tests/cli` edit may change only the module
+  path of a monkeypatch target or an import, when the patched code
+  moves; its assertions, scenarios and fixtures do not change. (2026-09-27)
+- **CLI surface on `launch`.** `rapidpipe.cli` takes from
+  `rapidpipe.launch` only its public functions and the exceptions they
+  raise; a unit test enforces it. (2026-09-27)
+- **Sky-partition geometry.** The pure HEALPix and tessellation
+  derivations `db` needs live in `rapidpipe.products`, not
+  `rapidpipe.science`; `products` is no longer standard-library only,
+  since it imports numpy, healpy and the tessellation code.
+  ([stage-contract](stage-contract)) (2026-09-27)
+- **Running checks against a run.** That code lives in `rapidpipe.runs`,
+  not `rapidpipe.checks`, since `checks` sits below `runs` in the layer
+  order. ([stage-contract](stage-contract), [runs](runs)) (2026-09-27)
+- **`run --help` grouping.** `rapidpipe run --help` groups its
+  subcommands under five titled sections, lifecycle, recovery,
+  promotion, housekeeping and inspection ([tool](tool)); no subcommand
+  name changes. (2026-09-27)
 
 ### Checks
 

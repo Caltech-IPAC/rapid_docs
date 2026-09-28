@@ -25,20 +25,30 @@ these subpackages:
 
 | Subpackage | Holds |
 |---|---|
-| `rapidpipe.stages` | One module per stage, each directly runnable. |
-| `rapidpipe.products` | Product identifiers, kinds, manifest types, the storage layout beneath a run. |
+| `rapidpipe.products` | Product identifiers, kinds, manifest types, the storage layout beneath a run, and the pure sky-partition geometry `db` needs. |
 | `rapidpipe.db` | Persistence: typed repositories, the connection module, the migrations applier. |
-| `rapidpipe.runs` | Runs, units of work, attempts, the three output states, promotion. |
-| `rapidpipe.launch` | Turning a run into Batch jobs, enforcing dependencies, reading results back. |
-| `rapidpipe.cli` | The command-line tool. |
 | `rapidpipe.science` | Algorithms the stages call: differencing, coaddition, photometry. Pure functions and wrappers around the C tools. |
+| `rapidpipe.checks` | The check registry and the shipped policies. Running checks against a run's candidates, and automatic promotion, is `rapidpipe.runs`, not this package. |
+| `rapidpipe.runs` | Runs, units of work, attempts, the three output states, promotion, and recording a run. |
+| `rapidpipe.stages` | One module per stage, each directly runnable. |
+| `rapidpipe.launch` | Turning a run into Batch jobs, enforcing dependencies, reading results back, and the run walk that carries a unit through its selected stages. |
+| `rapidpipe.selftest` | Each stage's packaged fixture and the runner that drives it. |
+| `rapidpipe.cli` | The command-line tool: parses the command line and prints, with no orchestration of its own. |
 
-Dependency direction is fixed. Stage modules do not import other stage
-modules. `rapidpipe.products` defines identifiers and manifest types without
-importing `runs`, `db` or stages. `rapidpipe.db` provides persistence
-without importing `runs` or stages. `rapidpipe.runs` composes products and
-persistence. `rapidpipe.science` does not import stages, launch or CLI.
-Stages do not import launch or CLI.
+Dependency direction is fixed, a layer order enforced by a unit test over
+every module, lazy and relative imports included: a unit imports only
+units strictly below it. The leaf modules (`exitcodes`, `log`,
+`revision`, `seams`: no `rapidpipe` import) come first, then `products`,
+then `db` and `science`, which do not import each other, then `checks`,
+then `runs`, then `stages`, then `launch`, then `selftest`, then `cli`.
+`release` sits beside the stack: it imports only the leaves and `db`,
+and only `cli` imports it. Stage modules do not import other stage
+modules, or `launch` or `cli`.
+
+That sky-partition geometry is the HEALPix indexes and tessellation
+fields a registered image's row carries, and it lives in `products`
+rather than `science` so that `db` can derive it without importing
+`science`.
 
 Stage entrypoints live in `rapidpipe.stages`, reusable algorithms in
 `rapidpipe.science`, and database access and migration code in `rapidpipe.db`.

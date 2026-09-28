@@ -516,10 +516,10 @@ page has the mechanism).
 
 ## Python interface
 
-`rapidpipe.runs`, in its `repository` and `cleanup` modules,
-`rapidpipe.launch.batch`, and `rapidpipe.checks`, in its `policy` and
-`runner` modules, are the interface the command-line tool and the
-scheduler build on, as the specification's Tools section names them.
+`rapidpipe.runs`, in its `repository`, `cleanup` and `checking` modules,
+`rapidpipe.launch.batch`, and `rapidpipe.checks.policy` are the
+interface the command-line tool and the scheduler build on, as the
+specification's Tools section names them.
 
 | Function | Does |
 |---|---|
@@ -536,10 +536,10 @@ scheduler build on, as the specification's Tools section names them.
 | `delete_run(conn, run_id, requested_by, *, s3_client=None, scratch_bucket=None, expiry=False) -> DeletionReport` | Runs guarded deletion on a scratch run, committing internally rather than inside the caller's transaction; the report lists the objects, versions and per-table rows removed and the instances marked deleted. |
 | `expire_runs(conn, *, now=None, s3_client=None) -> list[DeletionReport]` | Calls `delete_run` with `expiry=True` for every unpinned scratch run past its `expires_at`. |
 | `pin_run(conn, run_id, pinned) -> None` | Sets or clears a run's `pinned` flag. |
-| `resolve_run_policy(conn, run_id, explicit=None) -> Policy`, in `rapidpipe.checks.runner` | Resolves the policy `run promote` and `run start`'s auto-promote validate against: an explicit ref, then the run's `check_policy_ref`, then `rebuild-trial@1`. |
-| `run_policy_checks(conn, run_id, policy, *, instance=None, check=None, param_overrides=None, who=None) -> list[RecordedCheck]`, in `rapidpipe.checks.runner` | Runs every applicable policy check over the run's candidate instances from their selected attempts, or one named instance or check, and records a `checks` row for each; `check run` builds on it. |
-| `recorded_checks(conn, run_id, *, instance=None) -> list[RecordedCheck]`, in `rapidpipe.checks.runner` | Returns the run's recorded check results, newest first; `check show` prints them. |
-| `maybe_auto_promote(conn, run_id, *, who="auto-promote") -> AutoPromoteOutcome`, in `rapidpipe.checks.runner` | Called at the end of a `run start` walk once every unit is complete; with the run's `auto_promote` flag true, resolves the policy, runs its checks over the run's candidates and calls `promote_run` on a pass; the outcome's status is `off`, `skipped`, `refused` or `promoted`. |
+| `resolve_run_policy(conn, run_id, explicit=None) -> Policy`, in `rapidpipe.runs.checking` | Resolves the policy `run promote` and `run start`'s auto-promote validate against: an explicit ref, then the run's `check_policy_ref`, then `rebuild-trial@1`. |
+| `run_policy_checks(conn, run_id, policy, *, instance=None, check=None, param_overrides=None, who=None) -> list[RecordedCheck]`, in `rapidpipe.runs.checking` | Runs every applicable policy check over the run's candidate instances from their selected attempts, or one named instance or check, and records a `checks` row for each; `check run` builds on it. |
+| `recorded_checks(conn, run_id, *, instance=None) -> list[RecordedCheck]`, in `rapidpipe.runs.checking` | Returns the run's recorded check results, newest first; `check show` prints them. |
+| `maybe_auto_promote(conn, run_id, *, who="auto-promote") -> AutoPromoteOutcome`, in `rapidpipe.runs.checking` | Called at the end of a `run start` walk once every unit is complete; with the run's `auto_promote` flag true, resolves the policy, runs its checks over the run's candidates and calls `promote_run` on a pass; the outcome's status is `off`, `skipped`, `refused` or `promoted`. |
 | `failed_rerun_plan(conn, seed_run) -> FailedRerunPlan`, in `rapidpipe.runs.repository` | Computes the recovery plan `run create --seed --only-failed` executes: the earliest non-complete position, the seed's stage list, and the non-complete units to seed, or, for a scratch seed, the first stage's units to recreate. |
 | `seed_failed_units(conn, *, seed_run, new_run) -> list[str]`, in `rapidpipe.runs.repository` | Creates the new run's seeded units from a `FailedRerunPlan`, copying each seed unit's `unit_inputs` bindings, and returns the created unit ids. |
 | `record_attempt_locations(conn, attempt_id, inputs_location, settings_location) -> None`, in `rapidpipe.runs.repository` | Records the input-set and settings locations `submit_unit` resolved for an attempt, on `attempts.inputs_location` and `attempts.settings_location`. |
