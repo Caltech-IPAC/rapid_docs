@@ -6,7 +6,8 @@ The `difference` stage takes one detector image and the reference for
 its field, subtracts them with ZOGY exactly as the `dev` science pipeline
 does, and writes the difference, uncertainty and significance images
 and four source catalogs. SFFT and a plain subtraction also run, as in
-`dev`. The stage touches no database; `register` records its manifest
+`dev`. The stage writes no database rows and reads the database only
+for the read guard; `register` records its manifest
 afterwards.
 
 The stage lands on the pipeline repository's `rebuild` branch
