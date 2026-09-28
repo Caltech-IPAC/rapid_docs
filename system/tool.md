@@ -2,27 +2,20 @@
 
 **Status: DRAFT**
 
-The operations the team runs through `rapidpipe`, mapped from the
-specification's Tools section onto its subcommands; the input-set
-composer; the tool's own exit codes; personal submission from a
-workstation; and where the tool runs. The
-[specification](specification)'s Tools section states the requirement;
-this page records how the rebuild meets it.
+`rapidpipe` is the team's single command-line tool, shipped in the
+pipeline repository and already the image's entrypoint for stage
+invocations. It meets the [specification](specification)'s Tools
+requirement. A second binary, `rapidctl`, would contradict that
+requirement and split the container's existing entrypoint.
 
-## In plain terms
-
-The team touches one command-line tool: `rapidpipe`, shipped in the
-pipeline repository and already the image's entrypoint for a stage
-invocation. There is no second binary: a `rapidctl` would contradict the
-specification's own sentence naming one tool, and would split an
-entrypoint the container already carries. Everything below is `rapidpipe`'s command surface; nothing
-here is a separate program.
+This page maps operations to subcommands and describes input-set
+composition, exit codes, workstation submission and where the tool runs.
+Every command below belongs to `rapidpipe`.
 
 ## Operations
 
-The specification's Tools section names a small set of operations. Each
-maps onto one or more subcommands, all existing arguments keeping their
-names:
+The specification's Tools operations map to these subcommands. Existing
+arguments keep their names.
 
 | Operation | Subcommand |
 |---|---|
@@ -60,88 +53,94 @@ The check, release and loop commands take these arguments:
 | `loop plan --spec <loc>` | Prints what `loop run` would do: the dates it would process and the runs it would create, without creating them; given an inbox spec, it discovers and classifies without writing any row |
 | `loop show <schedule>` | Prints the schedule's `loop_dates` rows, then its `loop_deliveries` rows |
 
-The check commands run launcher-side, on a workstation or the launcher
-host, reaching the database through the instance role; none of them
-touches the pipeline image.
+The check commands run launcher-side, on a workstation or launcher host.
+They reach the database through the instance role and do not touch the
+pipeline image.
+
+## Starting stages
 
 `run start <run> --unit <u> [--stage <s>]` walks the run's selected
-stages in order, or the one named stage: a complete unit is skipped; a
-unit already terminal `failed` or `cancelled` is not re-attempted:
-`start` prints its state and exits 1, and recovering it is
-`run create --seed <run> --only-failed`; a unit with
-an attempt still running is attached to and polled, never resubmitted;
-and a unit reconcile returns to `ready` after a transient result (exit
-75, or a lost job) gets another attempt within its allowance. `run
-cancel` followed by `run start` is how a person restarts one attempt by
-hand. A run created with `--release <tag>` submits to that release's
-recorded job-definition revisions rather than whatever a job definition
-currently pins, and its outputs are promotable without the
-unreleased-image exception ([releases](releases) page). Each stage's
-inputs resolve in this order: an explicit `--inputs` on the command
-line, then a `--template` composed through `run inputs` (below), then
-the nearest preceding non-`register` stage's selected output (`register`
-produces database rows, not files, so a stage that follows it reads
-`difference`'s output instead). `--no-wait` submits the first runnable
-stage and prints the command that continues the walk; otherwise `start`
-polls reconcile until the unit is terminal, printing one line per
-attempt (stage, unit, attempt, job, disposition, outputs).
+stages in order, or just the named stage. It skips complete units and
+attaches to running attempts to poll them without resubmitting. For a
+unit already terminal `failed` or `cancelled`, `start` prints the state
+and exits 1 without another attempt. Recovery uses
+`run create --seed <run> --only-failed`. A unit that reconcile returns
+to `ready` after a transient result (exit 75 or a lost job) gets another
+attempt within its allowance. `run cancel` followed by `run start`
+restarts one attempt by hand.
 
-`stage run <name> …` and `stage <name> …` take the one frozen invocation
-form the [stage contract](stage-contract) page describes
-(`--run --unit --attempt --inputs --outputs [--settings] [--dry-run]`);
-the launcher's own submission uses that exact form.
+A run created with `--release <tag>` submits to that release's recorded
+job-definition revisions rather than the current pins. Its outputs are
+promotable without the unreleased-image exception
+([releases](releases) page).
+
+Each stage resolves inputs in this order: explicit command-line
+`--inputs`, a `--template` composed through `run inputs` (below), then
+the nearest preceding non-`register` stage's selected output.
+`register` produces database rows, not files, so a stage following it
+reads `difference`'s output instead.
+
+`--no-wait` submits the first runnable stage and prints the command that
+continues the walk. Otherwise, `start` polls reconcile until the unit
+is terminal, printing one line per attempt: stage, unit, attempt, job,
+disposition, outputs.
+
+`stage run <name> …` and `stage <name> …` take the frozen invocation
+form described on the [stage contract](stage-contract) page
+(`--run --unit --attempt --inputs --outputs [--settings] [--dry-run]`).
+The launcher's submission uses that exact form.
 
 ## Input sets
 
 `run inputs <run> <stage> --unit <u> --from-stage <producer> --template <loc> [--dest <loc>]`
-is the input-set composer. It reads the template's manifest, replaces or
-adds the entry of the producer's output kind with that producer's
-selected output, copies that member and the template's other members to
-`<dest>`, admits and binds the unit through `bind_input_set` before
-writing the composed manifest there last, and prints the location. It
-refuses to overwrite a manifest already at `<dest>`.
+composes an input set from a template manifest. It replaces or adds the
+entry for the producer's output kind with that producer's selected
+output, then copies that member and the template's other members to
+`<dest>`. It admits and binds the unit through `bind_input_set`, writes
+the composed manifest last and prints its location. It refuses to
+overwrite a manifest already at `<dest>`.
 
-An input set is a staged working copy, not a product, so `<dest>`
-defaults to, and `--dest` is refused outside,
-`<scratch root>/runs/<run>/inputs/<stage>/<unit>/`, the scratch outputs
-root, for every run kind, since the launcher host has no write access to
-the products bucket. Before copying, the composer checks the run's
-admission fence: a run that is finished, deleting or already deleted
-admits no new input set. `run delete` removes a run's inputs prefix
-along with its attempt outputs.
+An input set is a staged working copy, not a product. For every run
+kind, `<dest>` defaults to
+`<scratch root>/runs/<run>/inputs/<stage>/<unit>/` in the scratch
+outputs root, and `--dest` is refused outside it: the launcher host
+cannot write to the products bucket. Before copying, the composer
+checks the run's admission fence. Finished, deleting and deleted runs
+admit no new input sets. `run delete` removes the run's inputs prefix
+and attempt outputs.
 
-Every submission binds its input set, not only one composed by this
-command. Before any write, `run submit`, `run start` and `run local`
-all read `manifest.json` at `--inputs`, whether it came from `run
-inputs`, a producing stage's own completion manifest, or a hand-composed
-one; collect every output entry's instance and every
-`inputs.result_sets` entry (not `inputs.products`, which name what the
-*upstream* attempt read, not this unit's own binding); create the unit;
-bind the collected names that are registered product instances through
-`bind_unit_inputs`; commit both together; and only then allocate the
-attempt. A name that is not a registered instance (a delivery manifest,
-a dev-era template entry) binds nothing and is logged, not refused. A
-manifest that is absent, invalid or unreadable for a non-network reason
-refuses the submission before anything is written, exit 65; a network
-error is exit 75 instead. Binding is idempotent per (unit, instance), so
-a retry or a seeded `--only-failed` re-run binds nothing new. This is
-what makes a unit a live consumer of its declared inputs from
-submission, not only once it has produced an output of its own to
-depend on ([runs](runs) page, "Units", "Deletion").
+Every submission binds its input set. Before writing anything,
+`run submit`, `run start` and `run local` read `manifest.json` at
+`--inputs`, whether composed by `run inputs`, supplied as a producing
+stage's completion manifest or composed by hand. They collect every
+output entry's instance and every `inputs.result_sets` entry.
+`inputs.products` names what the *upstream* attempt read and does not
+contribute to this unit's binding.
 
-This is the explicit, whole-input-set form of resolution: which
-reference among several eligible ones a field should use is not decided
-here (below).
+The commands create the unit, bind the collected registered product
+instances through `bind_unit_inputs`, commit both together and only
+then allocate the attempt. Unregistered names, such as a delivery
+manifest or dev-era template entry, bind nothing and are logged without
+refusal. An absent, invalid or otherwise unreadable manifest refuses
+submission before any write: exit 65 for a non-network reason, exit 75
+for a network error.
+
+Binding is idempotent per (unit, instance), so a retry or seeded
+`--only-failed` re-run binds nothing new. The unit becomes a live
+consumer of its declared inputs at submission, before producing an
+output that depends on them ([runs](runs) page, "Units", "Deletion").
+
+This resolves an explicit whole input set. Which reference a field
+should use among several eligible ones remains open (below).
 
 ## Exit codes
 
-One vocabulary covers every `rapidpipe` process, in the module
-`rapidpipe/exitcodes.py` (`ExitCode`). The [stage contract](stage-contract)
-page's Exit codes table carries the six of these a stage itself reports
-(0, 64, 65, 69, 70, 75), 69 reserved: no stage in this build returns it.
-A stage never exits 1 or 2. The table below is
-the full eight, with which command family returns each one folded into
-the third column.
+Every `rapidpipe` process uses `rapidpipe/exitcodes.py` (`ExitCode`).
+The table below lists all eight codes and the command families that
+return them. The [stage contract](stage-contract) page's Exit codes
+table lists the six stage codes (0, 64, 65, 69, 70, 75), including the
+reserved 69, which no stage in this build returns. A stage never exits
+1 or 2.
 
 | Code | Meaning | Returned by |
 |---|---|---|
@@ -159,55 +158,51 @@ check fails or the stage under test exited 0 where the fixture expected
 a non-zero code, 64 when the work directory already exists, and
 otherwise the stage's own unexpected code.
 
-Three invariants hold across the vocabulary. A parse failure exits 64 from every family: every
-`rapidpipe` parser, nested subparsers included, is
-`rapidpipe.exitcodes.ArgumentParser`, whose usage error exits 64
-directly, and help still exits 0; the stage runner also translates a
-parse failure to 64 for `stage run <name>`, as a safeguard. So 2 means
-only "still running", never "could not parse". And `release` spells its
-own usage and precondition refusals 64, the same as every other family.
+Three invariants hold across the vocabulary: parse failures exit 64;
+2 means only "still running", never "could not parse"; and `release`
+uses 64 for usage and precondition refusals, like every other family.
+Every `rapidpipe` parser, including nested subparsers, is
+`rapidpipe.exitcodes.ArgumentParser`: usage errors exit 64 directly,
+while help exits 0. As a safeguard, the stage runner also translates
+parse failures to 64 for `stage run <name>`.
+
+## Where it runs
+
+The tool runs launcher-side on a fleet host under that host's instance
+role. Named environment variables supply deployment-specific locations,
+connection settings and credentials: for example,
+`RAPIDPIPE_BATCH_JOB_QUEUE`,
+`RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH` and `_PRODUCTION`,
+`RAPIDPIPE_OUTPUTS_ROOT_SCRATCH` and `_PRODUCTION`,
+`RAPIDPIPE_SCRATCH_BUCKET`, `RAPIDPIPE_CLEANUP_ROLE_ARN`, and the
+database connection variables (`PG*`, `RAPID_DB_SECRET_ID`). The
+pipeline repository's README, "Running on Batch", has the full list.
+A launcher-side change, including everything on this page, needs no
+image rebuild or job-definition deployment: the container's
+`stage <name>` invocation is unchanged.
 
 ## Personal submission from a workstation
 
-A person can run the same commands from a workstation that the launcher
-runs from a fleet host. The identities involved are documented in the
-systems repository, but the shape reaches this page: the
-workstation's own submission role is set as one parameter of the
-systems repository's scratch identities, rather than three hand edits
-across the policies that name it, so a further per-owner workstation
-role is one parameter value. Scratch jobs submitted this way still run
-under the scratch job role, exactly as they do from the launcher; only
-the submitting identity differs.
+A person can run the same commands from a workstation. The systems
+repository documents the identities and sets the workstation submission
+role through one scratch-identities parameter. Adding a per-owner
+workstation role takes one parameter value rather than three hand edits
+across the policies that name it. Scratch jobs submitted this way still
+run under the scratch job role, exactly as they do from the launcher;
+only the submitting identity differs.
 
-Cleanup (`run delete` and `run expire`) has its own principal,
-separate from the general workstation role. When the environment
-variable `RAPIDPIPE_CLEANUP_ROLE_ARN` is set, the tool assumes that role
-for the deletion; when it is unset, the tool deletes under whatever
-credentials are ambient. During the transition, the workstation role
-also carries the cleanup permission directly, so a failure of the
-assumed path cannot strand a deletion; removing that direct attachment
-is open (below).
+Cleanup (`run delete` and `run expire`) uses a separate principal from
+the general workstation role. If `RAPIDPIPE_CLEANUP_ROLE_ARN` is set,
+the tool assumes that role for deletion; otherwise it uses ambient
+credentials. During the transition, the workstation role also carries
+cleanup permission directly, so failure of the assumed path cannot
+strand a deletion. Removing that attachment remains open (below).
 
 `run cancel` needs `batch:TerminateJob` on whichever identity issues
 it. The workstation's instance role does not carry that permission, so
 a cancel issued from a workstation fails `AccessDenied` until the
 systems repository grants it; the launcher's own fleet-host role is
 unaffected.
-
-## Where it runs
-
-The tool runs launcher-side: on a fleet host, under that host's instance
-role. Deployment-specific locations,
-connection settings and credentials reach it through named environment
-variables, for example `RAPIDPIPE_BATCH_JOB_QUEUE`,
-`RAPIDPIPE_BATCH_JOB_DEFINITION_SCRATCH` and `_PRODUCTION`,
-`RAPIDPIPE_OUTPUTS_ROOT_SCRATCH` and `_PRODUCTION`,
-`RAPIDPIPE_SCRATCH_BUCKET`, `RAPIDPIPE_CLEANUP_ROLE_ARN`, and the
-database connection variables (`PG*`, `RAPID_DB_SECRET_ID`): the
-pipeline repository's README, "Running on Batch", carries the full
-list. A launcher-side change, including everything on this page, needs no image
-rebuild and no job-definition deployment, since the container's own
-`stage <name>` invocation does not change.
 
 ## Not decided here
 
