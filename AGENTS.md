@@ -200,7 +200,9 @@ authority; `decisions.md` records the team's rulings; `products.md`,
 `runs.md` and `stage-contract.md` are the three model pages everything
 else builds on; each pipeline stage has its own page (`reference`,
 `difference`, `load`, `maintain`, `crossmatch`, `statistics`,
-`finalize`, `alerts`, `prune`, `photometry`, `export`); `releases.md`,
+`finalize`, `alerts`, `prune`, `export`); `photometry.md` is not a
+stage page, since the rebuild carries no photometry stage, and holds
+the unported-forced-photometry note instead; `releases.md`,
 `tool.md`, `loop.md`, `checks.md` and `observability.md` cover the
 mechanisms that run stages rather than a stage itself; and
 `operations.md` holds operations proposals still open. Dated reviews go
