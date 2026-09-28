@@ -236,7 +236,8 @@ or removes it here.
 - **Photometry stub removed.** The rebuild carries no photometry stage;
   forced photometry stays `dev`'s `forcedPhotometryForField.py`. Exit
   code 69 stays reserved in the stage contract, since no stage in this
-  build returns it now. (2026-09-27)
+  build returns it now. Carried from the build, pending team review.
+  (2026-09-27)
 - `run cancel` from a workstation needs `batch:TerminateJob` on the
   workstation role, not yet granted. (2026-09-24)
 - A stage declaration carries no argument schema and no resource
