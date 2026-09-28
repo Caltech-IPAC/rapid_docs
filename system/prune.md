@@ -84,11 +84,12 @@ does -- `dev` reaches the same result because its own images are already
 promoted at all. A later `prune` attempt, pruning an association set
 whose sources' difference images were since superseded (reassigned to
 another run, still `vbest = 0`), excludes them, as `dev`'s `vbest = 0`
-does once a newer image is promoted current. This depends on
-promotion maintaining `vbest` for difference images, not yet built;
-until then, only the own-run clause is exercised. Under that clause a
-production run never excludes its own images' pairs, so the exclusion
-bites only on pairs whose difference images were superseded.
+does once a newer image is promoted current. Promotion maintains
+`vbest` as a current-membership flag ([runs](runs) page), so both
+clauses are exercised now: the own-run clause excludes nothing for a
+production run's own images, not yet promoted within one pass, and the
+`vbest` clause excludes a pair once its difference image is superseded
+by another run's promotion.
 
 ## What lands in `prunedmerges`
 

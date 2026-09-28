@@ -236,7 +236,7 @@ one pruned set, whose base must be the association set the same date's
 crossmatch produced for the field, else the date fails. Each detector
 image's alerts input set names, per field it touches, the association
 set, its statistics set and that pruned set, in that order after the
-source set (the [alerts](alerts) page's `pruned-set` binding), the recipe `compose-alerts-inputs.py` already scripts. The date
+source set (the [alerts](alerts) page's `pruned-set` binding). The date
 record gains `pruned_sets {field: instance}` (see Records, below).
 Submission and polling go through `submit_unit` and `reconcile`, as
 `run start` uses them for one unit at a time.

@@ -79,10 +79,10 @@ Direct invocation and invocation through the command-line tool follow
 the same contract.
 
 Each stage declares its unit of work (an exposure, a detector image, a
-field, a processing date) and the upstream products it requires; the
-scheduler starts it only when those products are complete. Product
-identifiers use one documented vocabulary for exposures, detector
-images, fields and processing dates.
+field, a processing date, or a detector's date) and the upstream
+products it requires; the scheduler starts it only when those products
+are complete. Product identifiers use one documented vocabulary for
+exposures, detector images, fields and processing dates.
 
 A stage uses the same command interface on a laptop and on SMDC. Its
 local test fixture supplies input files and any database state it needs,
@@ -116,8 +116,11 @@ all runs. A run freezes its input set at creation; later arrivals enter
 another run.
 
 Resource profiles and scheduling lanes are named configurations with
-documented limits and defaults. Scratch runs cannot consume capacity
-reserved for regular operations.
+documented limits and defaults; scratch runs must not consume capacity
+reserved for regular operations. The rebuild does not enforce this yet:
+a run's lane and resource-profile columns are recorded but nothing
+reads them, and capacity is the Batch job definitions' to give
+([decisions](decisions)).
 
 ### Three output states
 
