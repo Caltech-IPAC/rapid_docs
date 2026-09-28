@@ -69,8 +69,8 @@ condition that makes each input set complete.
 
 Stage names are a stable list: `admit`, `reference`, `difference`,
 `finalize`, `register`, `load`, `maintain`, `crossmatch`, `statistics`,
-`prune`, `alerts`, `export` (`maintain` is described on
-the [load](load) page). Units of work are `exposure`,
+`prune`, `alerts`, `export` (`maintain` has its own page,
+[maintain](maintain)). Units of work are `exposure`,
 `detector-image`, `field`, `processing-date` and `detector-date`
 (`detector-date` is `maintain`'s unit; see
 [maintain](maintain), "Unit").
