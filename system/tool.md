@@ -41,6 +41,13 @@ names:
 | Releases | `release cut\|show\|list\|verify` (the release commands below; the [releases](releases) page) |
 | The processing-date loop | `loop run\|plan\|show` (the loop commands below; the [loop](loop) page) |
 
+`rapidpipe run --help` groups the subcommands above under five titled
+sections: lifecycle (`create`, `start`, `status`, `show`, `list`,
+`finish`), recovery (`submit`, `reconcile`, `cancel`, `local`,
+`inputs`), promotion (`promote`, `promote-plan`, `rollback`),
+housekeeping (`pin`, `unpin`, `expire`, `delete`), and inspection
+(`compare`, `timings`).
+
 The check, release and loop commands take these arguments:
 
 | Command | Does |
