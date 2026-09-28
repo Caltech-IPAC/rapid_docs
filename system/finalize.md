@@ -2,47 +2,34 @@
 
 **Status: DRAFT**
 
-What the `finalize` stage reads, what it republishes, the header stamp it
-writes, and its settings and exit codes. The stage lands on the
-pipeline repository's `rebuild` branch
+The `finalize` stage stamps a difference image's header and republishes
+its bundle as new instances. It lands on the pipeline repository's
+`rebuild` branch
 (`rapidpipe/stages/finalize.py`, `rapidpipe/science/finalize/headers.py`,
 `rapidpipe/settings/finalize.toml`, `rapidpipe/products/diffimage.py`),
 ported from `dev`'s post-processing pipeline, `ppid` 17
 (`pipeline/awsBatchSubmitJobs_runSinglePostProcPipeline.py`). Every
-ported stage minimises differences from `dev` and designs in, off by
-default, anything that could be left unused. The
-[products](products) page fixes the vocabulary; this page records how
-the stage meets it.
+ported stage minimises differences from `dev` and leaves optional
+features designed in but off by default. The [products](products) page
+fixes the vocabulary.
 
 ## In plain terms
 
-`dev` finishes a difference image by adding a dozen bookkeeping keywords
-to its header, letting astropy stamp `CHECKSUM` and `DATASUM`, then
-overwriting the S3 object it just read and updating `diffimages` in
-place. The rebuild never overwrites a published instance, so `finalize`
-takes a `difference` attempt's completed output, writes a new instance
-of the same kind with the stamped header, and copies every other file
-in the bundle unchanged. `register` then records the finalized instance;
-the raw instance `difference` wrote is never registered on its own, and
-`load` reads the finalized instance's catalogs. `dev`'s reference-image
-stamp is not ported: a reference is the `reference` stage's own
-product, already an instance in its own right, and `finalize` never
-rewrites it.
+`dev` adds a dozen bookkeeping keywords to a difference image's header,
+lets astropy stamp `CHECKSUM` and `DATASUM`, then overwrites the S3
+object it read and updates `diffimages` in place. The rebuild never
+overwrites a published instance. Instead, `finalize` takes a
+`difference` attempt's completed output, writes a new instance of the
+same kind with the stamped header, and copies every other file in the
+bundle unchanged. `dev`'s reference-image stamp is not ported: the
+reference is already the `reference` stage's own product instance, and
+`finalize` never rewrites it.
 
-Chain order is `difference -> finalize -> register -> load`, one `register` pass, matching `dev`'s one
-`diffimages` row per image. `register_manifest` writes a dependency edge
-for every producer named in `inputs.products`, and that edge has a
-foreign key to `product_instances`, so `inputs.products` can only name
-instances that already have a row there. `finalize`'s own raw input does
-not, since it is never registered; `finalize` instead names the raw
-difference manifest's own upstream, `l2-image` and, when the difference
-manifest carried it, `reference-image`, the same instances `difference`
-itself already depended on and that are already registered. Provenance
-to the raw difference instance is kept three other ways: the finalized
-block's `finalized_from` field, each copied catalog's `copied_from`
-field, and the `RPFINFRM` keyword stamped into the file itself; the
-manifest's own `inputs.manifest` reference also points at the raw
-difference attempt's manifest.
+Chain order is `difference -> finalize -> register -> load`, with one
+`register` pass, matching `dev`'s one `diffimages` row per image.
+`register` records only the finalized instance; the raw instance
+`difference` wrote is never registered on its own. `load` reads the
+finalized instance's catalogs.
 
 ## Inputs
 
@@ -54,18 +41,19 @@ manifest and files. The stage reads:
 | the `difference-image` entry for `[finalize] differencer` | `difference`, `uncertainty`, `significance` where present, `psf`, `kernel` where present | the file to stamp and copy, and the registration block to extend |
 | its `source-catalog` entries, however many are keyed to it (0..n) | `catalog`, and any other declared member (Photutils `finder`, `residual`, `parquet`; SFFT's own catalogs) | copied through unchanged |
 
-A difference manifest can carry two `difference-image` entries, ZOGY's
-and SFFT's, when `[sfft] register_sfft` was on; `[finalize] differencer`
-picks the one `finalize` republishes, the same convention `load`'s own
-`differencer` setting uses. The other differencer's entry and its
-catalogs are dropped, named in the execution record's `notes.dropped`
-as `[{kind, instance, differencer}]`, and never written anywhere.
-Every catalog keyed to the chosen entry passes through, in input order;
-none is required, so an image whose Photutils catalog was not produced
-simply has fewer entries to carry through. Every member is verified for
-size and SHA-256 before use. A manifest that is not stage `difference`'s,
-that has no entry for the chosen differencer, or that carries an entry
-finalize does not know how to republish, is rejected.
+When `[sfft] register_sfft` was on, a difference manifest can carry two
+`difference-image` entries, ZOGY's and SFFT's. `[finalize] differencer`
+selects which one `finalize` republishes, following `load`'s
+`differencer` convention. The other entry and its catalogs are dropped
+and never written anywhere; the execution record names them in
+`notes.dropped` as `[{kind, instance, differencer}]`.
+
+Every catalog keyed to the chosen entry passes through in input order.
+None is required: a missing Photutils catalog simply leaves fewer
+entries to copy. Every member is checked for size and SHA-256 before
+use. The stage rejects a manifest that is not stage `difference`'s,
+has no entry for the chosen differencer, or carries an entry finalize
+cannot republish.
 
 ## What it republishes
 
@@ -88,30 +76,41 @@ entries get their own new ids, keyed to it):
   byte for byte. The registration block is copied from the input and
   extended with `copied_from`, the input catalog instance id.
 
-Nothing is read from the file contents to do this beyond the stamped
-primary member; the catalogs and the other difference-bundle members
-move as bytes. The copy costs about 330 MB per detector image, mostly
-the difference bundle's own members moving from the raw instance's
-location to the finalized instance's; this is recorded as a known cost
-of never referencing another attempt's location, not fixed here (a
-manifest entry able to point at another attempt's file would remove it,
-at the cost of the immutability the run model is built on).
-
 `registration.md5` is recomputed over the stamped primary file, not
 carried over from the input: it is the one field the header rewrite
-actually changes.
+changes.
+
+Only the stamped primary member's contents are read; the catalogs and
+other difference-bundle members move as bytes. Copying costs about
+330 MB per detector image, mostly to move the difference bundle from
+the raw instance's location to the finalized instance's. This known
+cost of never referencing another attempt's location is not fixed here.
+Allowing a manifest entry to point at another attempt's file would
+remove it at the cost of the run model's immutability.
+
+`register_manifest` writes a dependency edge for every producer in
+`inputs.products`. The edge's foreign key to `product_instances` means
+each named instance must already have a row there. The raw input has
+none, so `finalize` names the raw difference manifest's registered
+upstream instances instead: `l2-image` and, when the manifest carried
+it, `reference-image`. These are the same instances `difference`
+already depended on.
+
+Provenance to the raw difference instance remains in the finalized
+block's `finalized_from`, each copied catalog's `copied_from`, and the
+file's `RPFINFRM` keyword. The manifest's `inputs.manifest` also points
+to the raw difference attempt's manifest.
 
 ## The header stamp
 
 Only the primary HDU of the `difference` member is touched; its data and
 every other HDU are written back unchanged. `dev`'s database-id keywords
 (`PID`, `RID`, `EXPID`, `FID`, `DIFIMVER`) and its S3 location keywords
-(`S3BUCKN`, `S3OBJPRF`) are not stamped: those legacy ids and locations
-are `register`'s to allocate and record, not finalize's, and `RPOUTLOC`
-replaces the bucket-and-prefix pair with this attempt's own output
-location. `PPID`, `INFOBITS`, `FIELD`, `DIFFILEN` and `DATE` keep `dev`'s
-names and meanings. The keyword list is fixed in
-`rapidpipe/science/finalize/headers.py`, not a setting.
+(`S3BUCKN`, `S3OBJPRF`) are not stamped: `register` allocates and records
+those legacy ids and locations. `RPOUTLOC` replaces the bucket-and-prefix
+pair with this attempt's output location. `PPID`, `INFOBITS`, `FIELD`,
+`DIFFILEN` and `DATE` keep `dev`'s names and meanings. The keyword list
+is fixed in `rapidpipe/science/finalize/headers.py`, not configurable.
 
 | Keyword | Source |
 |---|---|
@@ -135,11 +134,12 @@ names and meanings. The keyword list is fixed in
 | `DATE` | the stamp time, UTC, ISO 8601 to the second |
 | `CHECKSUM`, `DATASUM` | astropy's own, from `writeto(..., checksum=True)` |
 
-Every keyword is checked FITS-legal (eight characters or fewer, `A-Z
-0-9 _ -`) and unique before the stage runs. A value too long for one
-card (`RPSETHSH`, `RPFSETHS`, `RPIMGDIG`, or a long `RPOUTLOC`) is
-written with the FITS long-string convention, `&` continuation plus
-`CONTINUE` cards, rather than letting astropy silently cut its comment.
+Before the stage runs, every keyword is checked for uniqueness and FITS
+legality (eight characters or fewer, `A-Z
+0-9 _ -`). Values too long for one card (`RPSETHSH`, `RPFSETHS`,
+`RPIMGDIG`, or a long `RPOUTLOC`) use the FITS long-string convention:
+`&` continuation plus `CONTINUE` cards. This prevents astropy from
+silently cutting their comments.
 
 ## Settings
 
@@ -167,9 +167,9 @@ An invalid `[finalize] differencer`, or a non-positive value in
 ## Local execution
 
 `make stage-finalize` runs `tests/fixtures/finalize/run_fixture.py`,
-which builds a synthetic `difference` attempt's output
-(`rapidpipe/selftest/support/fakefinalize.py`) and checks the republished
-manifest, the stamped header and every copied member against it. The
-stage runs no external tool and touches no database, so the fixture is
-the same with and without `--real-tools`, and the same fixture runs
-through `rapidpipe selftest --stage finalize` on Batch.
+which builds a synthetic `difference` attempt's output with
+`rapidpipe/selftest/support/fakefinalize.py`. It checks the republished
+manifest, stamped header and every copied member against that output.
+The stage runs no external tool and touches no database, so the fixture
+is the same with and without `--real-tools`. It also runs through
+`rapidpipe selftest --stage finalize` on Batch.
