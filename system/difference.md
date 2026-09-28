@@ -23,7 +23,8 @@ registered, each its own `difference-image` instance; a setting turns
 SFFT's registration off. Which instance is current downstream is a
 promotion choice, not this stage's job. The naive
 subtraction's files stay diagnostics, never registered. The stage
-touches no database; `register` records its manifest afterwards.
+writes no database rows and reads the database only for the read
+guard; `register` records its manifest afterwards.
 
 ## Inputs
 

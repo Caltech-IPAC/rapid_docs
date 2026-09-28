@@ -24,8 +24,8 @@ the coadd with SExtractor, and stamping the result with bookkeeping
 keywords before registering it. The rebuild ports that chain as a
 transform stage: `reference` reads an input set naming the frames to
 coadd, runs the same tools in the same order, and writes one
-reference-image bundle and one reference-catalog instance. It touches
-no database; `register` records both afterwards, the same division
+reference-image bundle and one reference-catalog instance. It writes
+no database rows; `register` records both afterwards, the same division
 `difference` and `finalize` already use.
 
 ## Inputs
@@ -33,8 +33,8 @@ no database; `register` records both afterwards, the same division
 Stage `reference`, unit kind `field`, unit id `<rtid>/<filter>` (for
 example `4711398/W146`): one reference per (field, filter) per run, the
 filter part of the logical key so a run may build several filters of
-one field. `reference` is a transform stage and declares no database
-access.
+one field. `reference` is a transform stage and declares `custody`
+database access: it reads the database only for the read guard.
 
 Filter names are RAPID's own spelling, `W146` not `F146`: FITS `FILTER`
 headers and the `filters` table carry `W146`, and lookups against
@@ -56,7 +56,8 @@ science images of the same filter, `overlapfields @> field`, `vbest >
 0`, `mjdobs` in `[start, end)`, ordered by `mjdobs` then distance from
 the tile centre. That rule is recorded here because it is the rule
 the launcher implements to build the manifest `reference` reads;
-`reference` itself does not check it and reads no database. Eligibility
+`reference` itself does not check it and reads no database beyond the
+read guard. Eligibility
 and selection beyond that sentence stay not decided (see
 [specification](specification), "Not decided here").
 
