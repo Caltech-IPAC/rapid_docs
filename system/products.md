@@ -2,61 +2,50 @@
 
 **Status: DRAFT**
 
-Companion to the [stage contract](stage-contract): the product vocabulary the
-stages' `consumes` and `produces` declarations name, what makes each product
-unique, and the metadata `register` needs from its manifest entry.
-The `dev` schema is kept: its tables and columns
-stay as the team knows them, and this vocabulary maps onto them. Where
-the vocabulary needs something the tables lack, a column or table is
-added; nothing is renamed or dropped. The tables are named below so the
-team can see what each product corresponds to.
+The [stage contract](stage-contract)'s `consumes` and `produces`
+declarations use the product vocabulary defined here. Each kind has a
+uniqueness rule and manifest metadata that `register` uses to record it.
+The tables below map this vocabulary onto the `dev` schema. Existing
+tables and columns keep their names and meanings; missing columns or
+tables are added, and nothing is renamed or dropped.
 
 ## In plain terms
 
-A product is one thing a stage makes that another stage or a consumer
-uses: an image, a catalog file, an alert file, or a set of rows in the
-database. Each kind has a fixed name, a rule for what makes one unique,
-and a fixed list of facts its manifest entry must carry so the database
-can record it without opening the file. Making the same thing twice
-gives two instances of one logical product; the instance id tells them
-apart, and promotion says which instance consumers see.
+A product is something a stage makes for another stage or a consumer:
+an image, catalog file, alert file, or set of database rows. Each kind
+has a fixed name and required manifest fields, so registration never
+needs to open the file. Making the same thing twice gives two instances
+of one logical product. The instance id tells them apart; promotion
+selects the one consumers see.
 
 ## Identity
 
-Every instance carries three keys.
-The **provenance key** is what a manifest entry has always called
-`key`: for a difference image, which detector image against which
-reference with which differencer and settings. It names the exact
-input instances a stage consumed, not a science description, so a
-difference from one reprocessing and one from another carry different
-provenance keys even where the science is identical. No stage changes
-how it writes this key; it stays the column `product_instances.logical_key`,
-unchanged, so a reader that already walks a chain through it, a base
-association set's ancestor, a retry's reuse lookup, needs no change.
+Every instance carries three keys. The provenance key is the manifest's
+`key`: for a difference image, the detector image, reference,
+differencer and settings. It names the exact input instances consumed,
+so reprocessings have different provenance keys even when their science
+is identical. Stages write this key unchanged; it remains in
+`product_instances.logical_key`. Existing readers, including a base
+association set's ancestor walk and a retry's reuse lookup, need no
+change.
 
-Two more columns describe the same instance for a consumer: the
-**identity key** (column `identity`) states everything that makes the
-instance scientifically different from another, delivered facts and
-science choices only, never an instance id; the **slot** (column
-`slot`) is the part of the identity key a consumer selects on, "the
-current X for Y". Both are nullable JSON, and neither is written by a
-stage. The database derives them from the provenance key, in
-`product_identity_fill()`: it resolves identity first, by walking each
-producer instance the key names to its own identity in turn, and only
-once identity has settled does it read the slot off the finished
-identity (below). Because nothing in the manifest changed, a stage
-image of any earlier release still registers exactly as it does today;
-the database fills the rest afterward.
+The identity key (column `identity`) contains every scientific
+distinction: delivered facts and science choices, never instance ids.
+The slot (column `slot`) is the subset a consumer selects on, "the
+current X for Y". Both columns are nullable JSON. Stages write neither;
+the database derives them from the provenance key through
+`product_identity_fill()`. It first resolves each named producer's
+identity, then derives the instance's identity and finally its slot.
+The manifest is unchanged, so stage images from any earlier release
+still register as before; the database fills the new columns afterward.
 
-The derivation, one row per kind. `k` is the provenance key; `V(x)` is
-producer instance `x`'s own identity, and `P(x)` is the slot fields
-projected from it, since every slot is a subset of its kind's identity
-fields. Because `P(x)` reads `x`'s
-identity rather than its slot column, a producer whose own slot was
-withheld by a collision (below) does not block its
-descendants: each row still derives its own slot and identity
-independently, from identities alone. A missing producer, or one whose
-own identity is still null, leaves the row null until that resolves:
+In the table, `k` is the provenance key, `V(x)` is producer instance
+`x`'s identity, and `P(x)` projects the slot fields from that identity.
+Every slot is a subset of its kind's identity fields. Because `P(x)`
+reads `x`'s identity, a collision that withholds the producer's slot
+(below) does not block descendants: each row derives independently
+from identities alone. A missing producer or null producer identity
+leaves the row null until resolved.
 
 | Kind | Slot | Identity adds |
 |---|---|---|
@@ -77,44 +66,39 @@ own identity is still null, leaves the row null until that resolves:
 An unknown kind resolves to null and is counted unresolved, the same as
 a missing producer.
 
-An identity key never carries an instance id, but an association set
-built from equal source sets over two different bases must still
-differ from the other. Its identity therefore carries a hash of the
-base's own identity too: the SHA-256 digest of the base's canonical
-JSON text, or null when there is no base. The hash is bounded in size
-however deep the chain runs, and a pruned or statistics set built on
-top inherits the distinction through its own membership's identity.
+Association sets built from equal source sets over different bases
+must have different identities. Each therefore includes the SHA-256
+digest of its base identity's canonical JSON text, or null when there is no
+base. This hash stays bounded however deep the chain runs, without
+introducing an instance id. Pruned and statistics sets inherit the
+distinction through their membership's identity.
 
-The fill runs in two stages, and a slot is set only when the identity
-is also derived: slot NOT NULL implies identity NOT NULL, for every
-kind. The identity stage runs pass after pass, resolving every row
-whose own producers already have theirs, until one pass converts
-nothing more; no fixed pass count bounds it, only a very large guard
-against a cycle, and if that guard trips the call assigns no slots at
-all and counts every remaining row unresolved. Only once identities have settled does the fill derive
-every still-null slot, in one further pass, straight off each row's
-own now-filled identity; the collision rule applies exactly once at
-that point, over every current instance's slot, already held or
-freshly derived, so both members of a duplicated pair are withheld
-together whatever their depth in the chain, a pruned or statistics set
-built on a duplicated association pair included. Filling never
-rewrites a slot already set, and never assigns one another current
-instance already holds; a withheld row keeps its identity but stays
-null on slot, counted `duplicate_current` and reported alongside
-`unresolved`. Running the fill again resolves what a later
-registration completed and leaves an already-filled row alone.
+The fill has two stages. For every kind, slot NOT NULL implies identity
+NOT NULL. The identity stage repeatedly resolves rows whose producers
+already have identities, stopping when a pass resolves no more. There
+is no fixed pass count, only a very large cycle guard. If it trips,
+the call assigns no slots and counts every remaining row unresolved.
 
-An instance with a null slot, or a null identity, cannot be promoted
-until something resolves it: a later registration supplying the
-missing producer, or an operator's own correction (a row whose identity
-is null can never be promoted, since its slot is null too). At most one
-current instance exists per kind and slot, a partial unique index
-beside the older (kind, provenance key) index, which stays under the
-additive migration rule ([releases](releases)).
+Once identities settle, one further pass derives every still-null slot
+from its row's identity. The collision rule applies once across all
+current slots, held or newly derived. Both members of a duplicated
+pair are withheld together at any chain depth, including pruned or
+statistics sets built on a duplicated association pair. The fill never
+rewrites an existing slot or assigns one another current instance
+holds. A withheld row keeps its identity and null slot, counted as
+`duplicate_current` alongside `unresolved`. Re-running the fill
+resolves rows completed by later registrations and leaves filled rows
+alone.
 
-Wherever this page says a product references another (a reference
-version, a source set, a base association set) it means the complete
-instance id, never a bare version number.
+An instance with a null slot or identity cannot be promoted until a
+later registration supplies the missing producer or an operator
+corrects it. A partial unique index allows at most one current instance
+per kind and slot. The older (kind, provenance key) index remains under
+the additive migration rule ([releases](releases)).
+
+A reference to another product (a reference version, source set or base
+association set) always means its complete instance id, never a bare
+version number.
 
 ## File products
 
@@ -130,61 +114,60 @@ instance id, never a bare version number.
 | `light-curve` | field | field, object set instance, request id | Parquet | none (not ported) | none; exported |
 | `catalog-export` | field | field, export type, selection digest of the named source sets | HATS | `export` | none; exported |
 
-A bundle is one product with several member files. The manifest entry
-names the primary member and lists every member with its role, size and
-SHA-256; member paths resolve against the attempt's output location.
+A bundle is one product with several files. Its manifest entry names
+the primary member and lists every member's role, size and SHA-256.
+Member paths resolve against the attempt's output location.
 
-The difference-image bundle's roles are declared per differencer.
-`difference` and `uncertainty` are always present. `significance` is
-present where the differencer produces one: ZOGY does, SFFT does not.
-`psf`, the difference PSF, is a named optional role for any
-differencer; `kernel`, the matching-kernel solution, is a named
-optional role for SFFT. A role a differencer declares but does not
-deliver fails registration. Which member the catalog stage detects on
-is a per-differencer setting recorded with the instance: significance
-for ZOGY, difference for SFFT.
+Each differencer declares its bundle roles. `difference` and
+`uncertainty` are always present; `significance` is present where the
+differencer produces one: ZOGY does, SFFT does not. The optional roles are `psf`
+(the difference PSF) for any differencer and `kernel` (the
+matching-kernel solution) for SFFT. A declared role that is not
+delivered fails registration. The catalog stage's detection member is
+a per-differencer setting recorded with the instance: significance for
+ZOGY, difference for SFFT.
 
-The port of the difference stage minimises differences to the `dev`
-branch; improvements come later. A mechanism that can be designed in
-but left unused is designed in, off by default.
+The difference-stage port minimises differences to the `dev` branch;
+improvements come later. Mechanisms that can be designed in but left
+unused are included, off by default.
 
-The reference recipe names the reference pipeline and its settings, so
-two ways of building a reference for one field never share a version
-namespace. A reference's constituent inputs are `l2-image` instance
-ids, each fixing exposure, detector and delivered version. The logical
-key's `version` is a selection digest: the full SHA-256 digest,
-hex-encoded, over the sorted constituent instance ids plus the resolved
-settings hash, so the same selection rebuilt is another instance of one
-logical product and a different selection is a new one.
-`refimages.version` is not this digest -- it is the legacy per-(field,
-fid, ppid) counter the table has always carried, allocated at
-registration like every other legacy version column below, globally
-across every run rather than scoped to one (see the reference-image
-field list and [reference](reference)).
+The reference recipe names the pipeline and settings, giving each way
+of building a reference for a field its own version namespace.
+Constituent inputs are `l2-image` instance ids, each fixing exposure,
+detector and delivered version. The logical key's `version` is the
+full, hex-encoded SHA-256 digest of the sorted constituent instance ids
+plus the resolved settings hash. Rebuilding the same selection makes
+another instance of one logical product; a different selection makes
+a new logical product.
 
-`finalize` reads an immutable input instance and writes a new instance
-of the same kind in its own attempt location. Its manifest records the
-input instance, the output revision, and the sizes and checksums of the
-finalized files. `register` consumes the selected finalized instance.
-The chain, the stamped header and the source-catalog republication are
-fixed on the [finalize](finalize) page.
+`refimages.version` remains the legacy per-(field, fid, ppid) counter.
+Like every other legacy version column below, it is allocated at
+registration, globally across runs rather than within one. It is
+separate from the selection digest (see the reference-image field list
+and [reference](reference)).
 
-Alert names are not a file product. `alerts` writes one record per
-alert (name, candidate id, first-seen time, position) into the alert
-outbox alongside the container's byte range; `register` records the
-container. The outbox row's locator is a block offset and length plus
-the record's ordinal position, not a per-alert byte range, and `alerts`
-registers the container and its alert-set itself, with `register`
-validating and replaying them; both are fixed on the [alerts](alerts)
+`finalize` reads an immutable instance and writes a new instance of the
+same kind in its own attempt location. Its manifest records the input
+instance, output revision, and finalized file sizes and checksums.
+`register` consumes the selected finalized instance. The
+[finalize](finalize) page fixes the chain, stamped header and
+source-catalog republication.
+
+Alert names are not a file product. `alerts` writes one outbox record
+per alert (name, candidate id, first-seen time, position) alongside the
+container's byte range; `register` records the container. The outbox
+locator is a block offset and length plus the record's ordinal
+position, not a per-alert byte range. `alerts` registers both the
+container and its alert-set itself; `register` validates and replays
+them. The locator and registration are fixed on the [alerts](alerts)
 page.
 
 ## Database result sets
 
 Catalog stages produce rows, not files. A result set is the named,
-versioned group of rows one stage attempt wrote, identified by a
-result-set instance id, and it is what the next stage names as its
-input. Completion is recorded on the result-set record, so an empty
-result set can be complete.
+versioned group of rows one stage attempt wrote. Its instance id identifies the next
+stage's input. Completion is recorded on the result set, so an empty
+set can be complete.
 
 | Kind | Unit | Provenance key | Rows in | Made by |
 |---|---|---|---|---|
@@ -193,44 +176,41 @@ result set can be complete.
 | `pruned-set` | field | base association set, pruning settings hash | membership table | `prune` |
 | `statistics-set` | field | membership set (association or pruned) | `astroobjectsmeta` | `statistics` |
 
-The frozen input selection of an association set is the list of exact
-source-set instance ids it read, the catalog versions, any seed object
-set, and the epoch-selection rule that produced the list. Field
-membership is complete when every source set the selection names is
-complete.
+An association set's frozen input selection records the exact source-set
+instance ids read, catalog versions, any seed object set, and the
+epoch-selection rule that produced the list. Field membership is
+complete when every named source set is complete.
 
-A pruned set is its base association set minus an explicit list of
-excluded pairs (object, source) within that base; the base is never
-mutated. A statistics set names the exact membership it describes, so
-"before or after pruning" is read off the input, not stored as a flag.
-Delivered statistics describe the association set, as `dev` computes
-them: `dev` runs crossmatch, then statistics, then prune. The pruned
-set as a statistics input is designed in, since the `statistics-set`
-row already keys on either, and left unused.
+A pruned set excludes an explicit list of (object, source) pairs from
+its base association set without mutating the base. A statistics set
+names the exact membership it describes; its input determines whether
+it is before or after pruning, with no separate flag. Delivered
+statistics describe the association set, following `dev`'s order:
+`dev` runs crossmatch, then statistics, then prune. The `statistics-set`
+row accepts either membership kind, but pruned-set input is designed in
+and left unused.
 
-Every row carries the run id, the attempt id that wrote it and its
-result-set id. Keys are set-scoped: statistics for one object in two
-sets are two rows, `(statistics_set, object)`. A stage reads a result
-set by id, never "whatever is current". Promotion atomically selects
-compatible file and database-result instances and records the previous
-selection for reversal. Deleting a scratch run removes only result sets
-that no active attempt or retained output depends on.
+Every row carries its run id, writing attempt id and result-set id.
+Keys are set-scoped: statistics for one object in two sets are two
+rows, `(statistics_set, object)`. Stages read result sets by id, never
+"whatever is current". Promotion atomically selects compatible file and
+database-result instances and records the previous selection for
+reversal. Scratch-run deletion removes only result sets with no active
+attempt or retained output depending on them.
 
 ### Reading across runs
 
-Crossmatch needs the sources of earlier epochs, which earlier runs
-produced. Current result sets are therefore readable by any run as
-frozen inputs, by instance id; scratch result sets are readable only
-within their own run. This amends the specification's sharing rule, so
-that production can accumulate a catalog across processing dates.
-Whether selected candidates are readable across runs, as the table below
-allows, is pending team review
+Crossmatch needs earlier epochs' sources from earlier runs to accumulate
+a catalog across processing dates. Current result sets are readable by any run
+as frozen inputs, by instance id; scratch result sets are readable only
+within their own run. This amends the specification's sharing rule.
+Cross-run reads of selected candidates, allowed by the table below,
+remain pending team review
 ({ref}`sharing rule <decision-pending-sharing-rule>`).
 
-"Readable by any run" is narrower than it sounds, and reading is a
-different question from promotion: a stage may read an input it may
-not publish from. The table gives both answers for every product
-instance, file products and result sets alike.
+A stage may read an input it cannot publish from. The table separates
+reading from promotion for all product instances, both files and result
+sets.
 
 | Input's state | A stage of another run may read it | A product built from it may be promoted |
 |---|---|---|
@@ -241,110 +221,104 @@ instance, file products and result sets alike.
 | Current | yes | yes |
 | Superseded (current before, candidate now) | yes, as any candidate from a selected attempt | yes |
 
-A read needs completeness and retention always. A same-run read needs
-nothing more, so a run may still name its own orphaned set. Only a
-cross-run read, of any instance anywhere in a dependency chain, needs
-its producing attempt to be selected; a candidate whose promotion was
-refused by checks is readable all the same, since a failed or missing
-check leaves a candidate, not a scratch instance, and reading does not
-distinguish a checked candidate from an unchecked one. Only a promotion
-needs more: complete, retained, and current, superseded, or itself a
-member of the same promotion request, followed through the whole chain
-of dependencies, not only the instance named directly ([checks](checks)
-page has the walk).
+Every read requires completeness and retention. A same-run read needs
+nothing more, so a run may name its own orphaned set. A cross-run read
+also requires a selected producing attempt for every instance in the
+dependency chain. Checked and unchecked candidates are equally
+readable: a failed or missing check leaves a candidate, even when it
+refuses promotion. Promotion requires complete, retained dependencies
+that are current, superseded, or members of the same promotion request,
+throughout the chain, not just the directly named instance. The
+[checks](checks) page describes the walk.
 
-Each instance settles to one of seven states, computed once by
+Each instance has one of seven states, computed once by
 `rapidpipe.runs.eligibility.instance_state`: `deleted`, `incomplete`,
-`scratch` and `unselected` rule an instance out first, from custody,
-completeness and selection facts only; what remains is `current`,
-`superseded`, or `candidate`. The promotion walk and `run show` both
-read this one state rather than re-deriving it ([checks](checks) page
-has the states; the [tool](tool) page has `run show`'s format).
+`scratch` and `unselected` rule it out first, using only custody,
+completeness and selection facts. The remaining states are `current`,
+`superseded`, and `candidate`. The promotion walk and `run show` use
+this state without re-deriving it. The [checks](checks) page defines the
+states; the [tool](tool) page gives `run show`'s format.
 
-`register_manifest` applies the read rule to every dependency edge now:
-a foreign file product's edge is refused on the same terms as a foreign
-result set's. One function enforces the read side for every reader:
-`rapidpipe.db.objects.assert_readable_instance`, of which
-`assert_readable_result_set` is the result-set wrapper that
-`source_set_table`, `association_chain`, and the set resolution
-`statistics`, `prune`, `alerts` and `export` already call. This closes
-the gap the sharing rule above left open: which of another run's
-instances counts as readable, and is what keeps a still-running scratch
-attempt's half-written output out of a production run's inputs, file
-products included.
+`register_manifest` applies the read rule to every dependency edge,
+refusing foreign file products on the same terms as foreign result
+sets. Every reader uses
+`rapidpipe.db.objects.assert_readable_instance`. Its result-set wrapper,
+`assert_readable_result_set`, is called by `source_set_table`,
+`association_chain`, and set resolution in `statistics`, `prune`,
+`alerts` and `export`. This defines which foreign instances the sharing
+rule permits and keeps a still-running scratch attempt's half-written
+outputs, including files, out of production inputs.
 
-The same rule backs the stage's own guard,
-`rapidpipe.runs.readguard.assert_inputs_readable`, which `run_stage`
-calls over every instance a stage's input manifest names, once the
-manifest is parsed and before any other object is fetched. Direct
+The stage guard, `rapidpipe.runs.readguard.assert_inputs_readable`, uses
+the same rule. After parsing the input manifest and before fetching any
+other object, `run_stage` calls it over every named instance. Direct
 invocation, the local launcher and Batch all reach `run_stage`, so none
-of the three can bypass the guard by choosing a path. The rule itself
-refuses an id naming no product instance at all; the guard never asks it
-about one. Instead, an unregistered manifest entry with no members (a
-result-set-style entry) is readable, since it names nothing to check,
-and a file-product entry's members are judged one at a time: a member
-whose path and SHA-256 match a registered instance's must match one the
-rule accepts, a member matching no registered instance is readable, and
-one member that matches only unreadable instances refuses the whole
-entry, whatever its other members match. So a fresh id cannot stand in
-for another run's scratch files. The guard needs a database connection
-to check named inputs; a stage without one, a dry run included, refuses
-rather than skipping the check. On an S3 input location the guard runs
-once the manifest alone is fetched, and only the member files it names
-are fetched afterward, one at a time, never the rest of the prefix
-([tool](tool) page has the exit codes).
+of the three bypasses the guard.
+
+The rule refuses ids that name no product instance; the guard handles
+those separately. An unregistered entry with no members (a
+result-set-style entry) is readable because it names nothing to check.
+For a file-product entry, each member's path and SHA-256 must match
+either no registered instance or at least one readable instance. A
+member matching only unreadable instances refuses the entire entry,
+regardless of its other members. A fresh id therefore cannot stand in
+for another run's scratch files.
+
+The guard requires a database connection to check named inputs. A
+stage without one, including a dry run, refuses execution. For S3
+inputs, only the manifest is fetched before the guard runs. Afterward,
+only its named member files are fetched, one at a time; the rest of the
+prefix is never fetched. The [tool](tool) page gives the exit codes.
 
 ## Registration metadata
 
-Each target column has exactly one source: a manifest value, a lookup
-on an immutable parent instance, a deterministic derivation, or a
-database allocation or default. The manifest carries measurements the
-stage made; it does not carry what registration can derive (spatial
-indexes from a position) or allocate (row ids, current flags). Nothing
-substitutes zero for an unavailable measurement; a missing required
-value fails validation.
+Each target column has one source: a manifest value, an immutable
+parent-instance lookup, a deterministic derivation, or a database
+allocation or default. The manifest carries the stage's measurements
+and omits anything registration can derive (spatial indexes from a
+position) or allocate (row ids, current flags). An unavailable measurement
+is never replaced with zero, and a missing required value fails validation.
 
-Checksums are SHA-256 throughout, stored with the algorithm named;
-the one exception is the legacy MD5 columns, ruled below. External
-identifiers (the observatory's exposure id) are stored as delivered and
-mapped to internal ids at admission.
+Checksums use SHA-256, stored with the algorithm named, except for the
+legacy MD5 columns below. External identifiers, such as the
+observatory's exposure id, are stored as delivered and mapped to
+internal ids at admission.
 
-The full field list per kind is fixed one kind at a time, with the
-columns that hold it; see the [runs](runs) page for how the run model
-attaches to the existing tables. Two lists are fixed so far: the
-difference image, because it is the first kind the rebuild registers,
-and the l2 image, because `admit` is the first stage built and
-`register` needs its list. The remaining kinds follow with their stages.
+Field lists and their columns are fixed one kind at a time; the
+[runs](runs) page describes how the run model attaches to existing
+tables. Two lists are fixed so far: the difference image, the first
+kind the rebuild registers, and the l2 image, because `admit` is the
+first stage built and `register` needs its list. Remaining kinds follow
+with their stages.
 
-Three rules hold across every kind, so that the `dev` tables keep the
-meaning the team knows:
+Three rules preserve the `dev` tables' meaning across all kinds:
 
-- **Legacy checksum columns keep their MD5.** `l2files.checksum`,
+- Legacy checksum columns keep MD5. `l2files.checksum`,
   `refimages.checksum` and `diffimages.checksum` are 32-character MD5
-  columns. The stage computes the MD5 of the primary member alongside
-  its SHA-256 and carries it in the registration block as `md5`; the
-  SHA-256 goes to `product_members`. Nothing is stored under a name that
-  misdescribes it. The MD5 carry is kept rather than dropped, which
-  would need relaxing `l2files.checksum`'s NOT NULL constraint.
-- **Legacy version columns are allocated the way the team's procedures
-  allocated them**, the next number for the table's logical pair, except
-  where the version is delivered (the l2 image). Where registration
-  keeps a `dev` stored function unchanged, as `refimages` does through
-  `addRefImage`, that allocation is `dev`'s own `coalesce(max(version),
-  0) + 1` over the whole table for the pair, global across every run,
-  not scoped to the registering run; the run is still recorded on the
-  row, just not part of the counter. Two attempts allocating for the
-  same pair at once are serialised by a transaction-level advisory
+  columns. Stages compute the primary member's MD5 alongside its SHA-256
+  and carry it as `md5` in the registration block. SHA-256 goes to
+  `product_members`, so each name describes what it stores. Dropping
+  MD5 would require relaxing `l2files.checksum`'s NOT NULL constraint.
+- Legacy version columns follow the team's procedures: the next number
+  for the table's logical pair, except for delivered versions (the l2
+  image). When registration retains a `dev` stored function unchanged,
+  as `refimages` does through `addRefImage`, allocation uses `dev`'s
+  `coalesce(max(version),
+  0) + 1` for the pair across the whole table and every run. The row
+  records the run, but the counter is not run-scoped. Concurrent
+  allocations for the same pair are serialised by a transaction-level advisory
   lock, `pg_advisory_xact_lock(hashtext('refimages:<field>:<fid>:<ppid>'))`
   for `refimages`, taken before the allocation and released
   automatically at the transaction's end.
-- **Legacy current flags are never set at registration.** `vbest` is 0
-  on every row a run writes; custody lives on the instance row.
-  Promotion maintains `vbest` on the `dev` tables for the team's
-  existing queries, alongside `current_selection`; consumers moving to
-  `current_selection` is a later improvement.
+- Legacy current flags are never set at registration. Every row a run
+  writes has `vbest` 0; custody lives on the instance row. Promotion
+  maintains `vbest` on the `dev` tables alongside `current_selection`
+  for existing queries. Moving consumers to `current_selection` is a
+  later improvement.
 
-For the difference image (`difference` makes it, `register` records it):
+### Difference image
+
+`difference` makes the image; `register` records it.
 
 | Field | Source | Column |
 |---|---|---|
@@ -377,7 +351,9 @@ For the difference image (`difference` makes it, `register` records it):
 - bit 4: naive positive
 - bit 5: naive negative
 
-For the reference image (`reference` makes it, `register` records it):
+### Reference image
+
+`reference` makes the image; `register` records it.
 
 | Field | Source | Column |
 |---|---|---|
@@ -403,7 +379,9 @@ For the reference image (`reference` makes it, `register` records it):
 | current flag, status | allocation; never current at registration | `refimages.vbest` 0, `status`: the block's `status`, 1 |
 | run, attempt, instance ids | enclosing manifest and allocation | `run`, `attempt`, `instance` on `refimages`, the columns migration `20260923-02-refimages-instance.sql` added; `attempt` is the *producing* attempt (the `reference` attempt named in the manifest), not the attempt running `register` -- `psfs`, `diffimages` and `l2files` record the registering attempt instead, so `refimages` is the one exception |
 
-For the reference catalog (`reference` makes it, `register` records it):
+### Reference catalog
+
+`reference` makes the catalog; `register` records it.
 
 | Field | Source | Column |
 |---|---|---|
@@ -417,17 +395,20 @@ For the reference catalog (`reference` makes it, `register` records it):
 | source count | manifest registration block, `source_count` | carried, not registered: `registerRefImCatalog` takes no such column, the same treatment the difference stage's `source-catalog` block gets until `load` |
 | run, attempt, instance ids | enclosing manifest and allocation | as `refimages` |
 
-For the l2 image (`admit` makes it, `register` records it; admission is
-the one stage that reads the delivered header, so every header value the
-tables need travels in its manifest entry). `admit` has no upstream
-stage: its input manifest is a delivery manifest, written by whoever
-stages the delivered file, with stage `delivery`, one `l2-image` entry
-of format version `delivered` whose key names the exposure, detector and
-delivered version, and the delivered file as its member. `admit`
-verifies the delivered bytes, copies the file into the attempt's output
-location, and publishes a new instance; the delivery's instance id and
-source are kept in the registration block, not as a dependency, because
-a delivery is not a registered product.
+### L2 image
+
+`admit` makes the image; `register` records it. Admission alone reads
+the delivered header, so its manifest carries every header value the
+tables need. `admit` has no upstream stage. Whoever stages the delivered
+file writes its input delivery manifest: stage `delivery`, one
+`l2-image` entry of format version `delivered`, a key naming the
+exposure, detector and delivered version, and the delivered file as
+its member.
+
+`admit` verifies the delivered bytes, copies the file into its attempt's
+output location, and publishes a new instance. The registration block
+keeps the delivery's instance id and source. A delivery is not a
+registered product, so it is not a dependency.
 
 | Field | Source | Column |
 |---|---|---|
@@ -512,22 +493,20 @@ a delivery is not a registered product.
 }
 ```
 
-`register` validates each entry against its kind's schema, checks it
-against the enclosing manifest, resolves the upstream instance ids, and
-writes rows from manifest fields, execution provenance, documented
-lookups and defaults. It does not read product files.
+`register` validates each entry against its kind's schema and enclosing
+manifest, then resolves upstream instance ids. It writes rows from
+manifest fields, execution provenance, documented lookups and defaults,
+without reading product files.
 
 ## Not decided here
 
-- The registration field lists for the remaining kinds (source catalog
-  and `light-curve`); each is fixed with its stage. `light-curve` has no
-  stage in this build; [photometry](photometry) has the state, pending
-  the real port. `catalog-export`'s registration
-  field list is fixed with the `export` stage, on the [export](export)
-  page. The source set's
-  rows and result-set record, and the `psf` block, are on the
-  [load](load) page. The `alert-container` registration block and the
-  `alert-set` result set are on the [alerts](alerts) page.
+- Registration field lists for source catalog and `light-curve`, each
+  fixed with its stage. `light-curve` has no stage in this build;
+  [photometry](photometry) records its state pending the real port.
+  `catalog-export`'s field list is fixed with the `export` stage on the
+  [export](export) page. The [load](load) page holds the source set's
+  rows and result-set record and the `psf` block; [alerts](alerts) holds
+  the `alert-container` registration block and `alert-set` result set.
 - Storage layout beneath the run: the path scheme under the attempt's
   output location.
 - Closed by the Identity section above: a derived product's science

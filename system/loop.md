@@ -2,90 +2,90 @@
 
 **Status: DRAFT**
 
-How regular operations run themselves: the registry row that triggers
-the loop, the host it runs on, the spec it reads, the production run it
-creates for each processing date, how a date's fields bind to the
-previous date's catalog, promotion, and what each date leaves in the
-database. The [specification](specification)'s Sequencing item 7 states
-the requirement; this page records how the rebuild meets it.
+`rapidpipe loop run` runs regular operations from one scheduled trigger;
+it is not a continuously running service. The
+[specification](specification)'s Sequencing item 7 states the requirement.
 
 ## In plain terms
 
-The loop turns a spec naming a schedule, a release and a list of
-processing dates into one production run per date, walked through
-admission, differencing, loading, crossmatch, statistics, pruning and
-alerts, in order. Each field's crossmatch binds the previous date's
-association set for that field as its base, so objects accumulate across
-dates the way `dev`'s date-by-date operation does. A date's run is
-promoted under the spec's check policy once every unit completes; a
-refusal is recorded, not fatal, and the loop moves to the next date. One
-row per schedule and date, in a table of its own, is the record. The loop
-itself is `rapidpipe loop run`, started by one scheduled trigger, not a
-service that runs continuously.
+A spec names a schedule, a release and processing dates. The loop creates
+one production run per date and walks it through admission, differencing,
+loading, crossmatch, statistics, pruning and alerts, in order. Each
+field's crossmatch uses the previous date's association set as its base,
+so objects accumulate across dates as they do in `dev`'s date-by-date
+operation. Once every unit completes, the run is promoted under the
+spec's check policy. A refusal is recorded without failing the date, and
+the loop moves to the next date. A separate table records one row per
+schedule and date.
 
 ## The scheduler
 
-The schedule trigger is a row, `processing-date-loop`, in `rapid_systems`'
-operations registry, `cloudformation/operations.tsv`: the estate's one
-scheduling mechanism, already driving `pin-sweep` and the other
-recurring fleet operations through an SSM Maintenance Window and an
-Automation runbook per row. The row's fields: trigger
+The trigger is the `processing-date-loop` row in `rapid_systems`'
+operations registry, `cloudformation/operations.tsv`. The registry is
+the estate's single scheduling mechanism: it already drives `pin-sweep`
+and other recurring fleet operations through an SSM Maintenance Window
+and an Automation runbook per row. The loop row has trigger
 `window:at(<UTC>)`, target `Name=rapid-admin`, runbook
 `rapid-op-processing-date-loop-runbook`, concurrency 1, error cutoff 1,
-owner `rapid-alerts`, freshness `P7D`, freshness actions `quiet`. The
-runbook's shell step sets `executionTimeout` to 21600 seconds, about two
-control dates at roughly 4.5 hours each, so SSM kills a stalled run
-rather than letting it run past the window.
+owner `rapid-alerts`, freshness `P7D` and freshness actions `quiet`.
+The runbook's shell step sets `executionTimeout` to 21600 seconds,
+about two control dates at roughly 4.5 hours each, so SSM kills a stalled
+run before it runs past the window.
 
-The loop has no EventBridge rule and no Batch driver job of its own. The
-registry's `event:` trigger class is reactive only, never an
-orchestrator, so it is not the right shape for a recurring run; a
-separate driver would duplicate the scheduling the registry already
-does for every other unattended operation on the fleet. "One schedule
-trigger" means that Maintenance Window firing once runs the whole loop
-for every date the spec names: the loop itself walks the dates, not the
-registry.
+One Maintenance Window firing runs the whole loop over every date the
+spec names. The loop walks the dates. It has no EventBridge rule or
+Batch driver job of its own: the registry's `event:` trigger class is
+reactive only, never an orchestrator, and a separate driver would
+duplicate the registry's scheduling of unattended fleet operations.
 
-The proof row's trigger is a one-shot `at()`, the registry's own
-deploy-phase shape (as `postgres-swap` uses it as an inert placeholder).
-After the proof, the row keeps a far-future `at()` rather than moving to
-a daily `cron()`: a daily trigger over the control inputs would
-re-process the same image into the trial database every day, and there
-are no real deliveries yet for it to advance against. The steady-state
-cadence is set once real deliveries exist (below, Not decided here).
+The proof row uses a one-shot `at()`, the registry's deploy-phase shape
+that `postgres-swap` uses as an inert placeholder. After the proof, the
+row keeps a far-future `at()` instead of a daily `cron()`. A daily
+trigger over the control inputs would re-process the same image into
+the trial database every day; there are no real deliveries yet to
+advance against. The steady-state cadence will be set once they exist
+(Not decided here, below).
 
 ## Venue
 
 The operation runs as root under SSM on `rapid-admin`, from a checkout
-of the release tag. `rapid-admin` is where every registry
-row already runs; the workstation idle-stops fifteen
-minutes after its last session, and an unattended loop polling Batch
-over hours would be stopped mid-run there. `rapid-admin-instance-role`
-already holds `batch:SubmitJob`/`DescribeJobs` on the `rapid-*`
-definitions and reads the rebuild database secret. For the input-set
-write access its own runs need, it joins a new parameter,
-`LoopLauncherRoleNames`, rather than the [tool](tool) page's
-`WorkstationSubmitterRoleNames`: the role already carries 22 of the 25
-policies an instance role can hold, so the loop's grant is scoped to
-`ScratchSubmitter` alone, not the workstation role's fuller set.
+of the release tag. Every registry row already runs on `rapid-admin`.
+The workstation idle-stops fifteen minutes after its last session,
+which would interrupt a loop polling Batch for hours.
 
-The operation script, `op-processing-date-loop.sh`, is embedded in the
-runbook like every other registry row. It reads one SSM parameter,
-`/rapid/rebuild/loop/spec`, whose value is the spec's S3 location;
-fetches the spec; clones `rapid` at the tag the spec names into
-`/var/lib/rapid/loop/rapid-<tag>`, refusing if the checkout's
-`git describe --tags --exact-match` does not equal that tag; exports the
-launcher's environment (the pooler, the rebuild database, the queue and
-job-definition names, no secrets); and runs
-`rapidpipe.cli.main loop run --spec <loc>`, its log tee'd to
-`/var/log/rapid/processing-date-loop.log`. Ben's sentence for it: the
-scheduled operation reads the loop spec named in one SSM parameter,
-checks out the release the spec names, and runs the loop over the
-spec's dates.
+`rapid-admin-instance-role` already holds `batch:SubmitJob`/`DescribeJobs`
+on the `rapid-*` definitions and reads the rebuild database secret.
+Input-set writes for its own runs are granted through a new parameter,
+`LoopLauncherRoleNames`, rather than the [tool](tool) page's
+`WorkstationSubmitterRoleNames`. The role already carries 22 of the 25
+policies an instance role can hold, so the loop receives only
+`ScratchSubmitter`, without the workstation role's fuller set.
+
+Like every other registry row, the runbook embeds its operation script,
+`op-processing-date-loop.sh`. The script reads the spec's S3 location
+from the SSM parameter `/rapid/rebuild/loop/spec` and fetches it. It
+clones `rapid` at the named tag into `/var/lib/rapid/loop/rapid-<tag>`
+and refuses if `git describe --tags --exact-match` in that checkout
+does not equal the tag. It then exports the launcher's environment
+(the pooler, rebuild database, queue and job-definition names, no
+secrets) and runs `rapidpipe.cli.main loop run --spec <loc>`, teeing
+the log to `/var/log/rapid/processing-date-loop.log`. Ben's sentence
+for it: the scheduled operation reads the loop spec named in one SSM
+parameter, checks out the release the spec names, and runs the loop
+over the spec's dates.
+
+## Release binding
+
+The spec names the release; the operation checks out that tag and each
+date's run records it. The run's code and the image its units execute
+therefore use the same tag, never a branch head. The release is the
+first tag cut at a rebuild head carrying the loop's code and migration,
+allocated by `next_tag` from the laptop using the
+[releases](releases) page's recipe.
 
 ## The loop spec
 
-The spec is a TOML document, read from S3 or a local path:
+The spec is a TOML document read from S3 or a local path:
 
 ```toml
 [loop]
@@ -102,79 +102,76 @@ admit_settings = "control/20260923/settings/admit-socsim.toml"
 difference_settings = "control/20260923/settings/difference-gain1-imgnoise.toml"
 ```
 
-A spec needs `inbox` or `[[dates]]`, or `loop run` refuses it
-(`LoopSpecError`, exit 64). The `[[dates]]` form, one entry per
-processing date and one `[[dates.detector_images]]` per delivery
-carrying its own `admit_settings`, `difference_template` and
-`difference_settings`, stays exactly as before, for proofs and backfills
-named by `loop run --date D`.
-
-This is `ops4-stream`, the spec at
+This is `ops4-stream`, at
 `s3://<scratch-bucket>/rapidpipe-firstrun/ops4/loop/ops4-stream.toml`,
-release the newly cut tag, policy `rebuild-trial@1`. A later batch's
-crossmatch binds the earlier batch's
-association set for its field, the same way a later date's does (Base
-catalog, below).
+release the newly cut tag, policy `rebuild-trial@1`.
 
-`loop run` processes, in spec order, every date whose `loop_dates` row is
-absent or `open`, when the spec lists dates explicitly; an inbox spec's
-discovery and batch order are below (Discovery and batches). Concurrency,
-retries and exit codes are further down (Concurrency and recovery).
+A spec needs `inbox` or `[[dates]]`; otherwise `loop run` refuses it
+with `LoopSpecError`, exit 64. The explicit `[[dates]]` form remains
+available for proofs and backfills selected by `loop run --date D`:
+one entry per processing date, with one `[[dates.detector_images]]` per
+delivery carrying its own `admit_settings`, `difference_template` and
+`difference_settings`.
+
+For explicit dates, `loop run` processes every date whose `loop_dates`
+row is absent or `open`, in spec order. Inbox discovery and batch order
+are described under Discovery and batches; retries and exit codes are
+under Concurrency and recovery. A later batch's crossmatch binds the
+earlier batch's association set for its field, just as a later date's
+does (Base catalog, below).
 
 ## Discovery and batches
 
-A spec that names `inbox` turns each firing into a discovery pass over
-that location, ahead of anything the spec lists under `[[dates]]`.
+With `inbox` set, each firing discovers deliveries at that location
+before processing anything listed under `[[dates]]`.
 
 ### Inbox layout
 
-A delivery lands at `<inbox>/<YYYY-MM-DD>/<delivery-name>/manifest.json`.
-The date directory is the delivery's processing date: the mission's own
-interface for that is not yet defined ([operations](operations), "What
-this page assumes about the mission"), the socsim fixture is one exposure
-so its FITS observation date cannot separate proof dates, and a staging
-layout that states the date outright is the smallest assumption the
-stream can make. `<delivery-name>` is the prefix `admit` already reads,
-`<stem>-scaNN`, and its manifest gives the detector unit id. A key under
-the inbox that does not match
-`^<inbox>/(\d{4}-\d{2}-\d{2})/([^/]+)/manifest\.json$` is ignored and
+Deliveries land at `<inbox>/<YYYY-MM-DD>/<delivery-name>/manifest.json`.
+The date directory states the processing date. The mission's interface
+for that is undefined ([operations](operations), "What this page assumes
+about the mission"), and the socsim fixture has only one exposure, so
+its FITS observation date cannot separate proof dates. Stating the date
+in the staging layout is the stream's smallest assumption.
+`<delivery-name>` is the `<stem>-scaNN` prefix `admit` already reads;
+its manifest gives the detector unit id. Inbox keys that do not match
+`^<inbox>/(\d{4}-\d{2}-\d{2})/([^/]+)/manifest\.json$` are ignored and
 counted in the firing's log line.
 
-Because a discovered manifest carries no stage inputs of its own,
-`[loop]` also takes stream-level ones applied to every delivery it
-finds: `difference_template`, required whenever `inbox` is set, and the
-optional `admit_settings` and `difference_settings`. One template for
-every delivery is a proof-scale assumption; a real stream resolves a
-reference per field, which stays open ([operations](operations) page).
+Discovered manifests carry no stage inputs. Instead, `[loop]` supplies
+stream-level inputs for every discovered delivery: `difference_template`
+is required when `inbox` is set; `admit_settings` and
+`difference_settings` are optional. One template for all deliveries is
+a proof-scale assumption. Resolving a reference per field for a real
+stream remains open on the [operations](operations) page.
 
 ### What a firing does
 
-Under the schedule's advisory lock, `loop run` on an inbox spec, in
-order:
+Under the schedule's advisory lock, `loop run` on an inbox spec:
 
-1. Resumes the schedule's `open` rows and its reopenable `failed` rows,
-   in `(processing_date, batch)` order, reading their deliveries from
-   `loop_deliveries` rather than the spec; a non-reopenable `failed` row
-   still stops it, as today.
-2. Discovers new manifests (Classification, below) and creates every new
-   batch, oldest processing date first, freezing each batch's membership
-   as it is created.
+1. Resumes the schedule's `open` and reopenable `failed` rows in
+   `(processing_date, batch)` order, reading deliveries from
+   `loop_deliveries` rather than the spec. A non-reopenable `failed`
+   row stops it.
+2. Discovers new manifests (Classification, below) and creates every
+   new batch, oldest processing date first, freezing membership as
+   each batch is created.
 3. Processes the new batches in that order.
 
-A firing that resumes nothing and discovers nothing prints `schedule
-<s>: nothing to discover` and exits 0, having written no row, no run and
-no object. `--date D` still selects `[[dates]]` entries only; a spec that
-sets `[[dates]]` and no `inbox` behaves exactly as it does today,
-bypassing discovery because a person has already named its deliveries.
+If nothing is resumed or discovered, the firing prints `schedule
+<s>: nothing to discover` and exits 0 without writing a row, run or
+object. `--date D` selects only `[[dates]]` entries. A spec with
+`[[dates]]` and no `inbox` keeps its existing behaviour: it bypasses
+discovery because a person has named the deliveries.
 
 ### Classification
 
-Discovery lists the inbox and keeps every manifest key not yet recorded
-in `loop_deliveries` for the schedule; once a location is recorded, it is
-never read again, whatever its state. Each kept manifest is read and
-classified against the schedule's admission history, the rows already
-`batched` plus whatever this same firing has classified ahead of it, in
-key order. Identity is the delivered image's `(exposure, detector,
+Discovery lists the inbox and keeps manifest keys not yet recorded in
+`loop_deliveries` for the schedule. A recorded location is never read
+again, whatever its state. In key order, each new manifest is read and
+classified against the schedule's admission history: rows already
+`batched` plus whatever this firing has classified before it. The
+delivered image's identity is `(exposure, detector,
 version)`; a checksum is the primary file's `sha256`.
 
 | Manifest | Outcome |
@@ -185,223 +182,211 @@ version)`; a checksum is the primary file's `sha256`.
 | Same exposure and detector, a newer version, while an earlier version is batched | Deferred, reason `corrected delivery awaits a correction run` |
 | None of the above | Batched |
 
-A refused, quarantined or deferred manifest creates no batch and no run;
-each classification is still one `loop_deliveries` row, so `loop show`
-prints it after the schedule's batch rows. `loop plan` on an inbox spec
-runs the same classification and prints it without writing anything.
+Refused, quarantined and deferred manifests create no batch or run.
+Each classification still creates one `loop_deliveries` row, which
+`loop show` prints after the schedule's batch rows. For an inbox spec,
+`loop plan` performs and prints the same classification without writing.
 
 ### One transaction per batch
 
-Discovery commits in two stages. First, under the same lock, every
-refused, quarantined and deferred manifest from this firing is inserted
-and committed in one transaction, before any batch exists, so a firing
-that finds nothing admissible still leaves a full record. Then, for each
-new date in turn, oldest first: the loop creates the date's run, inserts
-its `loop_dates` row (`open`, one past the date's highest existing batch,
-or 1 if it has none) and the batch's `batched` `loop_deliveries` rows,
-and commits before moving to the next date. A batch's membership is
-frozen at that commit; a manifest that reaches the inbox afterward waits
-for the next firing. Processing starts only once every batch of the
-firing has committed.
+Discovery commits in two stages under the same lock. First, it inserts
+and commits all refused, quarantined and deferred manifests in one
+transaction, before any batch exists. Even a firing with nothing
+admissible leaves a full record.
 
-A crash after a batch's commit leaves its `loop_dates` row `open`, and
-the next firing resumes it from the database, against the same run, as
-above. A crash before the commit leaves nothing behind: the manifests it
-would have covered are still unrecorded, and the next firing discovers
-them again.
+Then, for each new date, oldest first, the loop creates a run and inserts
+its `loop_dates` row and `batched` `loop_deliveries` rows. The date row
+is `open`; its batch number is one past the date's highest existing
+batch, or 1 if none exists. The loop commits before moving to the next
+date, freezing the batch's membership. A manifest arriving afterward
+waits for the next firing. Processing begins only after all of the
+firing's batches have committed.
+
+A crash after a batch commits leaves its `loop_dates` row `open`; the
+next firing resumes it from the database against the same run. A crash
+before commit leaves nothing behind, so the next firing rediscovers
+the unrecorded manifests.
 
 ## Per date
 
-Each processing date becomes one production run, created through the
-CLI's `run create --release` path: owner and lane from the spec, purpose
-`"processing date <D> (schedule <S>)"`, `input_selection_ref` the spec's
-location, `check_policy_ref` the spec's policy, `max_attempts_per_unit`
-the spec's, and `selected_stages` the loop's own chain: admit, register,
-difference, finalize, register, load, maintain, crossmatch, statistics,
-prune, alerts. `finalize`'s contract never registers the raw difference
-instance, so the chain carries two `register` steps, not three;
-promoting two candidates for the same kind and logical key is refused.
+Each processing date becomes one production run through the CLI's
+`run create --release` path. Owner and lane come from the spec. Purpose
+is `"processing date <D> (schedule <S>)"`, `input_selection_ref` is the
+spec's location, `check_policy_ref` is its policy, and
+`max_attempts_per_unit` is its attempt limit. `selected_stages` holds
+the loop's chain: admit, register, difference, finalize, register, load,
+maintain, crossmatch, statistics, prune, alerts. The chain has two
+`register` steps, not three: `finalize`'s contract never registers the
+raw difference instance, and promotion refuses two candidates for the
+same kind and logical key.
 
-Per detector image, the chain runs as the tool's own stages do:
+For each detector image, the tool's stages run in order:
 admit(delivery) → register → difference (input set composed from the
 template) → finalize → register(finalize's output) → load(finalize's
-output). Then `maintain`, whose `detector-date` unit id,
-`<yyyymmdd>/SCA<nn>`, the loop derives from the load attempt's own
-child-table name. Then, per distinct
-`field` read from that table: crossmatch (input set the load manifest's
-source set plus the base association set, below) → statistics
-(crossmatch's output) → prune (crossmatch's output). After a field's
-prune, the loop reads the selected prune attempt's manifest: exactly
-one pruned set, whose base must be the association set the same date's
-crossmatch produced for the field, else the date fails. Each detector
-image's alerts input set names, per field it touches, the association
-set, its statistics set and that pruned set, in that order after the
-source set (the [alerts](alerts) page's `pruned-set` binding). The date
-record gains `pruned_sets {field: instance}` (see Records, below).
-Submission and polling go through `submit_unit` and `reconcile`, as
-`run start` uses them for one unit at a time.
+output). Next comes `maintain`, with a `detector-date` unit id of
+`<yyyymmdd>/SCA<nn>` derived from the load attempt's child-table name.
+For each distinct `field` in that table, the chain continues:
+crossmatch (input set containing the load manifest's source set and
+the base association set, below) → statistics (crossmatch's output) →
+prune (crossmatch's output).
+
+After each field's prune, the loop reads the selected prune attempt's
+manifest. It must name exactly one pruned set whose base is the
+association set that date's crossmatch produced for the field;
+otherwise the date fails. Each detector image's alerts input set names
+the source set, followed, for each field it touches, by the association
+set, its statistics set and that pruned set, in that order (the
+[alerts](alerts) page's `pruned-set` binding). The date record gains
+`pruned_sets {field: instance}` (Records, below). Submission and polling
+use `submit_unit` and `reconcile`, as `run start` does for one unit at
+a time.
 
 ## Base catalog
 
-A field's base catalog is the association-set instance its crossmatch
-produced in the newest earlier `loop_dates` row of the same schedule,
-ordered by `(processing_date, batch)`, that is `complete` and has an
-association set for that field (that row's run's selected attempt for
-the field's unit), or none, if no earlier complete row has one, on a
-schedule's first date or a field new to a later one. A later batch of the
-same processing date counts as later in this order, so it extends the
-earlier batch's association sets rather than starting the field over. A
-failed or still-open date has no
-association set to offer, so the search steps back past it to the most
-recent complete one: one date's failure does not stall base-catalog
-binding for the dates that follow it. The base date need not itself be
-promoted:
-association sets bind by instance, not by current custody, so an
-unpromoted complete date is still an eligible base, and `prune`'s own
-not-best exclusion, not promotion, is what keeps an inferior instance
-out of the chain a later date reads. Each field's entry in the date's
-record notes `base_promoted`: whether the date that supplied its base
-had itself been promoted at bind time. Input-set manifests
-for crossmatch and alerts are written under
-`<scratch root>/runs/<run>/inputs/<stage>/<unit>/`, the same layout the
-[tool](tool) page's composer uses. This is the loop's own instance of the
-field-level input selection the tool page leaves open; which reference a
-field should use among several eligible ones is still not decided
-(below).
+A field's base catalog comes from the newest earlier `loop_dates` row
+in the same schedule that is `complete` and has an association set for
+that field. Rows are ordered by `(processing_date, batch)`; the bound
+instance is the association set produced by the selected crossmatch
+attempt for the field's unit in that row's run. If no earlier complete
+row has one, the field has no base, as on a schedule's first date or
+for a field first seen on a later date. A later batch of the same date
+extends the earlier batch's association sets.
 
-Field discovery and base selection both go through the [products](products)
-page's cross-run reading rule, not around it. Field discovery reads a
-source set only after that rule passes; an unreadable own source set
-fails the date. A candidate base association set that fails the rule --
-another run's scratch set, or one from an unselected attempt -- is
-skipped, and the search continues to the next earlier complete row of
-the schedule, the same stepping-back the paragraph above already does
-for a failed or open date; each skip is recorded in the date's record as
-`bases_skipped` (per field, the run, processing date, instance and
-reason skipped).
+The search skips failed and open dates and steps back to the most
+recent complete row, so a date's failure does not stall base-catalog
+binding for later dates. Promotion is not required: association sets
+bind by instance, independently of current custody. `prune`'s not-best
+exclusion keeps an inferior instance out of the chain a later date
+reads. Each field's record stores `base_promoted`, whether the date
+supplying its base had been promoted at bind time.
 
-A schedule's first date has no base, so over a sky whose field
-association sets are already current its scheduler promotion is refused
-by the [runs](runs) page's association-set ancestor rule (the before
-instance must be reached from the new set through `base`) until a chain
-switch to the earlier sets exists; a proof or a new stream over the same
-sky therefore continues the existing schedule, a new inbox prefix and
+Field discovery and base selection both obey the [products](products)
+page's cross-run reading rule. Field discovery reads a source set only
+after the rule passes; an unreadable own source set fails the date.
+A candidate base that fails the rule (another run's scratch set, or
+one from an unselected attempt) is skipped. The search continues to
+the next earlier complete row, just as it steps past failed or open
+dates. Each skip is recorded in `bases_skipped`: per field, the run,
+processing date, instance and reason skipped.
+
+Crossmatch and alerts input-set manifests are written under
+`<scratch root>/runs/<run>/inputs/<stage>/<unit>/`, the layout used by
+the [tool](tool) page's composer. This implements the loop's own
+field-level input selection. The tool page's question of which
+reference to use among several eligible ones remains open (below).
+
+A schedule's first date has no base. If field association sets for that
+sky are already current, the [runs](runs) page's association-set
+ancestor rule refuses scheduler promotion until a chain switch to the
+earlier sets exists: the before instance must be reachable from the
+new set through `base`. A proof or new stream over the same sky
+therefore continues the existing schedule with a new inbox prefix and
 new exposures, rather than starting a new schedule name.
 
 ## Promotion
 
-Once every unit of a date's run is complete, the loop resolves the
-check policy (the spec's, else the run's, else the default), runs its
-checks over the run's candidates and records each result as
-`scheduler`. It calls `promote_run` only when the policy permits
-automatic promotion, the same gate `run start`'s own automatic
-promotion uses ([checks](checks) page, "Automatic promotion"): a
-team-approved policy with `auto_promote` true. No shipped policy does.
-Under `rebuild-trial@1`, the policy every scheduled date has run under
-so far, the run stays a candidate and the `loop_dates` row records
-`promotion = candidate; promotion is a person's (policy <ref>)`. A
-refusal from a policy that does permit automatic promotion is recorded
-the same way, `refused: <reason>`, not as a failure of the date.
-`finish_run` follows either way, and the date exits 0 regardless of
-which text the row got.
+When every unit in a date's run is complete, the loop resolves the
+check policy from the spec, then the run, then the default. It checks
+the run's candidates and records each result as `scheduler`.
+`promote_run` is called only for a team-approved policy with
+`auto_promote` true, the same gate used by `run start` ([checks](checks),
+"Automatic promotion"). No shipped policy permits this.
 
-A date whose run stays a candidate still supplies the next date's base:
-the next date's crossmatch binds this date's association set by
-instance, whether or not it was promoted, and the field's
-`base_promoted` entry (Base catalog, above) records `false`. Promoting
-a candidate afterward is a person's job, `rapidpipe run promote`, and
-it goes in date order: a later date's own association set depends on
-the earlier one, so the [runs](runs) page's ancestor rule refuses its
-promotion while the earlier date's run is still a candidate.
+Every scheduled date so far has used `rebuild-trial@1`, which leaves
+the run a candidate and records
+`promotion = candidate; promotion is a person's (policy <ref>)` in
+`loop_dates`. A refusal under a policy that permits automatic promotion
+is recorded as `refused: <reason>` without failing the date.
+`finish_run` follows either way, and the date exits 0 regardless of
+which text was recorded.
+
+A candidate date still supplies the next date's base by instance; the
+next date's field entry `base_promoted` (Base catalog, above) records `false`.
+A person promotes candidates with `rapidpipe run promote`, in date
+order. The [runs](runs) page's ancestor rule refuses promotion of a
+later date's association set while the earlier date's run it depends
+on remains a candidate.
 
 ## Concurrency and recovery
 
-`loop run` takes one PostgreSQL advisory lock scoped to the spec's
-schedule for its whole run; a second launcher for the same schedule (a
-stray retry, an overlapping Maintenance Window) exits 75 without
-touching any date, rather than racing the first.
+`loop run` holds one PostgreSQL advisory lock for the spec's schedule
+throughout its run. A second launcher for the same schedule, such as
+a stray retry or overlapping Maintenance Window, exits 75 without
+touching any date.
 
 Within the lock, dates are processed in spec order. A `complete` row is
-skipped, and an `open` row is resumed as described above (The loop
-spec): complete units skipped, running attempts attached, ready units
-re-attempted. A `failed` row is also skipped by default. `loop run --retry-failed`
-recovers a failed date whose run has a failed or cancelled unit by
-seeding a replacement run, the `run create --seed <run> --only-failed`
-recovery the [runs](runs) page describes: the row is repointed to the
-new run, the old run's id is kept in `record.previous_runs`, and the
-date is walked again against the new run, which re-runs only the
-seed's non-complete units. Only a
-failed date with no failed or cancelled unit resumes the same run, the
-reopen described below. A date's move
-to `complete` and its run's `finish_run` commit in one transaction, so a
-crash between the two cannot leave a `loop_dates` row claiming
-completion for a run that never finished, or a finished run with no row
-to show for it.
+skipped; an `open` row is resumed (The loop spec, above), skipping
+complete units, attaching to running attempts and re-attempting ready
+units. A `failed` row is skipped by default.
 
-`reconcile` marks an attempt `lost` the same way it always does when its
-Batch job is gone. From there the unit's own retry-safe recovery
-applies, the [stage contract](stage-contract) page's rule that a retry
-recovers a completed-but-unconfirmed write rather than duplicating it,
-or discards an incomplete one and tries again within the run's attempt
-allowance; a unit with no attempts left fails, and that fails the date.
+For a failed date whose run has a failed or cancelled unit,
+`loop run --retry-failed` seeds a replacement run using the [runs](runs)
+page's `run create --seed <run> --only-failed` recovery. The date row
+points to the new run and retains the old id in `record.previous_runs`.
+The loop walks the date again, re-running only the seed's non-complete
+units. Only a failed date with no failed or cancelled unit resumes the
+same run, through the reopen described below.
 
-A date whose input set cannot be read -- an absent or invalid manifest,
-or a producer run that is deleting or deleted -- fails with that reason,
-and can fail before any unit exists, when nothing has run yet to give
-`--retry-failed` a failed or cancelled unit to seed. A later `loop run`
-reopens such a failed row -- one whose run has no failed or cancelled
-unit -- and resumes it with the same run: the row returns to `open`,
-its failure moves to `record.previous_failures`, and the reopen's time
-is appended to `record.reopened` (`loop plan` shows this as
-`action=reopen`). A row with a failed unit still takes `--retry-failed`'s
-seeded path instead, and a finished run's row is never reopened, since a
-finished run takes no new units.
+`reconcile` marks an attempt `lost` when its Batch job is gone. The
+unit then follows the [stage contract](stage-contract) page's retry-safe
+recovery: recover a completed-but-unconfirmed write without duplicating
+it, or discard an incomplete write and try again within the run's
+attempt allowance. A unit with no attempts left fails, failing the date.
 
-`loop run` exits 0 when every date it processed reached `complete`, 1 on
-the first date that fails with no later date started, 64 on bad
-arguments or a refused spec, a parse failure included, and 75 on a
-timeout or a lock already held. The full vocabulary is on the
-[tool](tool) page.
+An unreadable input set fails the date with its reason: an absent or
+invalid manifest, or a producer run that is deleting or deleted. This
+can happen before any unit exists, leaving `--retry-failed` no failed
+or cancelled unit to seed. A later `loop run` reopens a failed row
+whose run has no failed or cancelled unit and resumes the same run.
+The row returns to `open`, its failure moves to
+`record.previous_failures`, and the reopen time is appended to
+`record.reopened`; `loop plan` shows `action=reopen`. A failed unit
+requires `--retry-failed`'s seeded path. A finished run's row is never
+reopened because a finished run accepts no new units.
+
+The date's move to `complete` and its run's `finish_run` commit in one
+transaction. A crash cannot leave either a completed date row for an
+unfinished run or a finished run without its completed row.
+
+`loop run` exits 0 when every processed date reaches `complete`, 1 on
+the first failed date without starting a later date, 64 for bad
+arguments or a refused spec (including a parse failure), and 75 for a
+timeout or held lock. The [tool](tool) page gives the full vocabulary.
 
 ## Records
 
-Each schedule, date and batch is one row of `loop_dates`, its primary key
-`(schedule, processing_date, batch)` since migration
-`20260926-01-loop-batches.sql` added `batch` (a date's first batch is 1,
-each later one for the same date the next integer) and `kind` (`batch`
-or `switch`, the [operations](operations) page's chain switch); every row
-the migration found kept batch 1 and kind `batch`. The table itself
-dates to migration
-`20260924-11-loop-dates.sql`: schedule, processing date, run, state
-(`open`, `complete`, `failed`), started and ended timestamps, the
-promotion id, and a `record` JSON column, granted to
-`rapid_rebuild_pipeline` under the same guard as the rebuild's other
-grants. `record` carries the spec's location and release,
-each unit's selected attempt and job id, the field list, the base sets
-each field bound and, per field, `base_promoted` (above, Base catalog),
-`bases_skipped` (per field, the bases the reading rule refused before an
-eligible one was found), `pruned_sets` (per field, the
-pruned-set instance that field's `prune` wrote and alerts read), the alert container's instance and location, and the promotion id
-or refusal reason. An inbox spec's batches add `record.batch` and
-`record.deliveries`, the batch's `loop_deliveries` locations.
+`loop_dates` holds one row per schedule, date and batch, keyed on
+`(schedule, processing_date, batch)`. Migration
+`20260926-01-loop-batches.sql` added `batch` and `kind`: a date's first
+batch is 1 and each later batch takes the next integer; `kind` is
+`batch` or `switch` (the [operations](operations) page's chain switch).
+Existing rows kept batch 1 and kind `batch`.
 
-Each manifest discovery classifies is one row of `loop_deliveries` (same
-migration), keyed on `(schedule, location)` so a manifest is never read
-twice: schedule, location, processing date, exposure, detector, version,
-checksum, the delivery instance and unit it produced, its state
-(`batched`, `refused`, `quarantined` or `deferred`), the reason for a
-state other than `batched`, its batch and when it was discovered, with an
-index on `(schedule, exposure, detector, version)` for the classification
+The table was introduced by `20260924-11-loop-dates.sql`, with schedule,
+processing date, run, state (`open`, `complete`, `failed`), started and
+ended timestamps, promotion id and a `record` JSON column. It is granted
+to `rapid_rebuild_pipeline` under the same guard as the rebuild's other
+grants.
+
+`record` carries the spec's location and release, each unit's selected
+attempt and job id, the field list and the base sets each field bound.
+Per field it also carries `base_promoted` (Base catalog, above),
+`bases_skipped` (bases the reading rule refused before finding an
+eligible one) and `pruned_sets` (the pruned-set instance the field's
+`prune` wrote and alerts read). It records the alert container's
+instance and location, and the promotion id or refusal reason. Inbox
+batches add `record.batch` and `record.deliveries`, the batch's
+`loop_deliveries` locations.
+
+`loop_deliveries` (same migration) holds one row per
+classified manifest. Its key, `(schedule, location)`, prevents a second
+read. Columns record schedule, location, processing date, exposure,
+detector, version, checksum, the delivery instance and unit it produced,
+state (`batched`, `refused`, `quarantined` or `deferred`), the reason
+for any state other than `batched`, batch and discovery time. An index
+on `(schedule, exposure, detector, version)` supports classification
 lookup. `loop show <schedule>` prints the schedule's `loop_dates` rows,
 then its `loop_deliveries` rows.
-
-## Release binding
-
-The spec names the release; the operation checks that tag out before
-running, and each date's run records it, so a run's code and the image
-its units execute are the same tag the spec named, never a branch head. The release is the first tag cut at a rebuild head that
-carries the loop's own code and migration, allocated by `next_tag` from
-the laptop, by the [releases](releases) page's own recipe.
 
 ## Commands
 
