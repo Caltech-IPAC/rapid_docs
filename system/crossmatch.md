@@ -2,16 +2,9 @@
 
 **Status: DRAFT**
 
-What the `crossmatch` stage reads, what it writes into `astroobjects_<field>`
-and `merges_<field>`, the association set it records, the settings it
-takes and its exit codes. The stage lands on the
-pipeline repository's `rebuild` branch (`rapidpipe/stages/crossmatch.py`,
-`rapidpipe/science/crossmatch/catalog.py`,
-`rapidpipe/settings/crossmatch.toml`, `rapidpipe/db/objects.py`,
-migrations `20260924-03` to `-06`), ported from `dev`'s
-`pipeline/crossMatchSources.py`. Every ported stage minimises differences
-from `dev` and designs in, off by default, anything that could be left
-unused. The [products](products) page fixes the vocabulary.
+`crossmatch` assigns newly loaded sources to astronomical objects and
+records the associations in `astroobjects_<field>` and `merges_<field>`.
+The [products](products) page fixes the vocabulary.
 
 ## In plain terms
 
@@ -25,6 +18,14 @@ sources just across the field's edge, in the eight neighbouring tiles,
 that sit on one of this field's objects. Everything one attempt writes is
 one association set: a named group of rows that is either complete or
 absent.
+
+The stage is ported from `dev`'s `pipeline/crossMatchSources.py` onto the
+pipeline repository's `rebuild` branch: `rapidpipe/stages/crossmatch.py`,
+`rapidpipe/science/crossmatch/catalog.py`,
+`rapidpipe/settings/crossmatch.toml`, `rapidpipe/db/objects.py`, and
+migrations `20260924-03` to `-06`. Every ported stage minimises differences
+from `dev` and designs in, off by default, anything that could be left
+unused.
 
 ## Inputs
 
@@ -45,14 +46,39 @@ fan-out needs no new manifest shape.
 `inputs.result_sets` lists every source set and the base, sorted;
 `inputs.products` is empty.
 
+### The catalog a pass reads
+
+An association set contains its own rows plus its base's, recursively
+(`objects.association_chain`, which follows `logical_key->>'base'`).
+Both passes read `astroobjects` rows
+whose `result_set` is in the base's chain or is this attempt's new set:
+"base plus delta". Selection ignores custody, so the result depends only
+on named inputs. With no base, the catalog contains only this attempt's
+objects. A second attempt over the same sources makes the same objects
+under its own set.
+
+### Rows without a run
+
+Rows `dev` wrote before the run model have `run IS NULL` and belong to
+no set, so no chain includes them.
+`[crossmatch] legacy_catalog` reads them as catalog too
+(`b.result_set = ANY(...) OR b.run IS NULL`). It is for the cutover onto
+production `rapid`, where `dev`'s per-field tables exist; `rapid_rebuild`
+has no such rows, and the setting is off by default. Adopting a `dev`
+table adds the run columns but no rows to any set.
+
 ## What it runs
 
-`dev`'s steps for one field, in `dev`'s order, in one transaction on one
-connection. `dev` scans a processing date's jobs for their sources tables
-and distinct fields (`util.lookup_source_tables_to_crossmatch_and_distinct_fields`)
-and runs the fields in a process pool; the rebuild's unit is one field
-and its input names the sets, so the scan and the pool are the
-launcher's.
+The stage runs `dev`'s per-field steps in the same order, in one
+transaction on one connection. In `dev`,
+`util.lookup_source_tables_to_crossmatch_and_distinct_fields` scans a
+processing date's jobs for sources tables and distinct fields, then a
+process pool runs the fields. In the rebuild, the launcher owns the scan
+and pool: the stage's unit is one field, and its input names the sets.
+
+`dev` runs Query A and B against every sources table for every exposure.
+The rebuild queries only sets whose exposure list includes that exposure;
+the returned rows are the same.
 
 1. Take `pg_advisory_xact_lock(20260924, <field>)`, so two attempts on
    one field run one after the other. Without it, their CLUSTERs can
@@ -82,8 +108,9 @@ launcher's.
    cluster_between_passes` is on.
 6. Stage 2, per neighbouring field, per source set (lines 581-889). The
    neighbours come from the certified closed-form tessellation already in
-   the tree; `dev` reads them from its SQLite tessellation file. For a tile with eight neighbours,
-   `dev` first draws an inclusion cone around the field's centre: the
+   the tree; `dev` reads them from its SQLite tessellation file. For a
+   tile with eight neighbours, `dev` first draws an inclusion cone around
+   the field's centre: the
    largest centre-to-corner separation plus `match_radius` (lines
    673-703), and the query adds `q3c_radial_query(a.ra, a.dec, ra0,
    dec0, cone)`. A tile with any other count, near a pole, is queried
@@ -95,25 +122,20 @@ launcher's.
    rows the copies inserted, or the stage stops with exit 70.
 8. Register the association set, then commit.
 
-The registration comes after the passes. `load` registers its set before
-the COPY; here `register_manifest` writes the set's `row_count` when it
-inserts the `result_sets` row, and the count is known only after both
-passes. The per-field tables carry no foreign keys, so nothing needs the
-instance row first; rows and registration still commit together.
-
-One difference changes the work and leaves the rows alone. `dev` runs Query A and B
-against every sources table for every exposure. The rebuild queries only
-the sets whose exposure list holds that exposure, which returns the same
-rows.
+`register_manifest` writes the set's `row_count` when it inserts the
+`result_sets` row. That count is known only after both passes, so
+registration follows them. `load` registers before COPY. Here the
+per-field tables have no foreign keys and do not need the instance row
+first; rows and registration still commit together.
 
 ## The child tables
 
-`astroobjects_<field>` and `merges_<field>` are made `LIKE` the
-`astroobjects` and `merges` prototypes, one pair per field, as in `dev`.
-`dev`'s crossmatch makes them as a login holding `rapidporole`; the
-rebuild's service login holds table grants only, so three SECURITY
-DEFINER functions owned by `rapidporole` do that work (migration
-`20260924-04`, EXECUTE granted by `-06`):
+Each field has one pair of tables, `astroobjects_<field>` and
+`merges_<field>`, made `LIKE` the `astroobjects` and `merges` prototypes,
+as in `dev`. `dev` creates them with a login holding `rapidporole`.
+The rebuild's service login holds table grants only; three SECURITY
+DEFINER functions owned by `rapidporole` provide the table operations
+(migration `20260924-04`, EXECUTE granted by `-06`):
 
 - `create_field_object_tables(field)`: `dev`'s creation, unlogged,
   owner `rapidporole`, its four indexes (`aid` on both, the Q3C position
@@ -126,35 +148,19 @@ DEFINER functions owned by `rapidporole` do that work (migration
 - `cluster_field_object_tables(field)`: `dev`'s CLUSTER on the position
   index and ANALYZE of both tables.
 
-**Uniqueness.** `merges_<field>` has `UNIQUE (result_set,
-aid, sid)` and `astroobjects_<field>` has `UNIQUE (result_set, aid)`. The
-keys are scoped to the set: two scratch runs over the same sources
-make the same `aid`s under different sets, and the products page scopes
-keys to their set. Each COPY loads a temporary table and inserts with
-`ON CONFLICT DO NOTHING`, counting the rows inserted. `dev`'s children
-carry no key at all (`LIKE ... INCLUDING CONSTRAINTS` does not copy the
-prototype's primary key), so `dev` keeps every repeated row: two
-unmatched sources at one position in one exposure give it two objects
-with one `aid`, and its `statistics` step later deletes all but the last.
-The rebuild keeps the first row inserted and never writes the second.
-`dev`'s `pruneRedundantMerges` is folded into the same insert.
+`merges_<field>` has `UNIQUE (result_set,
+aid, sid)` and `astroobjects_<field>` has `UNIQUE (result_set, aid)`.
+These keys are set-scoped, as the products page requires: two scratch
+runs over the same sources make the same `aid`s under different sets.
+Each COPY loads a temporary table, then inserts with
+`ON CONFLICT DO NOTHING` and counts the inserted rows. This also folds
+in `dev`'s `pruneRedundantMerges`.
 
-**The catalog a pass reads.** An association set's rows are
-its own plus its base's, recursively (`objects.association_chain`, which
-follows `logical_key->>'base'`). Both passes read `astroobjects` rows
-whose `result_set` is in the base's chain or is this attempt's own new
-set: "base plus delta". Nothing is selected by custody, so a set's
-result depends only on its named inputs. With no base, the catalog is
-the attempt's own objects only, and a second attempt over the same
-sources makes the same objects again under its own set.
-
-**Rows without a run.** Rows `dev` wrote before the run model have
-`run IS NULL` and belong to no set, so no chain includes them.
-`[crossmatch] legacy_catalog` reads them as catalog too
-(`b.result_set = ANY(...) OR b.run IS NULL`). It is for the cutover onto
-production `rapid`, where `dev`'s per-field tables exist; `rapid_rebuild`
-has no such rows, and the setting is off by default. Adopting a `dev`
-table adds the run columns but no rows to any set.
+`dev`'s child tables have no key (`LIKE ... INCLUDING CONSTRAINTS` does
+not copy the prototype's primary key), so they keep every repeated row.
+Two unmatched sources at one position in one exposure create two objects
+with one `aid`; `statistics` later deletes all but the last. The rebuild
+keeps the first row inserted and never writes the second.
 
 ## What lands in `astroobjects` and `merges`
 
@@ -186,12 +192,13 @@ unquoted, with the three run columns appended.
 
 ## The association set
 
-One `association-set` result set per attempt, unit field. The stage
-writes its `product_instances` row (kind `association-set`, stage
-`crossmatch`, this attempt as producer and registrar, custody by run
-kind), its `result_sets` row (`complete` true, `row_count` the merges
-rows written) and dependency edges to every source set and the base, in
-the same transaction as the rows.
+Each attempt writes one `association-set` result set, unit field. In the
+same transaction as the rows, the stage records:
+
+- a `product_instances` row: kind `association-set`, stage `crossmatch`,
+  this attempt as producer and registrar, custody by run kind;
+- a `result_sets` row: `complete` true, `row_count` the merges rows written;
+- dependency edges to every source set and the base.
 
 Logical key:
 
@@ -212,23 +219,25 @@ The manifest entry has no members. Its `registration` block:
 | `row_counts.merges_pass1`, `merges_pass2` | the same, by pass |
 | `row_counts.new_objects` | unmatched sources given an object, counted before ON CONFLICT; larger than `astroobjects` when sources repeat a position |
 
+### Retries and reuse
+
 A retry is a new attempt with a new instance. `[crossmatch] done_check`
-is the rebuild's form of a done file. A complete, retained
-set with the same logical key already written in this run is reused,
-nothing is written, and the manifest names that instance, only when
-that set's producing attempt is the calling attempt or an attempt whose
-disposition is `succeeded`. Its `row_counts` then carries
-`astroobjects` and `merges` only. A retry can follow a failure after the
-rows committed but before the manifest was published; against this
-attempt's own prior try the done check names the existing set instead
-of writing a second one, since the earlier try is "the calling attempt"
-even with no disposition recorded yet. Against a different attempt that
-committed rows and then failed, or one still without a disposition, the
-done check does not reuse it: that set's rows stay the run's own, but a
-fresh attempt writes a fresh set (`db/objects.find_complete_result_set`,
-joining `attempts`; the [runs](runs) page has the general rule). The gap between a committed
-write and a published manifest itself is a stage-contract matter and is
-not closed here.
+is the rebuild's form of a done file. It reuses a complete, retained set
+with the same logical key already written in this run only when the
+producing attempt is the calling attempt or has disposition `succeeded`.
+Nothing is written; the manifest names the existing instance, and
+`row_counts` carries only `astroobjects` and `merges`.
+
+A retry can follow a failure after rows commit but before the manifest
+is published. For this attempt's own prior try, the done check names the
+existing set: the earlier try is "the calling attempt" even without a
+recorded disposition. It does not reuse a different attempt's set if
+that attempt committed rows and then failed, or still has no disposition.
+Those rows stay the run's own, but a fresh attempt writes a fresh set.
+The check uses `db/objects.find_complete_result_set`, joining `attempts`;
+the [runs](runs) page has the general rule. The gap between a committed
+write and a published manifest remains a stage-contract matter, not
+closed here.
 
 ## Settings
 
