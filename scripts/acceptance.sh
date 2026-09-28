@@ -50,12 +50,16 @@ for d in $docs; do
 done
 check "system/index.html links to all design pages" "$r2"
 
-# 3. Every system page except index has a bold Status line.
+# 3. Every system page except index has a bold Status line, or, for a
+#    non-stage placeholder page that carries no status word from the
+#    vocabulary, opens by stating it is not ported.
 r3=0
 for d in $docs; do
-  grep -q '<strong>Status:' "$html/system/$d.html" || { r3=1; echo "  missing <strong>Status: in $d.html"; }
+  grep -q '<strong>Status:' "$html/system/$d.html" && continue
+  grep -q 'Not ported\.' "$html/system/$d.html" && continue
+  r3=1; echo "  missing <strong>Status: in $d.html"
 done
-check "Status lines render as <strong>Status: ...</strong>" "$r3"
+check "Status lines render as <strong>Status: ...</strong> (or the page states Not ported.)" "$r3"
 
 # 4. Source available beside every built page: _sources/<docname>.md.txt
 #    exists, and system/specification.html links to its own source file

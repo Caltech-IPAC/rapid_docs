@@ -37,7 +37,7 @@ names:
 | One unit by hand | `run submit`, `run reconcile` (`--resolve-jobless [--older-than SECONDS]` records a job-less attempt `lost`; the [runs](runs) page has the mechanics), `run local` |
 | Verify a candidate | `check list`, `check run`, `check show` (the check commands below; the [checks](checks) page) |
 | A stage directly | `stage run <name> …` (a synonym of `stage <name> …`, the frozen invocation form the container's entrypoint calls), `stage list`, `stage describe <name>` |
-| Fixtures | `selftest --stage` |
+| Fixtures | `selftest --stage <name>`, one of `reference`, `difference`, `finalize`, `load`, `maintain`, `crossmatch`, `alerts`, `statistics`, `prune`, `export`; `admit` and `register` have no fixture |
 | Releases | `release cut\|show\|list\|verify` (the release commands below; the [releases](releases) page) |
 | The processing-date loop | `loop run\|plan\|show` (the loop commands below; the [loop](loop) page) |
 
@@ -131,7 +131,8 @@ here (below).
 One vocabulary covers every `rapidpipe` process, in the module
 `rapidpipe/exitcodes.py` (`ExitCode`). The [stage contract](stage-contract)
 page's Exit codes table carries the six of these a stage itself reports
-(0, 64, 65, 69, 70, 75); a stage never exits 1 or 2. The table below is
+(0, 64, 65, 69, 70, 75), 69 reserved: no stage in this build returns it.
+A stage never exits 1 or 2. The table below is
 the full eight, with which command family returns each one folded into
 the third column.
 
@@ -142,7 +143,7 @@ the third column.
 | 2 | Still running: a unit remains non-terminal | `run status` |
 | 64 | Usage, configuration or an unmet precondition: bad arguments, including every argparse parse failure from every command family (help still exits 0), invalid settings, a refused destination, a dirty tree, a tag that exists, missing hooks, a release whose record is not `complete`, an unknown run (except `run show`, which exits 1), instance, promotion id or check policy, a malformed or empty promotion plan or selector (`run promote --plan` reads the plan file before connecting; a stale plan under the lock is exit 1, above), or the stage guard finding no database configured to check named inputs (a database it cannot reach instead exits 75, below) | every family; `release cut\|show\|list\|verify`, `run create` included; `run promote`, `run promote-plan`, `run rollback`; a stage's own invocation |
 | 65 | A declared input absent, corrupt or incompatible once its storage was reached (a stage's own invocation); `run submit`, `run start` or `run local`'s own input-manifest read failed for a non-network reason, the manifest absent, not JSON, or failing validation; a deleting or deleted producer met while `run inputs` or the loop binds an input set; or the stage guard refusing a manifest entry that names another run's scratch or unselected product, file or result set, on any path into `run_stage`. Nothing is written | a stage's own invocation; `run submit`, `run start`, `run local`; `run inputs` (a deleting or deleted producer at bind time); `loop run` (the same, met while the loop composes an input set; a refusal at submission fails the date with exit 1) |
-| 69 | Declared but not implemented in this build | a stage's own invocation (`stage run <name>`, the form Batch runs) |
+| 69 | Reserved: declared in the vocabulary, but no stage or command in this build returns it | none |
 | 70 | An unclassified error; stop and investigate | every family: an unexpected error escaping a command is logged with its traceback and exits 70; and a stage's own invocation |
 | 75 | `run start --timeout` expired before a unit reached a terminal state, or the tool hit a transient database or AWS failure, including a network-shaped error reading the input manifest or the stage guard's own database connection failure once it needs to read named inputs: any of these is retryable | a stage's own invocation; `run start`, `run submit`, `run local`; every family for a transient database failure (`release cut\|show\|list\|verify`, `run create`, `check` included); `loop run`'s lock or timeout |
 

@@ -26,8 +26,6 @@ produces, the way it already does for `source-catalog` and
 (`pipeline/generateLightCurveHATSCatalog.py`, one row per object joining
 `AstroObjects`, `Merges` and `Sources`) is not ported this step:
 requesting it, `[export] catalog_type = "light-curves"`, exits 64.
-Forced photometry, the light curve's own source, is unported too; see
-[photometry](photometry).
 
 ## Inputs
 
@@ -118,7 +116,7 @@ reads, taken from the `[HATS_CATALOGS]` section of
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `[export] catalog_type` | `sources` | which catalog this attempt exports; only `sources` is built. `light-curves` (`dev`'s `generateLightCurveHATSCatalog.py`) is the next port and exits 64 here |
+| `[export] catalog_type` | `sources` | which catalog this attempt exports; only `sources` is built. `light-curves` (`dev`'s `generateLightCurveHATSCatalog.py`) is not ported and exits 64 here |
 | `[export] flags_zero_only` | false | restrict the export to `flags = 0` rows; `dev`'s own `SELECT` has no such filter |
 | `[export] csv_rows_per_file` | 100000 | rows per dumped CSV file (`dev`: `nrows_per_file`, hard-coded) |
 | `[hats] format_version` | `1` | the `catalog-export` entry's format version |
@@ -167,9 +165,8 @@ unnamed one or the association set.
 ## Not decided here
 
 - The light-curve HATS catalog: `dev`'s
-  `pipeline/generateLightCurveHATSCatalog.py`, the next port, named on
-  the [photometry](photometry) page alongside forced photometry, which
-  it depends on.
+  `pipeline/generateLightCurveHATSCatalog.py`, not ported;
+  `[export] catalog_type = "light-curves"` exits 64.
 - Delivery: where a `catalog-export` product is read from once made,
   since [products](products) marks it "none; exported."
 - Catalog naming: `[hats] catalog_name` fixes one directory name per
