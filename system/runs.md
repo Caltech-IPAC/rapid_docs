@@ -186,9 +186,12 @@ and atomically sets its selected attempt and complete state; the
 selected attempt belongs to that unit and the selection never changes.
 Late results cannot reopen a terminal unit or replace its selected
 attempt. The run records the maximum attempts per unit, counting the
-first attempt and all Batch retries; only code 75 and explicitly
-approved infrastructure failures are retried; an exhausted allowance
-fails the unit. `lost` means the scheduler lost the job: unresolved
+first attempt and every retry. The launcher retries, never Batch: a
+Batch job runs its container once, and a unit whose attempt ended
+`transient` returns to ready and is submitted again as a new attempt.
+Only code 75 and the approved infrastructure failures listed on the
+[stage contract](stage-contract), "Exit codes", are recorded
+`transient`; an exhausted allowance fails the unit. `lost` means the scheduler lost the job: unresolved
 execution, treated as a possible writer until resolved. `submit_unit`
 records the input-set and settings locations it resolved for the
 attempt on `attempts.inputs_location` and `attempts.settings_location`,
@@ -468,7 +471,7 @@ page.
 Runs, attempts and product instances receive globally unique,
 time-ordered identifiers (ULID) before execution or manifest
 publication, allocated by whoever creates the row, so the local runner
-and the Batch wrapper need no database to allocate; registration
+and the launcher need no database to allocate; registration
 preserves them. Date-and-sequence names such as `r-20260921-007` are
 display labels only. Unit identity is unique within a run and stage and
 uses the product vocabulary's unit identifiers.

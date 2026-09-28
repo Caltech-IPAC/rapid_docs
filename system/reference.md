@@ -7,8 +7,8 @@ field and filter with `awaicgen`, catalogs the coadd with SExtractor,
 and stamps bookkeeping keywords on the result. It ports `dev`'s chain
 as a transform stage: an input set names the frames, the tools run in
 the same order, and the stage writes one reference-image bundle and one
-reference-catalog instance. It declares no database access and touches
-no database. `register` records both products afterwards, the same
+reference-catalog instance. It declares `custody` database access: it
+reads the database only for the read guard and writes no rows. `register` records both products afterwards, the same
 division `difference` and `finalize` already use.
 
 The stage is planned from the inventory of `dev`'s reference pipeline,

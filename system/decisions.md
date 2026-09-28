@@ -217,6 +217,13 @@ or removes it here.
   (2026-09-25)
 - A scratch run reads the `_SCRATCH`-suffixed job definition and never
   falls back to the unsuffixed one. (2026-09-24)
+- **The launcher retries, not Batch.** The rebuild's job definitions
+  carry one Batch attempt; the launcher resubmits a unit after exit 75,
+  a reclaimed host or a container that never started, each time as a
+  fresh attempt within the run's maximum attempts per unit, which
+  therefore also counts reclaims. The default maximum stays 1, so a run
+  that wants retries sets it. Carried from the build, pending team
+  review. (Claude for Ben, 2026-09-28)
 - Runs written under the first-run prefix stay where they were written.
   (2026-09-24)
 
@@ -262,6 +269,13 @@ or removes it here.
   (2026-09-27)
 - `run cancel` from a workstation needs `batch:TerminateJob` on the
   workstation role, not yet granted. (2026-09-24)
+- **Custody database access.** A stage's database access is `none`,
+  `custody`, `read` or `read-write`; `custody` connects only for the
+  read guard. `admit`, `reference`, `difference` and `finalize` declare
+  it, since the guard needs the database whenever their input names a
+  registered instance, and `none` skips the guard ([stage
+  contract](stage-contract), "Declaration"). Carried from the build,
+  pending team review. (Claude for Ben, 2026-09-28)
 - A stage declaration carries no argument schema and no resource
   defaults: nothing read them, and the Batch job definition owns
   resources ([stage contract](stage-contract)). `run create` takes no
