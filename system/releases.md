@@ -2,22 +2,13 @@
 
 **Status: DRAFT**
 
-How operations move from a commit to a running, verified version: the
-tag, the record that ties a commit to a schema and an image, the
-command that cuts one, and what promotion and the launcher require of
-it. The [specification](specification)'s Releases section states the
-requirement; this page records how the rebuild meets it.
-
-## In plain terms
-
-`main` moves every day; operations do not follow it. A release is one
-point on that history that has been tagged, migrated, built into an
-image and deployed, with a database row recording each step. Cutting a
-release is the one operation that performs all of it in order and
-refuses to record success until every step's evidence says so. A run
-created under a release reads that row, never the branch or the
-environment, so what a run used is exactly what the record says it
-used.
+Operations run a release while `main` moves every day. A release is a
+commit that has been tagged, migrated, built into an image and deployed,
+with a database row recording each step. Cutting a release performs
+those steps in order and records success only when each step has the
+required evidence. The [specification](specification)'s Releases
+section states the requirement; this page defines the tag, record and
+cut, and what the launcher and promotion require of them.
 
 ## The command
 
@@ -26,53 +17,48 @@ used.
 `rapidctl`. The full flag surface for `cut`, `show`, `list` and `verify`
 is on the [tool](tool) page. The Python interface is
 `rapidpipe.release.core`: `next_tag`, `cut`, `show` and `verify`, and
-the `Release` dataclass the record above maps onto.
+the `Release` dataclass that represents the release record.
 
 ## The tag
 
-A release tag is annotated, on the `rebuild` branch, named
-`rebuild-v0.<n>` where `n` is one more than the highest tag already
-pushed; remote tags are authoritative, not a local checkout's. The
-scheme becomes `v1.<n>` once the rebuild replaces
-`main`, the specification's own sequencing point for that move.
+A release tag is annotated, on the `rebuild` branch, and named
+`rebuild-v0.<n>`. Here `n` is one more than the highest tag already
+pushed: remote tags are authoritative. The scheme becomes `v1.<n>`
+once the rebuild replaces `main`, as sequenced in the specification.
 
-The tag message is the release's initial manifest: the tag, the source
-revision it points at, the schema version the tagged tree carries, and
-who cut it and when. Once written it is never amended, moved or
-deleted; everything a cut learns afterwards, images built and
-consumers deployed, lives in the release record instead, not in the
-tag. The image registry tag equals the git tag, and registry tag
-immutability then does the same job on the image side: a second build
-under the same tag fails outright, which is the immutability the
-specification asks for without any check the cut has to write itself.
+The tag message is the release's initial manifest: the tag, its source
+revision, the tagged tree's schema version, and who cut it and when.
+Once written, the tag is never amended, moved or deleted. Later
+evidence, including images built and consumers deployed, goes in the
+release record. The image registry tag equals the git tag. Registry
+tag immutability makes a second build under the same tag fail outright,
+meeting the specification's requirement without a separate check in the
+cut.
 
 ## The record
 
-Two tables carry a release's state. `releases`
-holds one row per tag: source revision, schema version, image digest,
-image reference, a state that advances `migrated`, `built`,
-`deployed`, `complete`, who cut it and when, and when it completed.
-`release_deployments` holds one row per consumer a release reaches:
-the release, the consumer, the job definition name and revision
-deployed, and who deployed it and when.
+Two tables carry a release's state. `releases` holds one row per tag:
+source revision, schema version, image digest, image reference, who cut
+it and when, and when it completed. Its state advances through
+`migrated`, `built`, `deployed` and `complete`.
+`release_deployments` holds one row per consumer the release reaches:
+the release, consumer, deployed job definition name and revision, and
+who deployed it and when.
 
-A run created under a release copies its source revision and image
-digest from this record; it reads nothing from git or the environment
-to get them. An attempt's execution record carries the release
-identity its job definition was deployed under, read from the
-deploy-time environment variable `RAPID_RELEASE_IDENTITY`; a job
-definition never deployed under a release reports `unreleased`, and
-reconcile stores whichever value it finds.
+An attempt's execution record carries the release identity its job
+definition was deployed under, read from the deploy-time environment
+variable `RAPID_RELEASE_IDENTITY`. A job definition never deployed
+under a release reports `unreleased`; reconcile stores whichever value
+it finds.
 
 ## The order of a cut
 
 `cut` runs six steps in order: tag, migrate, record, build, deploy,
-pins. The account-specific steps, migrate, build, deploy and pins, are
-hooks: executables the systems repository supplies, which `cut` invokes
-in order with the release's tag, source revision and schema version in
-their environment. The pipeline repository
-itself names no account, host or bucket; everything account-specific
-lives in the hook, on the other side of that boundary.
+pins. The systems repository supplies executables, called hooks, for
+the account-specific steps: migrate, build, deploy and pins. `cut`
+invokes them in order with the release's tag, source revision and schema
+version in their environment. All account-specific details live in the
+hooks; the pipeline repository names no account, host or bucket.
 
 Each hook reports its result as one JSON object on its last line of
 output, and `cut` reads only that line:
@@ -84,39 +70,62 @@ output, and `cut` reads only that line:
 | deploy | each consumer's job definition revision |
 | pins | the number of rows written |
 
-Hooks are idempotent, so `--resume TAG` re-enters a cut at the state
-its record already reached without re-tagging; `cut` itself never
-retries a hook; a hook that fails leaves the record at its last
-completed step for a person to fix and resume. `--skip HOOK` omits one
-step for a cut whose account side was already done by hand; `--dry-run`
-prints the planned order and each hook's command without running any of
-them or writing the record.
+Hooks are idempotent. `--resume TAG` re-enters a cut at its recorded
+state without re-tagging. `cut` never retries a hook: a failure leaves
+the record at its last completed step for a person to fix and resume.
+`--skip HOOK` omits one step whose account side was already done by
+hand. `--dry-run` prints the planned order and each hook's command
+without running them or writing the record.
+
+The final pins step appends one row per rebuild consumer to the
+operations pin table. It reads each consumer's live job definition and
+records the release identity beside it, so the database states which
+release is deployed. The existing daily pin sweep over the legacy
+pipeline's consumer set is unchanged; the cut's pin step covers the
+rebuild's consumers alongside it.
+
+CI on `rebuild` gates the source before tagging. The cut stops at
+deploy and pins. Selftests run afterwards on Batch under the newly
+deployed revision as evidence that the image behaves; the cut does not
+wait for them.
 
 ## Migrations at release time
 
-A release's schema version is the greatest migration filename present
-in its tagged tree. The migrate hook applies that tree's migrations to
-the release's database target, and `cut` refuses to record the release
-until every one of those files is applied with the checksum the
-migration applier recorded for it. Migration
-therefore always precedes the image deploy in a cut, so a job
-definition revision never runs code ahead of the schema it expects. A
-run started without a release still submits by the unversioned job
-definition name and may pick up a revision a later deploy repoints it
-to, the specification's "scratch runs may use any commit" carried
-through to the job definition itself.
+A release's schema version is the greatest migration filename in its
+tagged tree. The migrate hook applies that tree's migrations to the
+release's database target. `cut` refuses to record the release until
+every file is applied with the checksum the migration applier recorded
+for it. Migration always precedes image deployment, so a job definition
+revision never runs code ahead of its expected schema.
+
+Migrations must stay additive (new tables and nullable columns; no drop
+or rename while an earlier release's runs are open) and compatible with
+the readers and writers of every release whose runs remain open. This
+is a constraint of the migration rule. Together with the fixed release
+binding below, it makes cutting a release while other runs remain open
+safe.
 
 ## The launcher reads the release
 
-A run created under a release submits every unit to the job definition
-revision that release's `release_deployments` row records for the
-run's kind, verified `ACTIVE` before submission; there is no fallback
-to whatever revision is latest. That makes a
-job definition revision something operations must keep alive past its
-own release: a later cut's deploy step repoints the job definition to a
-new revision, and a run still reading the earlier release needs the
-earlier revision to still exist. Retention of superseded revisions is a
-systems-repository concern, not a pipeline one.
+A run's release is fixed at creation by `run create --release`. It
+copies the source revision and image digest from the release record,
+without reading git or the environment. Every unit submits to the job
+definition revision that the release's `release_deployments` row
+records for the run's kind, verified `ACTIVE` before submission. There
+is no fallback to the latest revision.
+
+A later cut repoints the job definition to a new revision, so operations
+must keep earlier revisions alive for runs still using them.
+`SkipDeregisterOnUpdate` keeps a revision `ACTIVE` past its own
+release. Retention of superseded revisions belongs to the systems
+repository. Every attempt reads the same release's recorded revision:
+a run never picks up a later cut mid-flight, and its execution records
+and `schema_version` all carry the release it was created under.
+
+A run started without a release submits by the unversioned job
+definition name and may pick up a revision a later deploy repoints it
+to. This carries the specification's "scratch runs may use any commit"
+through to the job definition.
 
 The processing-date loop's binding to a release is resolved on the
 [loop](loop) page: the loop's spec names the release, and the scheduled
@@ -124,62 +133,28 @@ operation checks that tag out before running each date.
 
 ## Promotion eligibility
 
-Promotion checks executed provenance, not a tag on a commit: every
-deliverable's selected producing attempt must have an execution record
-whose image digest matches a complete release's digest, and whose
-recorded release, when it has one, is that release's tag. A deliverable
-that fails this refuses promotion, unless the operator passes the
-explicit unreleased exception, which the promotion's request context
-then carries. This closes the trial exception
-the [runs](runs) page recorded earlier: promotion no longer treats a
-missing released-image check as passing by default, it treats it as
-refused unless waived.
-
-## Deployed pins
-
-The last step of a cut appends one row per rebuild consumer to the
-operations pin table, reading each consumer's live job definition and
-writing the release identity beside it, so which release is deployed
-has a database answer rather than a person's memory of the last deploy.
-The daily pin sweep that already runs against
-the legacy pipeline's own consumer set is unchanged; a cut's pin step
-covers the rebuild's consumers alongside it.
-
-## Selftests are not part of a cut
-
-CI on `rebuild` gates the source before any tag is cut; a cut's own
-steps stop at deploy and pins. Selftests run on Batch under the newly
-deployed revision afterwards, as evidence that the deployed image
-behaves, not as a gate the cut itself waits on.
-
-## A run never spans a release
-
-A run's release is fixed at its creation, by `run create --release`,
-and every attempt it submits reads that same release's recorded
-job-definition revision -- kept `ACTIVE` past its own release by
-`SkipDeregisterOnUpdate` -- so a run never picks up a later cut's
-revision mid-flight, and its execution records and `schema_version`
-all carry the one release it was created under. This is what makes
-cutting a release while other runs are still open safe, provided
-migrations stay additive (new tables and nullable columns; no drop or
-rename while an earlier release's runs are open) and compatible with
-the readers and writers of every release whose runs are still open.
-That additivity and compatibility are now a stated constraint of the
-migration rule above, not an assumption a concurrent cut could quietly
-violate.
+Promotion checks executed provenance. Every deliverable's selected
+producing attempt must have an execution record whose image digest
+matches a complete release's digest. Its recorded release, when present,
+must be that release's tag; a tag on a commit alone does not suffice.
+Failure refuses promotion unless the operator passes the explicit
+unreleased exception, which is then recorded in the promotion's request
+context. This closes the trial exception recorded earlier on the
+[runs](runs) page: a missing released-image check refuses promotion
+unless waived.
 
 ## Concurrent cuts are serialised
 
-`cut` refuses to start, before any fetch or tag, while any `releases`
-row is in a state other than `complete`, unless `--resume` names that
-row; the message names the tag and its state, exit 1 (a refusal; the
-[tool](tool) page's table). The row itself is
-still written only after the tag is pushed, so two cuts started in the
-same instant can both pass the check before either has a row to be
-refused by: this rule serialises through the record once it exists, it
-is not a lock, and closing that window is recorded open. A `--resume`
-of the row already in flight is the way through a cut that failed
-partway, not a second `cut`.
+Before any fetch or tag, `cut` refuses to start while any `releases`
+row has a state other than `complete`, unless `--resume` names that
+row. The refusal names the tag and state and exits 1 (the
+[tool](tool) page's table). To continue a cut that failed partway, use
+`--resume` for the row already in flight.
+
+The row is written only after the tag is pushed. Two cuts started at
+the same instant can therefore both pass the check before either has a
+row. The rule serialises cuts once a record exists; it is not a lock.
+Closing that window remains open.
 
 ## Not decided here
 
