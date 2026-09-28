@@ -2,25 +2,15 @@
 
 **Status: DRAFT**
 
-What a `rapidpipe` log line looks like and where it goes, what the
-record of a run is with and without CloudWatch, what the team can ask of
-that record with `rapidpipe` alone, how a Batch job's time is split into
-queue, execution and orchestration, how to profile a stage, and a
-baseline of today's job durations against a 30-minute target, for the
-team member who has to find out why a run is slow or what a failed
-attempt did. The [stage contract](stage-contract) and the [tool](tool)
-page state the invocation and exit-code rules this page builds on.
+An attempt's logs and database record show what failed and where time
+went. Every `rapidpipe` log line has one shape and goes to stderr;
+stdout carries only command data. Stages also publish a log file beside
+their outputs, keeping the attempt's log independently of CloudWatch.
+Batch timestamps separate queue time, execution and orchestration.
+None of this needs an agent, a daemon or a metrics service.
 
-## In plain terms
-
-Every `rapidpipe` log line has one shape and goes to stderr, so a
-command's stdout carries only its data. A stage writes the same lines to
-a log file that is published beside its outputs, so the attempt's own
-record keeps its log whether or not CloudWatch has it. The database
-already records every attempt, its outcome and its execution record; to
-those it now adds Batch's own timestamps for each job, which is enough to
-say how long a job queued, how long it ran, and how long the tool took to
-notice. Nothing here needs an agent, a daemon or a metrics service.
+The [stage contract](stage-contract) and the [tool](tool) page state the
+invocation and exit-code rules.
 
 ## The line
 
@@ -28,55 +18,52 @@ notice. Nothing here needs an agent, a daemon or a metrics service.
 2026-09-26T20:44:27.004Z INFO run=<run-id> attempt=<attempt-id> stage=finalize unit=e20260821001234/SCA07 rapidpipe.stages.finalize finalize: 01J8Y6QZ3MF1NA1E0000000D1F -> 01J8Y6QZ3M00000000000MASK1 (diffimage_masked.fits), 4 catalogs
 ```
 
-UTC time with milliseconds, level, then `key=value` identity fields in a
-fixed order (`run`, `attempt`, `stage`, `unit`), then the logger name
-and the message. A field with no value prints `-`: a CLI command outside
-any attempt logs `run=- attempt=- stage=- unit=-`. A stage's last line
-carries its exit code and its timing (below). The start and exit
-messages still repeat `stage= run= unit= attempt=` inside the message,
-from before the prefix carried them; dropping the repetition is a small
-cleanup for the next release, since a search for `stage=X exit=` matches
-the prefix either way. The level is INFO for a
-stage and WARNING for the CLI by default; `RAPIDPIPE_LOG_LEVEL` overrides
-either.
+Each line gives UTC time with milliseconds, then the level, followed
+by `key=value` identity fields in fixed order (`run`, `attempt`,
+`stage`, `unit`), the logger name and the message. A missing value
+prints `-`: a CLI command outside an attempt logs
+`run=- attempt=- stage=- unit=-`. The default level is INFO for a stage
+and WARNING for the CLI; `RAPIDPIPE_LOG_LEVEL` overrides either.
 
-A wrapped tool's own output (SExtractor, SWarp, awaicgen) is captured
-and logged after it returns, as prefixed lines naming the command, its
-return code and what it printed. Only what a library writes straight to
-stderr, a warning from Photutils or Astropy for example, passes through
-unprefixed.
+A stage's last line carries its exit code and timing (below). Start and
+exit messages still repeat `stage= run= unit= attempt=` from before the
+prefix carried them. Removing that repetition is a cleanup for the next
+release: a search for `stage=X exit=` matches the prefix either way.
 
-The console handler writes to stderr, not stdout. Nothing in the
-pipeline reads log lines from stdout; `run local`, which used to print
-its one data line on the same stdout as the stage's log lines, now
-keeps the two apart. Batch's log driver captures both streams, so the
-CloudWatch record is unchanged.
+A wrapped tool's output (SExtractor, SWarp, awaicgen) is captured and
+logged after it returns. Prefixed lines name the command, its return
+code and what it printed. Only direct library writes to stderr, such as
+Photutils or Astropy warnings, pass through unprefixed.
+
+The console handler writes to stderr. Nothing in the pipeline reads
+logs from stdout. `run local` now separates its one stdout data line
+from the stage's logs, which used to share that stream. Batch's log
+driver captures both streams, so the CloudWatch record is unchanged.
 
 ## The record, with and without CloudWatch
 
-Without CloudWatch, three things hold everything about an attempt:
+Three records hold everything about an attempt without CloudWatch:
 
 - **The console stream**: stderr of the process that ran the stage, the
   job's container on Batch or the terminal of `run local`.
-- **The per-stage log file**: the same lines, at `log/<stage>.log`
-  under the attempt's output location, published with the attempt,
-  including when it fails (a failed upload logs a warning and never
-  changes the exit code). The file includes the stage's final line
-  (exit code, manifest, timing), including in its S3 copy. A `--dry-run`
-  writes no file. It is not a manifest member, in the same way
-  `exec/<attempt>.json` is not.
+- **The per-stage log file**: the same lines at `log/<stage>.log`
+  under the attempt's output location, published even if the attempt
+  fails. A failed upload logs a warning without changing the exit code.
+  The file and its S3 copy include the final line (exit code, manifest,
+  timing). A `--dry-run` writes no file. Like `exec/<attempt>.json`,
+  the log is not a manifest member.
 - **The database**: `attempts` (started, ended, exit code, disposition,
   output, inputs and settings locations, scheduler job id) and
   `execution_records` (source revision, image digest, release, schema
   version, settings hash, resolved settings, scheduler metadata).
 
-With CloudWatch, the console stream also arrives in the log group the
-job definition names (for the rebuild's job definitions,
-`/rapid/batch/rapid-queue-prompt`, one stream per job under the prefix
-`rebuild` or `rebuild-production`), through Batch's own log driver.
-That group keeps 14 days; the per-stage file and the database keep an
-attempt's record for the run's lifetime. Nothing is shipped anywhere
-else, and nothing the pipeline does depends on CloudWatch being there.
+Batch's log driver also sends the console stream to the CloudWatch log
+group named by the job definition. The rebuild's definitions use
+`/rapid/batch/rapid-queue-prompt`, with one stream per job under the
+prefix `rebuild` or `rebuild-production`. The group keeps 14 days; the
+per-stage file and database retain the attempt's record for the run's
+lifetime. Nothing is shipped elsewhere, and the pipeline does not
+depend on CloudWatch.
 
 ## Monitoring with `rapidpipe` alone
 
@@ -89,17 +76,17 @@ else, and nothing the pipeline does depends on CloudWatch being there.
 | Which release is deployed where | `release list`, `release show <tag>` |
 | What an attempt logged | the per-stage file at `<attempt output>/log/<stage>.log`, or its CloudWatch stream |
 
-Anything beyond these is a read-only query on the database, through the
-`rapid_read` login the team already has.
+Other questions need a read-only database query through the team's
+existing `rapid_read` login.
 
 ## Where a job's time goes
 
-A Batch job's life has four timestamps the pipeline can see: when the
-tool allocated the attempt (`attempts.started`), and when Batch created,
-started and stopped the job. `reconcile` records Batch's three in the
-attempt's execution record as `scheduler_metadata.batch` when it
-records the result, together with the job's attempt count, status
-reason, log stream and queue. From those:
+The pipeline sees four timestamps in a Batch job's life: attempt
+allocation (`attempts.started`) and Batch's job creation, start and
+stop. When `reconcile` records the result, it stores Batch's three
+timestamps in the attempt's execution record as
+`scheduler_metadata.batch`, alongside the job's attempt count, status
+reason, log stream and queue.
 
 | Measure | Derived as | What it tells you |
 |---|---|---|
@@ -108,37 +95,45 @@ reason, log stream and queue. From those:
 | Execution time | Batch stopped minus Batch started | The container's run, the thing the 30-minute target is about |
 | Reconcile lag | attempt ended minus Batch stopped | How long until `run start` or the loop noticed; mostly the poll interval |
 
-Inside execution, the stage itself times three phases and prints them on
-its last line and in its execution record's `timing`: `fetch_s` (copying
+The stage times three execution phases and reports them on its last
+line and in its execution record's `timing`: `fetch_s` (copying
 inputs and settings from storage), `body_s` (the stage's own work) and
-`publish_s` (writing outputs back), with `elapsed_s` the total. So a slow
-job answers "was it the science or the storage" from its own log line.
+`publish_s` (writing outputs back), with `elapsed_s` the total. The log
+line shows whether science or storage made a job slow.
 `fetch_s` and `body_s` also go into the execution record's `timing`,
 which `reconcile` copies into `scheduler_metadata.stage` for a
 successful attempt, so `run timings` prints them; `publish_s` happens
 after the record is written and is on the log line only.
 
-None of this needed a new column. An attempt from before Batch
-timestamps were recorded has none, and prints `-`.
+No new column was needed. Attempts predating Batch timestamp recording
+lack those timestamps and print `-`.
+
+The control-image profiling run below exposed a defect: `run timings`
+printed a negative `reconcile_lag_s` (about minus 330 seconds for `difference`).
+This means `attempts.ended` is stamped before Batch's stop time.
+PostgreSQL's `now()` returns the recording transaction's start time;
+reconcile opens that transaction before waiting on Batch and reading
+the execution record. Recording `clock_timestamp()` instead is the
+likely fix. Until then, reconcile lag is unreliable.
 
 ## Profiling a stage
 
+Profiling is refused on a production run, exit 64: profiles are for
+development, and production attempt outputs live in the products bucket.
 `--profile` on `run submit`, `run start` or `run local` runs the stage's
 body under Python's `cProfile` and writes `profile/<stage>.pstats` and
 `profile/<stage>.txt` (the forty most expensive functions by cumulative
 time) beside the attempt's outputs. On Batch it reaches the container as
 `RAPIDPIPE_PROFILE=1` in the job's environment; a stage invoked by hand
-honours the same variable. It is refused on a production run, exit 64:
-profiles are for development, and a production attempt's outputs live in
-the products bucket. Time spent inside a wrapped C tool (SExtractor,
+honours the same variable. Time spent inside a wrapped C tool (SExtractor,
 SWarp, awaicgen) appears as the one Python call that ran it.
 
 ## Today's baseline
 
-Measured from AWS Batch's job records: 260 rebuild jobs, 208 of them
-real stage invocations, all on `rapid-queue-prompt`, every job
-definition at 1 vCPU and 15 GiB. Minutes of execution, real invocations
-only:
+AWS Batch's records cover 260 rebuild jobs, including 208 real stage
+invocations, all on `rapid-queue-prompt` with job definitions at 1 vCPU
+and 15 GiB. The table gives execution minutes for real invocations
+against a 30-minute target:
 
 | Stage | Jobs | Median | 90th percentile | Longest | Over 30 minutes |
 |---|---|---|---|---|---|
@@ -154,51 +149,43 @@ only:
 | `statistics` | 35 | 0.0 | 0.1 | 0.1 | 0 |
 | `prune` | 21 | 0.0 | 0.0 | 0.0 | 0 |
 
-Queue time was a median of 0.1 to 1.8 minutes per stage, and at most 4.5
-minutes, when the compute environment had to start an instance. Five
-`difference` jobs in the sample ran in 7 to 20 minutes; what set them
-apart (inputs or settings) is not established here, and the per-job rows
-behind this table, with job ids, are kept separately.
+Median queue times ranged from 0.1 to 1.8 minutes per stage. The maximum
+was 4.5 minutes, when the compute environment had to start an instance.
+Five `difference` jobs ran in 7 to 20 minutes; whether inputs or
+settings set them apart is not established here. The per-job rows and
+job ids behind the table are kept separately.
 
-`difference` is the one stage over the target, at about twice it in the
-typical case. Profiling the control image under the exact-reproduction
-settings (4918 seconds of stage body under `cProfile`) says where the
-time goes: the Photutils PSF-fit catalogs take 4662 seconds, 95% of it,
-in six calls, positive and negative on each of the ZOGY, naive and SFFT
-differences. The naive and SFFT branches together take about 3160
-seconds, and with the shipped settings neither of their catalogs is
-registered or loaded; only ZOGY's is. The ten million unseeded samples
-per clipped-statistics call do not appear among the forty most expensive
-functions. The groundwork stops here: whether to skip the unused
-catalogs, give the stage more than one vCPU, or both, is a proposal for
-the team, not a change made by this page.
+`difference` alone exceeds the target, typically taking about twice as
+long. Under exact-reproduction settings, the control image's stage body
+took 4918 seconds in `cProfile`. Photutils PSF-fit catalogs took 4662
+seconds, 95% of that time, in six calls: positive and negative on each
+of the ZOGY, naive and SFFT differences. The naive and SFFT branches
+together took about 3160 seconds. With the shipped settings, neither
+branch's catalogs are registered or loaded; only ZOGY's are. The ten
+million unseeded samples per clipped-statistics call do not appear among
+the forty most expensive functions.
 
-A defect the same run showed: `run timings` printed a negative
-`reconcile_lag_s` (about minus 330 seconds for `difference`), meaning
-`attempts.ended` is stamped before Batch's own stop time. PostgreSQL's
-`now()` is the time the recording transaction began, which reconcile
-opens before it waits on Batch and reads the execution record;
-recording `clock_timestamp()` instead is the likely fix. Until then,
-read the reconcile lag as unreliable.
+Skipping unused catalogs, assigning more than one vCPU, or doing both
+remains a proposal for the team. This page makes no such change.
 
 ## Proposed, not built
 
-- **Metrics.** CloudWatch's embedded metric format would turn the final
-  line's timing into metrics without an agent: the same stderr line,
-  written as one JSON object, is parsed by CloudWatch Logs into
-  per-stage duration metrics. Proposed only; it would add a second line
-  shape.
-- **The operations scripts' lines.** The shell scripts in the systems
-  repository log in three shapes today (`lib.sh`'s timestamped lines on
-  stdout, thirteen copies of a `fail()` function in the operations
-  scripts, the release hooks' `<script>: message` on stderr). Proposed:
-  the same shape as `rapidpipe`'s, `<UTC> <script> <LEVEL> key=value
-  message` on stderr, through one formatter, with each script keeping its
-  own failure handling and its stdout data. The migration markers and
-  the pins hook's JSON, which callers parse from stdout, stay as they
-  are.
-- **CloudWatch retention.** Fourteen days is shorter than a run's life;
-  the per-stage file now covers the gap, so no change is proposed.
+CloudWatch's embedded metric format could turn the final line's timing
+into per-stage duration metrics without an agent. CloudWatch Logs would
+parse the same stderr line written as one JSON object. This is proposed
+only and would add a second line shape.
+
+The systems repository's shell scripts currently log in three shapes:
+`lib.sh`'s timestamped stdout lines, thirteen copies of `fail()` in the
+operations scripts, and the release hooks' `<script>: message` on
+stderr. The proposed format matches `rapidpipe`'s:
+`<UTC> <script> <LEVEL> key=value
+message` on stderr through one formatter. Each script would keep its
+failure handling and stdout data. The migration markers and pins hook's
+JSON, which callers parse from stdout, would stay unchanged.
+
+CloudWatch's fourteen-day retention is shorter than a run's life. The
+per-stage file now covers the gap, so no retention change is proposed.
 
 ## Not decided here
 
