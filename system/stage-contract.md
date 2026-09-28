@@ -10,9 +10,9 @@ salvage. A stage implementation is accepted only if it meets this contract.
 A stage is one program that takes one declared piece of work, reads the
 inputs a manifest lists, does one job, and writes its outputs plus a
 manifest saying what it wrote. The same program accepts a local
-directory or an S3 location. Stages that transform images never touch
-the database; stages that build the catalog say what they read and
-write. Every execution is an attempt with its own output location, so
+directory or an S3 location. Stages that transform images use the
+database only to check that their run may read the inputs they were
+given; stages that build the catalog say what they read and write. Every execution is an attempt with its own output location, so
 a retry can never overwrite a finished one. The caller decides about
 retries, never the stage.
 
@@ -75,8 +75,16 @@ Stage names are a stable list: `admit`, `reference`, `difference`,
 (`detector-date` is `maintain`'s unit; see
 [maintain](maintain), "Unit").
 
-Transform stages (`reference`, `difference`, `finalize`)
-declare no database access. `register` records file products from
+A declaration's database access is one of four levels. `none` never
+connects, and the shared runner skips the read guard for it. `custody`
+connects only for the read guard, which judges the custody of every
+registered instance the input manifest names (see "Invocation"), and
+reads or writes nothing else. `read` and `read-write` also pass through
+the guard. Every shipped stage reads an input manifest, so none
+declares `none`. The transform stages (`admit`, `reference`,
+`difference`, `finalize`) declare `custody`: they need a reachable
+database whenever their input manifest names a registered instance.
+`register` records file products from
 manifests; `load` loads source rows; `maintain` clusters and analyzes a
 `sources` child table, once per observation date and detector, reading
 named source sets but writing none of its own. `crossmatch`, `statistics`
@@ -107,9 +115,10 @@ rapidpipe stage <name> --run <run-id> --unit <unit-id> --attempt <attempt-id> \
 `manifest.json`; the stage reads only the immutable inputs that manifest
 lists. `--outputs` names the attempt's exclusive output location. Every
 execution receives a unique attempt ID and an exclusive output location:
-the local runner allocates local attempt IDs, the Batch wrapper
-allocates one per Batch attempt, and the launcher selects at most one
-completed attempt per run, stage and unit. Deployment supplies
+the local runner allocates local attempt IDs, the launcher allocates one
+per Batch job it submits, and a Batch job runs its container once, so a
+retry is always a new submission with a new attempt. The launcher
+selects at most one completed attempt per run, stage and unit. Deployment supplies
 account-specific locations and connection settings through the
 environment; explicit input and output locations may appear on the
 command line. Credentials never appear in arguments or committed
@@ -176,10 +185,14 @@ build returns it (see [decisions](decisions)).
 
 The entrypoint maps argument errors to 64 and unhandled exceptions to
 70. Forced termination is reported by the launcher, not the stage.
-Batch retries code 75 and explicitly selected infrastructure failures,
-with a final catch-all rule that exits; Batch matches at most five such
-rules and its attempt limit counts the first attempt. The launcher also
-records terminations without a stage exit code and unexpected codes.
+Batch does not retry: the rebuild's job definitions carry one attempt.
+The launcher retries, each time as a fresh attempt within the run's
+maximum attempts per unit, after exit 75 and after the approved
+infrastructure failures, a job with no container exit code whose
+status reason starts `Host EC2` (the host was reclaimed) or whose
+container reason starts `Cannot` or `DockerTimeoutError` (the container
+never started). The launcher also records other terminations without a
+stage exit code, and unexpected codes, as not retried.
 
 ### Settings
 
@@ -224,5 +237,4 @@ and report its outputs.
   difference-image example are on the [products](products) page.
 - Whether delivered statistics describe associations before or after
   pruning. A science decision left to the team.
-- The exact Batch infrastructure-failure patterns to retry.
 - The C tool packaging beneath `rapidpipe.science`.

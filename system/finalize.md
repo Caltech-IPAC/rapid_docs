@@ -170,6 +170,6 @@ An invalid `[finalize] differencer`, or a non-positive value in
 which builds a synthetic `difference` attempt's output with
 `rapidpipe/selftest/support/fakefinalize.py`. It checks the republished
 manifest, stamped header and every copied member against that output.
-The stage runs no external tool and touches no database, so the fixture
+The stage runs no external tool and writes no database rows, so the fixture
 is the same with and without `--real-tools`. It also runs through
 `rapidpipe selftest --stage finalize` on Batch.
