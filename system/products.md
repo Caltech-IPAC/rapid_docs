@@ -127,7 +127,7 @@ instance id, never a bare version number.
 | `difference-image` | detector-image | l2 instance, reference instance, differencer, settings hash | FITS bundle, roles declared per differencer | `difference` | `diffimages`, `diffimmeta` |
 | `source-catalog` | detector-image | difference instance, catalog type, sign | table | `difference` | none until `load` |
 | `alert-container` | detector-image | difference instance, alert schema version | Avro object container plus JSON summary | `alerts` | the outbox |
-| `light-curve` | field | field, object set instance, request id | Parquet | `photometry` | none; exported |
+| `light-curve` | field | field, object set instance, request id | Parquet | none (not ported) | none; exported |
 | `catalog-export` | field | field, export type, selection digest of the named source sets | HATS | `export` | none; exported |
 
 A bundle is one product with several member files. The manifest entry
@@ -519,10 +519,10 @@ lookups and defaults. It does not read product files.
 
 ## Not decided here
 
-- The registration field lists for the remaining kinds (source catalog,
-  and `light-curve`, `photometry`'s export); each is fixed with its
-  stage. `light-curve`'s declared contract, pending the real port, is on
-  the [photometry](photometry) page. `catalog-export`'s registration
+- The registration field lists for the remaining kinds (source catalog
+  and `light-curve`); each is fixed with its stage. `light-curve` has no
+  stage in this build; [photometry](photometry) has the state, pending
+  the real port. `catalog-export`'s registration
   field list is fixed with the `export` stage, on the [export](export)
   page. The source set's
   rows and result-set record, and the `psf` block, are on the

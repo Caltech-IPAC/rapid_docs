@@ -326,18 +326,18 @@ existing issues against this specification remain open. Parts 2 through
 entrypoints) on [stage-contract](stage-contract) and the per-stage
 pages [reference](reference), [difference](difference), [load](load),
 [maintain](maintain), [crossmatch](crossmatch), [statistics](statistics),
-[finalize](finalize), [alerts](alerts), [prune](prune),
-[photometry](photometry) (declared, not yet ported) and
+[finalize](finalize), [alerts](alerts), [prune](prune) and
 [export](export); part 3 (runs, attempts, the three output states) on
 [runs](runs); part 4 (the command-line tool) on [tool](tool); part 5
 (releases) on [releases](releases); part 6 (candidate checks, promotion
 and recovery by hand) on [checks](checks) and the recovery rules on
 [runs](runs); part 7 (the scheduled processing-date loop) on
 [loop](loop); part 8 (slower pipelines and exports) on
-[reference](reference) and [export](export), with the light-curve HATS
-catalog and forced photometry still declared stubs on
-[photometry](photometry). Every part is a prototype pending the team's
-review at the SMDC cutover; none is ADOPTED.
+[reference](reference) and [export](export); the light-curve HATS
+catalog and forced photometry are not ported, and the rebuild carries
+no photometry stage ([photometry](photometry) has the state). Every
+part is a prototype pending the team's review at the SMDC cutover; none
+is ADOPTED.
 
 ## Not decided here
 

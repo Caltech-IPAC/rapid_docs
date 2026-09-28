@@ -232,7 +232,11 @@ or removes it here.
   unclassified error and a parse failure exits 64; exit 65's family is
   listed on [tool](tool). (2026-09-25, 2026-09-26)
 - `photometry` and `export` are declared stages that exit 69 past
-  validation where not yet ported. (2026-09-24)
+  validation where not yet ported. (2026-09-24, superseded below)
+- **Photometry stub removed.** The rebuild carries no photometry stage;
+  forced photometry stays `dev`'s `forcedPhotometryForField.py`. Exit
+  code 69 stays reserved in the stage contract, since no stage in this
+  build returns it now. (2026-09-27)
 - `run cancel` from a workstation needs `batch:TerminateJob` on the
   workstation role, not yet granted. (2026-09-24)
 - A stage declaration carries no argument schema and no resource
