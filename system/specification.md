@@ -2,44 +2,43 @@
 
 **Status: DRAFT**
 
-This page replaces the earlier design corpus, which remains in this
-repository's history. The team owns the design it states. Rulings are
-recorded on the [decisions](decisions) page, and a ruling is the team's
-once it is there. The team reviews this page at the cutover to SMDC;
-nothing becomes ADOPTED without that review.
+This specification replaces the earlier design corpus, retained in the
+repository's history. The team owns the design and every ruling recorded
+on the [decisions](decisions) page. The team reviews this page at the
+SMDC cutover; nothing becomes ADOPTED without that review.
+
 ## Purpose
 
 RAPID (Roman Alerts Promptly from Image Differencing) finds transients in
-Roman Space Telescope images and issues alerts. The pipeline exists today
-on the IMSS account and has been partly reworked for the NASA SMDC
-account, where it will live. That rework accumulated rather than being
-designed. This specification defines the replacement pipeline's
-repository boundaries, stage interfaces and operating rules so that all
-five team members can run, develop and maintain it.
+Roman Space Telescope images and issues alerts. It runs today on the
+IMSS account and has been partly reworked for its future home, the NASA
+SMDC account. That rework accumulated without a design. This
+specification defines the replacement's repository boundaries, stage
+interfaces and operating rules so all five team members can run,
+develop and maintain it.
 
-Nothing that exists today is preserved for its own sake. Infrastructure,
-code and database contents on SMDC are disposable and are recreated to
-this specification. The IMSS pipeline is the reference for what the
+Existing work is kept only where it serves this specification. SMDC
+infrastructure, code and database contents are disposable and recreated
+to the specification. The IMSS pipeline is the reference for what the
 science stages do.
 
 ## Outcome
 
-A team member can run the pipeline on SMDC. Concretely:
+A team member can run the pipeline on SMDC:
 
-- They can run any single stage on its own, against real or test inputs,
-  to develop and test that subsystem.
-- They can run experiments alongside regular operations without
-  disturbing them.
-- Routine processing runs without manual steps. Failures that automation
-  cannot resolve require intervention; nothing else does.
-- A team member can deploy, operate and recover the system from the
-  repositories and their documented access procedures, without
-  instructions from its previous operator.
+- Run any stage on its own against real or test inputs to develop and
+  test that subsystem.
+- Run experiments alongside regular operations without disturbing them.
+- Leave routine processing to automation, intervening only for failures
+  it cannot resolve.
+- Deploy, operate and recover the system using the repositories and
+  their documented access procedures, without the previous operator's
+  instructions.
 
 ## The pipelines
 
-Several pipelines run at different cadences. The stage list below is
-taken from the IMSS code and names the stages a new team member meets.
+The pipelines run at different cadences. These stages come from the
+IMSS code and are the ones a new team member meets.
 
 **The processing-date loop**, which regular operations run for each
 date's exposures:
@@ -68,21 +67,19 @@ date's exposures:
 
 ### The stage contract
 
-The full contract, the package layout and the exit codes are on the
-[stage contract](stage-contract) page; this section states the rules
-in outline.
+The [stage contract](stage-contract) page defines the full contract,
+package layout and exit codes. The outline follows.
 
 Every stage has its own entrypoint and declares its arguments,
 configuration, input and output formats, database reads and writes,
 resource needs, and exit codes for success and each kind of failure.
-Direct invocation and invocation through the command-line tool follow
-the same contract.
+Direct invocation and the command-line tool use the same contract.
 
 Each stage declares its unit of work (an exposure, a detector image, a
-field, a processing date, or a detector's date) and the upstream
-products it requires; the scheduler starts it only when those products
-are complete. Product identifiers use one documented vocabulary for
-exposures, detector images, fields and processing dates.
+field, a processing date, or a detector's date) and required upstream
+products. The scheduler waits for those products to be complete.
+Product identifiers use one documented vocabulary for exposures,
+detector images, fields and processing dates.
 
 A stage uses the same command interface on a laptop and on SMDC. Its
 local test fixture supplies input files and any database state it needs,
@@ -96,33 +93,30 @@ version it used.
 
 ## Runs
 
-In plain terms: a run is one pass over a chosen set of inputs, and
-everything it makes carries the run's name. Inside a run the work is
-split into pieces, one per detector image or field; a piece may be tried
-more than once, but only a finished try counts. Every product is in one
-of three places: a person's, the project's but not yet live, or live.
-Making a product live is a deliberate step, promotion, which says which
-live products it replaces and can be undone. Runs never write to the
-same place, and share only the admitted inputs and reference images,
-which nobody changes. Provenance is the point of all of this: any
-product can be traced to the run, code, settings, inputs and reference
-that made it.
-
-A run is one pass of some or all stages over an input set. Every run
-records its input set, selected stages, code version, settings, resource
-profile, scheduling lane, and the person or scheduler that started it.
+A run is one pass of some or all stages over a chosen input set.
 Experiments, reprocessing, development, test and regular operations are
-all runs. A run freezes its input set at creation; later arrivals enter
-another run.
+all runs. Every product carries its run's name and can be traced to the
+run, code, settings, inputs and reference that made it.
+
+A run freezes its input set at creation; later arrivals enter another
+run. It records that set, selected stages, code version, settings,
+resource profile, scheduling lane, and the person or scheduler that
+started it. Work is split into pieces, one per detector image or field.
+A piece may be tried more than once, but only a finished try counts.
+
+Runs never write to the same place. They share only admitted inputs and
+reference images, which nobody changes.
 
 Resource profiles and scheduling lanes are named configurations with
-documented limits and defaults; scratch runs must not consume capacity
-reserved for regular operations. The rebuild does not enforce this yet:
-a run's lane and resource-profile columns are recorded but nothing
-reads them, and capacity is the Batch job definitions' to give
+documented limits and defaults. Scratch runs must not consume capacity
+reserved for regular operations. The rebuild does not yet enforce this:
+it records a run's lane and resource-profile columns but nothing reads
+them. Batch job definitions set capacity
 ([decisions](decisions)).
 
 ### Three output states
+
+Every product has one of three output states:
 
 - **Scratch**: a person's. Never visible to consumers. Deletable by that
   person and expired by policy.
@@ -146,26 +140,26 @@ Changes become visible to consumers only through promotion.
 
 ### Promotion
 
-Promotion is an action, not a place. A promotion names the product keys
-it replaces and leaves other current products unchanged. By default it
-switches a whole run's outputs together; a person may promote piecemeal
-when that is what is needed. The selected files and database results
-become visible together, only once their dependencies are satisfied;
-conflicting promotions are refused for review. Each promotion records
-who did it, why, and the previous and replacement selections, so an
-earlier selection can be restored.
+Promotion is the action that makes products live. It names the product
+keys it replaces and leaves other current products unchanged. By default
+it switches a whole run's outputs together; a person may promote
+piecemeal when needed. The selected files and database results become
+visible together once their dependencies are satisfied. Conflicting
+promotions are refused for review. Each promotion records who did it,
+why, and the previous and replacement selections, so an earlier selection
+can be restored.
 
-A candidate is eligible for promotion when the required checks of its
-check policy pass; there is no separate acceptance record, and a check
-that fails falsely is fixed in the policy file. A dependency is satisfied
-when the instance it names is current or superseded, or is promoted in
-the same request. Each candidate records its check results; a failed or
-missing check leaves it a candidate.
+A candidate records its check results and is eligible for promotion
+when its policy's required checks pass. A failed or missing check leaves
+it a candidate. There is no separate acceptance record; a check that
+fails falsely is fixed in the policy file. A dependency is satisfied
+when its named instance is current or superseded, or is promoted in the
+same request.
 
-Automatic promotion happens only under a check policy the team has
-approved for it. The scheduled loop promotes through the same gate as a
-person's `run start`, so under a trial policy a date's production run
-stays a candidate until a person promotes it
+The scheduled loop uses the same automatic-promotion gate as a person's
+`run start`: the team must have approved the check policy for automatic
+promotion. Under a trial policy a date's production run stays a
+candidate until a person promotes it
 ({ref}`loop promotion <decision-loop-promotion>`,
 {ref}`acceptance <decision-acceptance>`).
 
@@ -184,20 +178,21 @@ depend on.
 
 ## Tools
 
-The team touches one command-line tool, `rapidpipe`, shipped in the pipeline repo,
-with a small set of operations: create a run, start a stage or the whole
-loop, rerun part of a run, watch progress, cancel and restart from
-failure, list and compare runs, promote a candidate, delete scratch. Each operation reports the
-affected run identifier and a meaningful exit status. Each stage is also
-a plain script that the tool calls and a person can call directly.
-Design the interface around these operations and the stage contracts;
-the previous tool is not the starting point. The tool's subcommands are
-on the [tool](tool) page.
+The pipeline repo ships one command-line tool, `rapidpipe`. It can
+create a run, start a stage or the whole loop, rerun part of a run,
+watch progress, cancel and restart from failure, list and compare runs,
+promote a candidate, and delete scratch. Each operation reports the
+affected run identifier and a meaningful exit status. Each stage is a
+plain script callable by the tool or directly by a person.
+
+The interface must follow these operations and the stage contracts,
+without using the previous tool as its starting point.
+Subcommands are on the [tool](tool) page.
 
 ## Repositories
 
-Three repositories, each standalone for the team. None refers to any
-person's private repository, machine or notes.
+The team uses three standalone repositories. None refers to a person's
+private repository, machine or notes.
 
 | Repository | Visibility | Holds |
 |---|---|---|
@@ -218,30 +213,31 @@ and the two-branch arrangement end with this rebuild.
 
 ## Releases
 
-Operations run a tagged version. Release tags are immutable. Each release
-records its source commit, image digest and the schema versions it
-supports; each run records the image digest and schema version it used.
-`main` moves ahead of the release. Scratch runs may use any commit or a
-working copy. A candidate becomes current only if its recorded image is a
-released artifact; tagging related source afterwards is not enough.
-Schema deployment documents migration order, compatibility with active
-runs, and recovery, before operations move to a release. The release
-mechanism, its record and its command are on the [releases](releases)
-page.
+Operations run a tagged version while `main` moves ahead. Release tags
+are immutable. Each release records its source commit, image digest and
+supported schema versions; each run records the image digest and schema
+version it used. Scratch runs may use any commit or a working copy.
+
+A candidate becomes current only if its recorded image is a released
+artifact; tagging related source afterwards is not enough. Before
+operations move to a release, schema deployment documents migration
+order, compatibility with active runs, and recovery. The
+[releases](releases) page defines the mechanism, record and command.
 
 ## Edges
 
-Both edges are versioned manifests, and each manifest is the provenance
-record for its side. Admission accepts a manifest of input identities,
-locations, checksums and required metadata. Delivery reads a manifest of
-current alert products with their identities, locations, checksums and
-schema versions. The pipeline's responsibility ends at alert files and
-their manifest in the account today. MSK is available in SMDC and alerts
-may also be written there; external delivery uses current products only
-and records delivery attempts against stable product identities. Input
-delivery from the observatory and output delivery to brokers and MAST
-are to be determined and are not design drivers; their adapters read and
-write the manifests and are outside this specification.
+Each edge has a versioned manifest as its provenance record. Admission
+accepts a manifest of input identities, locations, checksums and required
+metadata. Delivery reads a manifest of current alert products' identities,
+locations, checksums and schema versions.
+
+Today the pipeline's responsibility ends at alert files and their
+manifest in the account. MSK is available in SMDC and alerts may also be
+written there. External delivery uses only current products and records
+attempts against stable product identities. Delivery from the
+observatory and to brokers and MAST remains to be determined and does
+not drive this design. Those adapters read and write the manifests and
+are outside this specification.
 
 ## Constraints
 
@@ -279,8 +275,8 @@ write the manifests and are outside this specification.
     legacy IMSS products and NASA records retention bear on it.
   - Human credential custody and a break-glass procedure for the
     account must be written down and rehearsed.
-  - Database connections through the pooler use TLS; the pooler's
-    posture is a security requirement, not a convenience.
+  - Database connections through the pooler use TLS as a security
+    requirement.
   - Long-lived connections must account for the Nitro default
     connection-tracking idle timeout.
   - Database connections from pipeline code (`rapidpipe.db.connection`)
@@ -291,17 +287,16 @@ write the manifests and are outside this specification.
     estate's `RAPID_PARAMETER_PATH` SSM parameter tree, whose
     `db/server`/`db/port`/`db/name`/`db/secret-id` keys supply the
     endpoint and, via the same Secrets Manager resolver, the credential.
-    The environment is never treated as an in-process transport: nothing
-    in `rapidpipe.db.connection` writes it for a downstream reader to
-    read back.
+    The environment is never an in-process transport:
+    `rapidpipe.db.connection` never writes it for a downstream reader.
   - Platform facts still open with SMDC: address-range collision,
     egress model, IAM PassRole scoping, backup-plan scope and recovery
     path.
 
 ## Sequencing
 
-Specification first, then the rebuild by part, each part a pull request
-that CI verifies and a team member merges. Proposed order, earliest first:
+The specification precedes the rebuild. Each part is a pull request
+verified by CI and merged by a team member. Proposed order, earliest first:
 
 1. Repository boundaries: move schema, glue and build recipe into
    `rapid`; strip personal tooling and residue from all three repos;
@@ -324,40 +319,40 @@ that CI verifies and a team member merges. Proposed order, earliest first:
 8. Slower pipelines and exports.
 
 Part 1 is partly done: the schema, glue and build recipe live in
-`rapid`; the `smdc` branch's inventory against `dev` and the triage of
-existing issues against this specification remain open. Parts 2 through
-8 exist as prototypes on the `rebuild` branch: part 2 (stage
-entrypoints) on [stage-contract](stage-contract) and the per-stage
-pages [reference](reference), [difference](difference), [load](load),
-[maintain](maintain), [crossmatch](crossmatch), [statistics](statistics),
-[finalize](finalize), [alerts](alerts), [prune](prune) and
-[export](export); part 3 (runs, attempts, the three output states) on
-[runs](runs); part 4 (the command-line tool) on [tool](tool); part 5
-(releases) on [releases](releases); part 6 (candidate checks, promotion
-and recovery by hand) on [checks](checks) and the recovery rules on
-[runs](runs); part 7 (the scheduled processing-date loop) on
-[loop](loop); part 8 (slower pipelines and exports) on
-[reference](reference) and [export](export); the light-curve HATS
-catalog and forced photometry are not ported, and the rebuild carries
-no photometry stage ([photometry](photometry) has the state). Every
-part is a prototype pending the team's review at the SMDC cutover; none
-is ADOPTED.
+`rapid`; the `smdc` branch's inventory against `dev` and issue triage
+against this specification remain open. Parts 2 through 8 are prototypes
+on the `rebuild` branch, documented here:
+
+| Part | Scope | Pages |
+|---|---|---|
+| 2 | Stage entrypoints | [stage-contract](stage-contract); [reference](reference), [difference](difference), [load](load), [maintain](maintain), [crossmatch](crossmatch), [statistics](statistics), [finalize](finalize), [alerts](alerts), [prune](prune), [export](export) |
+| 3 | Runs, attempts, the three output states | [runs](runs) |
+| 4 | Command-line tool | [tool](tool) |
+| 5 | Releases | [releases](releases) |
+| 6 | Candidate checks, promotion and recovery by hand | [checks](checks); recovery rules on [runs](runs) |
+| 7 | Scheduled processing-date loop | [loop](loop) |
+| 8 | Slower pipelines and exports | [reference](reference), [export](export) |
+
+The light-curve HATS catalog and forced photometry are not ported, and
+the rebuild carries no photometry stage ([photometry](photometry) has
+the state). Every part is a prototype pending the team's review at the
+SMDC cutover; none is ADOPTED.
 
 ## Not decided here
 
-- The checks that gate automatic promotion: their content is scientific
-  and the team's. The rebuild ships `rebuild-trial@1`, a trial-level
-  policy under which a person promotes by hand; a team-approved policy,
-  and whether it permits automatic promotion, remain open
+- The team defines the scientific checks that gate automatic promotion.
+  The rebuild ships `rebuild-trial@1`, a trial-level policy requiring
+  promotion by hand. A team-approved policy and whether it permits
+  automatic promotion remain open
   ([checks](checks) page).
 - The boundary between mission-supplied data and RAPID-derived
   products, and what each side's retention and provenance owe.
 - Admission rules for duplicate, incomplete or corrected inputs: the
-  delivery-side handling (identical re-delivery refused, checksum
-  conflict quarantined, a corrected version deferred) now lives on the
-  [loop](loop) page's discovery and classification rule. Still open:
-  the science half of the input contract (discovery, completeness,
-  versioning), and a date's boundary in wall-clock or observatory time.
+  [loop](loop) page's discovery and classification rule defines delivery
+  handling (identical re-delivery refused, checksum conflict quarantined,
+  a corrected version deferred). The science half of the input contract
+  (discovery, completeness, versioning) and a date's boundary in
+  wall-clock or observatory time remain open.
 - Reference-image eligibility and selection rules, and where the
   reference PSF is resolved from. The [reference](reference) page
   records `dev`'s selection rule as the launcher's to implement; the

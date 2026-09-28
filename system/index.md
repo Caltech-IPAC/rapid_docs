@@ -1,16 +1,16 @@
 # System
 
-The specification is the authoritative statement of what RAPID is built
-to be on SMDC. It carries equal weight to the code: the pipeline must be
-rederivable from it. It is marked **DRAFT** (under iteration; what the
-team reviews) or **ADOPTED** (normative). It is DRAFT at present: the
-team's review lands at the cutover to SMDC, and nothing becomes ADOPTED
+The specification defines what RAPID is built to be on SMDC. It is
+authoritative and carries equal weight to the code: the pipeline must
+be rederivable from it.
+
+Its status is **DRAFT**: under iteration for the team's review at the
+cutover to SMDC. **ADOPTED** means normative; nothing becomes ADOPTED
 without that review.
 
-The specification replaced the earlier design corpus of seventeen
-documents. That corpus described the system that had
-accumulated; the rebuild starts from this page. The earlier documents
-remain in this repository's history.
+The specification replaced seventeen earlier design documents, which
+described the system that had accumulated and remain in this
+repository's history. The rebuild starts from this page.
 
 ## Documents
 
