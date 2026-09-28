@@ -305,9 +305,9 @@ removes it here.
 - **Association-set identity.** The slot-identity table on
   [products](products) is the sole statement. An association set's
   identity adds the field, crossmatch settings hash, sorted source-set
-  identities, and a hash of its base's own identity. Withdraw the
-  proposal's shorter wording, which omitted the base, and its table
-  copy. (2026-09-27)
+  identities, and a hash of its base's own identity; the proposal's shorter
+  wording, which omitted the base, is withdrawn with the table copy it
+  sat in. (2026-09-27)
 
 (decision-pending-sharing-rule)=
 - **Sharing rule widening.** The specification lets any run read
