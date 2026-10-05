@@ -206,7 +206,12 @@ terminal unit or replace its selection.
 The run records a maximum attempts per unit, counting the first try
 and every retry. The launcher retries; a Batch job runs its container
 once. An attempt ending `transient` returns the unit to ready for
-submission as a new attempt. Only code 75 and the approved
+submission as a new attempt. Once one of a unit's attempts is lost to
+a Spot reclaim, in the run or in a run it was seeded from, every
+further attempt of that unit is submitted to the reclaim queue
+(`RAPIDPIPE_BATCH_RECLAIM_QUEUE`) when that is set and differs from
+the job queue; otherwise it goes to the job queue like any other
+retry. Only code 75 and the approved
 infrastructure failures listed in the [stage contract](stage-contract),
 "Exit codes", are recorded `transient`. Exhausting the allowance fails
 the unit. `lost` means the scheduler lost the job: unresolved
