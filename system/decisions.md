@@ -593,16 +593,3 @@ to confirm with SMDC. (Ben, 2026-10-06)
 **Commissioning facts stay open**: asking SMDC now for the sweep hour,
 the deadline clock origin and the scan lag is declined. They stay
 commissioning facts. (Ben, 2026-10-06)
-
-(decision-bump-dispatch-hold)=
-**Bump build dispatch**: the hold on the bump's explicit RPM build
-dispatch is lifted, and it lands as its own pull request. (Ben,
-2026-10-06)
-
-(decision-implementation-campaign)=
-**Implementation proceeds unattended**: implementation runs as one
-multi-step campaign in two lanes with a 24-hour cap. Supervisors merge
-their own pull requests on green CI, and steps deploy stacks parked as
-live proof. Nothing is armed, no production deploy is made, no host is
-touched and no token is created; the attended tail is handed to Ben in a
-handoff file. (Ben, 2026-10-06)
