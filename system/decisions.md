@@ -372,8 +372,8 @@ part of the process, not excluded from it. (Ben, 2026-10-06)
 no cooldown on security content. (Ben, 2026-10-06)
 
 (decision-maintenance-window)=
-**One window for every host**: one fixed weekly window, on Thursday
-morning Pacific time and reserved for four hours, covers every host, so
+**One window for every host**: one fixed-UTC weekly window, falling on
+Thursday morning Pacific time and reserved for four hours, covers every host, so
 the team keeps one simple model. (Ben, 2026-10-06)
 
 (decision-ami-bake)=
@@ -497,8 +497,11 @@ database image) and publishes them together under the served index hash.
 The bump pull request writes the database unit file's digest from the
 attested build it dispatched, so the post-publish repin commit and the
 second promotion go. The attestation verifier accepts the attestation of
-the exact commit that became main by fast-forward. This reverses the
-earlier ruling that kept the two-hop chain. (Ben, 2026-10-06)
+the exact commit that became main by fast-forward (this clause is
+superseded below by the two-commit database image sequence in
+{ref}`the Wednesday transaction <decision-maintenance-redesign>`). This
+reverses the earlier ruling that kept the two-hop chain. (Ben,
+2026-10-06)
 
 (decision-no-weekly-application-image)=
 **No weekly application image**: a weekly promoter rebuild and window
@@ -511,7 +514,12 @@ report. (Ben, 2026-10-06)
 previews and deploys every stack whose template or data changed in the
 published commit, under the maintenance role, with a drift check as
 proof. Host-replacing changes are refused and left to the window. The
-maintenance stack deploys last and never mid-run. (Ben, 2026-10-06)
+maintenance stack deploys last and never mid-run. (Ben, 2026-10-06; the
+clauses on which stacks deploy and on host replacement are superseded
+below by {ref}`the Wednesday transaction <decision-maintenance-redesign>`,
+which prepares production stack changes on Wednesday and applies them
+inside Thursday's lock, deploys build-substrate stacks at once, and
+refuses host-replacing, removing and durable-replacing changes)
 
 (decision-health-signal)=
 **One health signal**: every pin-table row carries three ages (newest
@@ -520,7 +528,8 @@ is current, cooling or stalled. A row is stalled when the published
 version lags upstream by the cooldown plus a week, or the deployed
 version lags the published one by a week, and a stalled row is an
 escalation with an owner. Per-chain alarms stay as diagnostics. (Ben,
-2026-10-06)
+2026-10-06; the owner clause is superseded below by
+{ref}`team-owned escalation <decision-team-owned-escalation>`)
 
 (decision-release-cut)=
 **Release cut**: the release cut runs unattended in CodeBuild on a tag
@@ -546,8 +555,11 @@ rulings, I want to do this right"), and the design was adopted on merit
 after an independent review. One Wednesday transaction replaces the
 Sunday bump, the five-day promoter and the promoter pause: the bump runs
 early Wednesday, the promoter builds from the merged state, and
-preparation follows later that day. A human merge waits for Wednesday,
-and a release cut builds from the last publication. Production stack
+preparation follows later that day. A human merge waits for Wednesday
+(superseded below by
+{ref}`flexibility for team development <decision-extensibility>`, which
+runs the transaction on every merge and keeps Wednesday as the scheduled
+discovery), and a release cut builds from the last publication. Production stack
 changes are prepared on Wednesday and applied inside Thursday's lock,
 build-substrate stacks deploy at once, and host-replacing, removing and
 durable-replacing changes are refused. Vendor and community packages
