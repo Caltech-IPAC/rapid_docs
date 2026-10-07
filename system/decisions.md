@@ -347,3 +347,262 @@ removes it here.
   file products and result sets. (2026-09-26)
 - The `refimages` field lists and the `catalog-export` registration
   fields are fixed with their stages. (2026-09-24)
+
+## Weekly maintenance on SMDC
+
+Ben's rulings of 2026-10-06 on weekly maintenance on SMDC. The
+weekly-maintenance page of the infrastructure repository states the
+design these rulings produced. Where a later ruling reverses an earlier
+one, the earlier entry says "superseded below" and points at the later
+one.
+
+(decision-maintenance-purpose)=
+**Purpose and shape**: weekly maintenance exists to comply with the SMDC
+security policy with minimal production impact. It has two parts:
+preparation (packages, images, proof) and then implementation. (Ben,
+2026-10-06)
+
+(decision-maintenance-scope)=
+**Vendor and community packages**: agent command-line tools, editors,
+browsers, the database admin console and third-party repositories are
+part of the process, not excluded from it. (Ben, 2026-10-06)
+
+(decision-security-advisories)=
+**Security advisories**: security advisories are accepted outright, with
+no cooldown on security content. (Ben, 2026-10-06)
+
+(decision-maintenance-window)=
+**One window for every host**: one fixed weekly window, on Thursday
+morning Pacific time and reserved for four hours, covers every host, so
+the team keeps one simple model. (Ben, 2026-10-06)
+
+(decision-ami-bake)=
+**Golden AMI**: the image is baked only when the base image changes, with
+no age limit. Red Hat refreshes the line every four to six weeks
+(measured gaps of 28, 40 and 42 days). (Ben, 2026-10-06)
+
+(decision-no-idle-checks)=
+**No idle checks**: nothing waits for a host or the pipeline to be idle.
+The window is reserved time, and launchers avoid it. (Ben, 2026-10-06)
+
+(decision-parallel-tracks)=
+**Two tracks**: workstations and the production chain run in parallel,
+given the canary proof. (Ben, 2026-10-06)
+
+(decision-preparation-day)=
+**Preparation the day before**: preparation runs the day before the
+window, at the same hour. (Ben, 2026-10-06)
+
+(decision-no-auto-retry)=
+**No automatic retry after a stop**: a person resolves a stop. The rule
+is to be re-evaluated with experience. (Ben, 2026-10-06)
+
+(decision-roll-or-patch)=
+**Roll or patch**: a host is rolled or patched in a given week, never
+both. (Ben, 2026-10-06; superseded below by
+{ref}`the roll decided by image identity <decision-maintenance-redesign>`)
+
+(decision-workstation-failure)=
+**Workstation failure**: a workstation failure is a finding, not a stop.
+(Ben, 2026-10-06)
+
+(decision-retention)=
+**Retention**: retention is a lifecycle property of each store: the AMI
+keep count at bake, the registry lifecycle policy, and the admin cache
+quota and alarm. There is no cleanup step. (Ben, 2026-10-06)
+
+(decision-identical-package-set)=
+**Identical package set**: every EC2 host carries the identical package
+set, and its role is the services enabled. The database tools, the
+connection pooler and the admin console move into the AMI. Production
+hosts therefore carry desktop packages with their services off, a
+trade the team accepts. (Ben, 2026-10-06)
+
+(decision-package-set-not-frozen)=
+**Package set not frozen**: hosts install what the repositories hold at
+install time and record it. (Ben, 2026-10-06; superseded below by
+{ref}`the freeze reopened <decision-freeze-reopened>`)
+
+(decision-single-cooldown)=
+**One cooldown**: a single 14-day cooldown applies, for OS and database
+base images only (the host AMI, the UBI container base, the Batch image
+and the Postgres image base). Everything else, pins and agent
+command-line tools included, is accepted once CI passes. (Ben,
+2026-10-06)
+
+(decision-database-image-chain)=
+**Database image chain**: the database container digest stays in the
+database tools package's unit file, and the chain stays as it runs
+today: the image is built on main and attested, the promoter pushes and
+repins, and the next run publishes the package. A branch-build shortcut
+was adopted and then withdrawn, because the attestation verifier binds
+the image to a build on main. (Ben, 2026-10-06; superseded below by
+{ref}`one builder and publisher <decision-one-builder>`)
+
+(decision-application-image)=
+**Pipeline application image**: the image refreshes only at a release
+cut. The report lists deployed digests with their base age. (Ben,
+2026-10-06)
+
+(decision-quiet-period)=
+**Promoter pause**: the promoter is unscheduled on preparation day and
+window day, and the identity of the served set is the SHA-256 of the
+served `repomd.xml`, not the promoter's marker. (Ben, 2026-10-06;
+superseded below by
+{ref}`the Wednesday transaction <decision-maintenance-redesign>`)
+
+(decision-batch-failure)=
+**Batch compute-environment failure**: a Batch compute-environment
+failure is a stop, not a finding, because production failure is a stop.
+(Ben, 2026-10-06)
+
+(decision-preparation-own-day)=
+**Preparation keeps its own day**: preparation stays a step of its own
+instead of moving inside the window. (Ben, 2026-10-06)
+
+(decision-reservation-flat)=
+**Flat reservation**: the reservation stays four hours every week. A
+variable reservation was considered and rejected, since database
+maintenance is expected to dominate. (Ben, 2026-10-06)
+
+(decision-thursday-window)=
+**Thursday window**: the window is on Thursday with preparation on
+Wednesday, so that the recovery window is a business day. No recorded
+reason for Friday existed, and the argument for a late-breaking patch
+applies equally to either day. (Ben, 2026-10-06)
+
+(decision-workflow-pins)=
+**Workflow-file pins**: Actions SHAs and the AlmaLinux and UBI container
+bases are bumped by giving the bump a token with workflow-edit
+permission, rather than by moving the digests out of workflow files. The
+team accepts that an unattended job may rewrite CI, gated by the
+validate run. (Ben, 2026-10-06)
+
+(decision-one-pin-table)=
+**One pin table, one bump**: everything external is a row of one pin
+table: workflow-file pins, vendor release assets, the RHEL AMI family,
+the ECS image family and the Python environment's conda-lock inputs. One
+weekly bump with the App token resolves them under the single cooldown
+rule, in one pull request that auto-merges on green, with an explicit
+dispatch of every downstream build. The Python environment's resolve is
+a phase of the bump (conda-lock plus the offline-replay gate) and is no
+longer attended. (Ben, 2026-10-06; the weekly bump's day is superseded
+below by
+{ref}`the Wednesday transaction <decision-maintenance-redesign>`)
+
+(decision-one-builder)=
+**One builder and publisher**: the promoter builds every artefact derived
+from main in one run (RPMs, Python environment, base container and
+database image) and publishes them together under the served index hash.
+The bump pull request writes the database unit file's digest from the
+attested build it dispatched, so the post-publish repin commit and the
+second promotion go. The attestation verifier accepts the attestation of
+the exact commit that became main by fast-forward. This reverses the
+earlier ruling that kept the two-hop chain. (Ben, 2026-10-06)
+
+(decision-no-weekly-application-image)=
+**No weekly application image**: a weekly promoter rebuild and window
+deploy of the pipeline application image is declined. The image stays
+release-bound, the one named exception, with the base-age line in the
+report. (Ben, 2026-10-06)
+
+(decision-deploy-from-main)=
+**Infrastructure deploys from main**: a promoter phase validates,
+previews and deploys every stack whose template or data changed in the
+published commit, under the maintenance role, with a drift check as
+proof. Host-replacing changes are refused and left to the window. The
+maintenance stack deploys last and never mid-run. (Ben, 2026-10-06)
+
+(decision-health-signal)=
+**One health signal**: every pin-table row carries three ages (newest
+upstream, newest published, oldest deployed), recorded daily. Its state
+is current, cooling or stalled. A row is stalled when the published
+version lags upstream by the cooldown plus a week, or the deployed
+version lags the published one by a week, and a stalled row is an
+escalation with an owner. Per-chain alarms stay as diagnostics. (Ben,
+2026-10-06)
+
+(decision-release-cut)=
+**Release cut**: the release cut runs unattended in CodeBuild on a tag
+push: migrate, build, deploy, pins, then the Batch selftests recorded
+against the release. A cut with no selftest result within a day is a
+stalled-release escalation. A person decides what to tag, and nothing
+runs on the admin host. (Ben, 2026-10-06)
+
+(decision-no-scheduled-rotation)=
+**No scheduled secret rotation**: scheduled database secret rotation is
+declined. The rotation row stays parked and attended, because it is
+hygiene, not compliance. (Ben, 2026-10-06)
+
+(decision-team-owned-escalation)=
+**Team-owned escalation**: a named escalation owner is declined.
+Everything is team-owned, and every alarm and escalation routes to the
+team's alert list. (Ben, 2026-10-06)
+
+(decision-maintenance-redesign)=
+**Wednesday transaction and the redesign adopted on merit**: Ben opened
+his earlier rulings for challenge ("don't be overconstrained by my
+rulings, I want to do this right"), and the design was adopted on merit
+after an independent review. One Wednesday transaction replaces the
+Sunday bump, the five-day promoter and the promoter pause: the bump runs
+early Wednesday, the promoter builds from the merged state, and
+preparation follows later that day. A human merge waits for Wednesday,
+and a release cut builds from the last publication. Production stack
+changes are prepared on Wednesday and applied inside Thursday's lock,
+build-substrate stacks deploy at once, and host-replacing, removing and
+durable-replacing changes are refused. Vendor and community packages
+count for compliance per host and are not exempt by origin; a failed
+install is a finding with an exposure and a deadline, and the production
+track continues. A roll is decided per host by image identity, not by
+week. The database image is bound by a two-commit sequence (the pin
+commit is attested and the unit-file commit is its child). Currency is
+reported with identities and an unknown state, admission control at
+window entry replaces idle checks, the retention table is extended, and
+an acceptance list is met before arming. (Ben, by lifting the
+constraint; Claude, on merit; 2026-10-06)
+
+(decision-freeze-reopened)=
+**Freeze reopened, identical membership firm**: production installs the
+canary's recorded version set, with explicit versions and a baseline
+snapshot for errata, and the canary re-runs its install at Thursday
+admission if any repository moved. Identical package membership across
+hosts stays firm. The design is stated on the weekly-maintenance page,
+not as a ruling. (Ben; design by Claude, 2026-10-06)
+
+(decision-extensibility)=
+**Flexibility for team development**: the transaction runs on every merge
+to main as well as on Wednesday, and the window applies the last bundle
+with valid proofs. Workstations converge on demand outside the window.
+New packages and dependencies enter by pull request and are published
+the same day. Per-user environments are outside the managed set. The
+design page carries this as an Extensibility section. (Ben, requirement;
+design by Claude, 2026-10-06)
+
+(decision-timetable)=
+**Timetable**: the on-merge transaction is serialised and coalesced;
+scheduled discovery runs once a week early on Wednesday; preparation
+runs on Wednesday and waits for the bump's publication up to a latest
+start; the Thursday window is reserved for four hours and reopens
+admissions on completion; four daily rows run by completion before the
+window hour, with the mirror hourly; a release cut runs any day on a tag
+under the maintenance exclusion; the report runs Thursday as a
+standalone job. The Saturday sweep hour is the first commissioning fact
+to confirm with SMDC. (Ben, 2026-10-06)
+
+(decision-no-smdc-query-now)=
+**Commissioning facts stay open**: asking SMDC now for the sweep hour,
+the deadline clock origin and the scan lag is declined. They stay
+commissioning facts. (Ben, 2026-10-06)
+
+(decision-bump-dispatch-hold)=
+**Bump build dispatch**: the hold on the bump's explicit RPM build
+dispatch is lifted, and it lands as its own pull request. (Ben,
+2026-10-06)
+
+(decision-implementation-campaign)=
+**Implementation proceeds unattended**: implementation runs as one
+multi-step campaign in two lanes with a 24-hour cap. Supervisors merge
+their own pull requests on green CI, and steps deploy stacks parked as
+live proof. Nothing is armed, no production deploy is made, no host is
+touched and no token is created; the attended tail is handed to Ben in a
+handoff file. (Ben, 2026-10-06)
