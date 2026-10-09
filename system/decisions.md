@@ -9,6 +9,76 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's rulings of 2026-10-08 on the pipeline's Python environment, the
+rapid-python RPM, after a review of the environment. The infrastructure
+repository's rapid-python README states the design they produced.
+
+(decision-python-one-env)=
+**One environment**: the single-environment design holds. The Kafka
+client stays: kafka-python, aws-glue-schema-registry and
+aws-msk-iam-sasl-signer-python remain in the environment file.
+(Ben, 2026-10-08)
+
+(decision-python-version)=
+**Python version**: the environment moves to Python 3.13. If the
+conda-lock solve on 3.13 still fails after two corrective attempts, the
+environment falls back to 3.14 and the reason is recorded.
+(Ben, 2026-10-08)
+
+(decision-python-astroquery)=
+**astroquery**: a direct conda-forge entry in the environment file, not
+only a transitive dependency. (Ben, 2026-10-08)
+
+(decision-python-romancal-floor)=
+**romancal floor**: the pip block requires `romancal>=1.1`.
+(Ben, 2026-10-08)
+
+(decision-python-base-variants)=
+**Base variants**: matplotlib, photutils and astropy are taken as
+`matplotlib-base`, `photutils-base` and `astropy-base`. The lock showed
+what the full metapackages pull in and the pipeline never imports:
+pyside6 and qt6-main for matplotlib, rasterio and GDAL for photutils,
+ipydatagrid for astropy. (Ben, 2026-10-08)
+
+(decision-python-nexus-packages)=
+**Roman Research Nexus packages**: the environment carries what the team
+expects from the Nexus: sncosmo, healsparse, skyproj and ipympl from
+conda-forge, and astrocut from PyPI, where it is the only source.
+(Ben, 2026-10-08)
+
+(decision-python-build-on-change)=
+**Build on change**: the promoter builds the rapid-python RPM only when
+its inputs are new. A NEVRA that is already published, with unchanged
+tracked inputs, is taken from the published object instead of being
+rebuilt. A changed lock under an unchanged NEVRA still meets the
+immutable-NEVRA refusal. (Ben, 2026-10-08)
+
+(decision-python-spec-committed)=
+**Committed spec**: the rapid-python spec is a committed file, not
+generated. The spec generator, its block directory, the shared prep
+block and the generator's freshness check go. (Ben, 2026-10-08)
+
+(decision-python-import-list)=
+**One import list**: a single list of the environment's import names,
+read by every consumer: the offline-replay gate, the RPM smoke test, the
+fixtures and the re-lock's import proof. (Ben, 2026-10-08)
+
+(decision-python-relock)=
+**Re-lock cadence**: the environment is re-locked monthly on a schedule,
+and on any push to main that changes its environment file. The weekly
+bump no longer tracks it: the pin table's conda-lock row, its
+locked-inputs token and the bump's resolver and probe for it go. The
+re-lock pull request merges itself once validation is green on it and
+the re-lock job has proved that the new lock imports every module on
+the import list. This reopens the earlier rule that a re-lock is never
+merged automatically: the import proof is the gate that rule lacked.
+(Ben, 2026-10-08)
+
+(decision-python-envhouse-retirement)=
+**Envhouse retirement deferred**: the envhouse stays until build on
+change has run for a few releases. Until then the only change to it is
+the switch to the envhouse keyed by the lock's hash. (Ben, 2026-10-08)
+
 Ben's rulings of 2026-09-27 on the rebuild's open questions.
 
 (decision-trial-database)=
@@ -488,7 +558,9 @@ dispatch of every downstream build. The Python environment's resolve is
 a phase of the bump (conda-lock plus the offline-replay gate) and is no
 longer attended. (Ben, 2026-10-06; the weekly bump's day is superseded
 below by
-{ref}`the Wednesday transaction <decision-maintenance-redesign>`)
+{ref}`the Wednesday transaction <decision-maintenance-redesign>`; the
+Python environment's place in the bump is superseded above by
+{ref}`the monthly re-lock <decision-python-relock>`)
 
 (decision-one-builder)=
 **One builder and publisher**: the promoter builds every artefact derived
