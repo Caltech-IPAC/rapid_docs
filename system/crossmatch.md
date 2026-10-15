@@ -137,8 +137,9 @@ The rebuild's service login holds table grants only; three SECURITY
 DEFINER functions owned by `rapidporole` provide the table operations
 (migration `20260924-04`, EXECUTE granted by `-06`):
 
-- `create_field_object_tables(field)`: `dev`'s creation, unlogged,
-  owner `rapidporole`, its four indexes (`aid` on both, the Q3C position
+- `create_field_object_tables(field)`: `dev`'s creation, owner
+  `rapidporole`, logged where `dev`'s tables are unlogged (migration
+  `20261013-01`), its four indexes (`aid` on both, the Q3C position
   index on `astroobjects`, `sid` on `merges`) and its grants, plus the
   rebuild's run columns, set-scoped keys and `result_set`/`run` indexes.
   An advisory lock serialises two stages making the same pair. A table

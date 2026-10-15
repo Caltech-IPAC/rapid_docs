@@ -88,9 +88,10 @@ The stage runs in one transaction:
    without a disposition.
 3. Make `astroobjectsmeta_<field>` if it does not exist, through
    `create_astroobjectsmeta_child_table`. The function applies `dev`'s
-   fillfactor 70, unlogged storage, its `nsources` and Q3C `meanradec`
-   indexes and its grants, plus the rebuild's set-scoped UNIQUE and the
-   `run` and `result_set` indexes.
+   fillfactor 70, its `nsources` and Q3C `meanradec` indexes and its
+   grants, plus the rebuild's set-scoped UNIQUE and the `run` and
+   `result_set` indexes. The table is logged where `dev`'s is unlogged
+   (migration `20261013-01`).
 4. Query the membership:
 
    ```sql

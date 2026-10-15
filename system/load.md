@@ -88,8 +88,8 @@ EXECUTE granted by `-06`):
 
 - `create_sources_child_table(obs_date, sca)`: `dev`'s creation (`LIKE
   sources INCLUDING DEFAULTS INCLUDING CONSTRAINTS`, owner `rapidporole`,
-  unlogged, `INHERIT sources`), its eight indexes (`pid`, `expid`, `sca`,
-  `field`, `flags`, `mjdobs`, `sid`, and the Q3C position index), and its
+  `INHERIT sources`), its eight indexes (`pid`, `expid`, `sca`, `field`,
+  `flags`, `mjdobs`, `sid`, and the Q3C position index), and its
   grants to `rapidreadrole` and `rapidadminrole`, plus the rebuild's
   service login and `rapid_read` where those roles exist. An advisory
   lock serialises two loads making the same table. The function also
@@ -98,7 +98,11 @@ EXECUTE granted by `-06`):
   `run` for run deletion and by `result_set` for crossmatch. There is no
   per-child UNIQUE on `(pid, id, isdiffpos)`: scratch runs coexist over
   the same logical inputs by design, and the done check in `load`'s
-  inputs guards uniqueness within one run.
+  inputs guards uniqueness within one run. The table is logged, where
+  `dev` makes it unlogged (migration `20261013-01`): crash recovery
+  empties an unlogged table, and after rapid-db stopped uncleanly on
+  2026-10-02 the result sets still read complete with no rows behind
+  them, so re-running `load` did nothing.
 - `cluster_sources_child_table(obs_date, sca)`: `dev`'s CLUSTER on the
   position index and ANALYZE. The `maintain` stage calls it by default;
   `load` can call it per image through `[child_tables]
