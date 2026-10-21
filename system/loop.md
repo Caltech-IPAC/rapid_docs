@@ -2,6 +2,10 @@
 
 **Status: DRAFT**
 
+Parts of this page describe the run model that the [foundation](foundation)
+page replaced: units, attempts, custody, promotion, checks and releases.
+Where the two differ, the foundation page governs.
+
 `rapidpipe loop run` runs regular operations from one scheduled trigger;
 it is not a continuously running service. The
 [specification](specification)'s Sequencing item 7 states the requirement.
@@ -81,7 +85,7 @@ date's run records it. The run's code and the image its units execute
 therefore use the same tag, never a branch head. The release is the
 first tag cut at a rebuild head carrying the loop's code and migration,
 allocated by `next_tag` from the laptop using the
-[releases](releases) page's recipe.
+[foundation](foundation) page's recipe.
 
 ## The loop spec
 
@@ -260,7 +264,7 @@ exclusion keeps an inferior instance out of the chain a later date
 reads. Each field's record stores `base_promoted`, whether the date
 supplying its base had been promoted at bind time.
 
-Field discovery and base selection both obey the [products](products)
+Field discovery and base selection both obey the [foundation](foundation)
 page's cross-run reading rule. Field discovery reads a source set only
 after the rule passes; an unreadable own source set fails the date.
 A candidate base that fails the rule (another run's scratch set, or
@@ -276,7 +280,7 @@ field-level input selection. The tool page's question of which
 reference to use among several eligible ones remains open (below).
 
 A schedule's first date has no base. If field association sets for that
-sky are already current, the [runs](runs) page's association-set
+sky are already current, the [foundation](foundation) page's association-set
 ancestor rule refuses scheduler promotion until a chain switch to the
 earlier sets exists: the before instance must be reachable from the
 new set through `base`. A proof or new stream over the same sky
@@ -289,7 +293,7 @@ When every unit in a date's run is complete, the loop resolves the
 check policy from the spec, then the run, then the default. It checks
 the run's candidates and records each result as `scheduler`.
 `promote_run` is called only for a team-approved policy with
-`auto_promote` true, the same gate used by `run start` ([checks](checks),
+`auto_promote` true, the same gate used by `run start` ([foundation](foundation),
 "Automatic promotion"). No shipped policy permits this.
 
 Every scheduled date so far has used `rebuild-trial@1`, which leaves
@@ -303,7 +307,7 @@ which text was recorded.
 A candidate date still supplies the next date's base by instance; the
 next date's field entry `base_promoted` (Base catalog, above) records `false`.
 A person promotes candidates with `rapidpipe run promote`, in date
-order. The [runs](runs) page's ancestor rule refuses promotion of a
+order. The [foundation](foundation) page's ancestor rule refuses promotion of a
 later date's association set while the earlier date's run it depends
 on remains a candidate.
 
@@ -320,7 +324,7 @@ complete units, attaching to running attempts and re-attempting ready
 units. A `failed` row is skipped by default.
 
 For a failed date whose run has a failed or cancelled unit,
-`loop run --retry-failed` seeds a replacement run using the [runs](runs)
+`loop run --retry-failed` seeds a replacement run using the [foundation](foundation)
 page's `run create --seed <run> --only-failed` recovery. The date row
 points to the new run and retains the old id in `record.previous_runs`.
 The loop walks the date again, re-running only the seed's non-complete

@@ -2,6 +2,10 @@
 
 **Status: DRAFT**
 
+Parts of this page describe the run model that the [foundation](foundation)
+page replaced: units, attempts, custody, promotion, checks and releases.
+Where the two differ, the foundation page governs.
+
 An attempt's logs and database record show what failed and where time
 went. Every `rapidpipe` log line has one shape and goes to stderr;
 stdout carries only command data. Stages also publish a log file beside

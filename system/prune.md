@@ -2,11 +2,16 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 For one field, `prune` excludes association pairs whose sources came
 from difference images that are not best for their positions. It records
 the excluded pairs in a new table, `prunedmerges`. The resulting
 `pruned-set` is its base association set minus those pairs; the base is
-never mutated, and a stage never drops a table. The [products](products)
+never mutated, and a stage never drops a table. The [foundation](foundation)
 page fixes this vocabulary and rule: "A pruned set is its base association
 set minus an explicit list of excluded pairs ... the base is never mutated".
 
@@ -51,7 +56,7 @@ excludes nothing for a production run's own, not-yet-promoted images.
 A later `prune` attempt excludes pairs whose sources' difference images
 have since been superseded (reassigned to another run, still `vbest = 0`),
 as `dev`'s `vbest = 0` does once a newer image is promoted current.
-Promotion maintains `vbest` as a current-membership flag ([runs](runs)
+Promotion maintains `vbest` as a current-membership flag ([foundation](foundation)
 page), so both clauses are exercised now: the own-run clause keeps this
 run's images, and the `vbest` clause excludes a pair once another run's
 promotion supersedes its difference image.
@@ -127,7 +132,7 @@ retained pruned set already written in this run with the same key
 (same base and settings hash) and writes nothing. Reuse requires the
 producing attempt to be the calling attempt or to have disposition
 `succeeded` (`db/objects.find_complete_result_set`, joining `attempts`;
-the [runs](runs) page has the general rule).
+the [foundation](foundation) page has the general rule).
 
 A set left by an attempt that committed rows and then failed, or by
 another attempt still without a disposition, is not reused. A retry

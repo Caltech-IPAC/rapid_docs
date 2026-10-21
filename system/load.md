@@ -2,6 +2,11 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 The `load` stage reads the two Photutils PSF-fit catalogs, positive and
 negative, made by the difference stage for one registered difference
 image. It joins each to its finder catalog, rejects sources fitted
@@ -18,7 +23,7 @@ The stage lands on the pipeline repository's `rebuild` branch
 `rapidpipe/db/psfs.py`, migrations `20260923-04` to `-07`), ported from
 `dev`'s `pipeline/loadPSFCatIntoDBSourcesTable.py`. Every ported stage
 minimises differences from `dev` and designs in, off by default,
-anything that could be left unused. The [products](products) page fixes
+anything that could be left unused. The [foundation](foundation) page fixes
 the vocabulary used here. The `psf` registration block landed beside
 the stage and is described below.
 
@@ -184,7 +189,7 @@ committed rows and then failed, or if another attempt still has no
 disposition. The earlier rows remain the run's own but are unreachable:
 no later stage selects an unsucceeded attempt's output.
 `db/sources.find_complete_source_set` enforces this by joining
-`attempts`; the [runs](runs) page has the general rule.
+`attempts`; the [foundation](foundation) page has the general rule.
 
 ## Settings
 
@@ -215,7 +220,7 @@ replaced by the launcher and manifests.
 
 `register` records the field list below for the products page's `psf`
 kind (filter, detector, version) in `psfs`. Registration is through
-`psf-import`, the [runs](runs) page's import-run pattern. The block is
+`psf-import`, the [foundation](foundation) page's import-run pattern. The block is
 designed in and unused: `psf-import` is not built, nothing emits a
 `psf` entry yet, and the difference stage consumes its input `psf`
 entries without registering them.

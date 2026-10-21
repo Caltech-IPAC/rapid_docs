@@ -2,9 +2,14 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 `statistics` computes object positions, fluxes and source counts from a
 field's association set and records them in `astroobjectsmeta`. The
-[products](products) page fixes the vocabulary.
+[foundation](foundation) page fixes the vocabulary.
 
 The stage is ported from `dev`'s
 `pipeline/computeStatisticsForAstroObjects.py` onto the pipeline
@@ -82,7 +87,7 @@ The stage runs in one transaction:
    statistics set with the same key already written in this run only if
    its producer is the calling attempt or has disposition `succeeded`.
    The attempt-disposition join is
-   `db/objects.find_complete_result_set`; the [runs](runs) page has the
+   `db/objects.find_complete_result_set`; the [foundation](foundation) page has the
    general rule. A fresh attempt writes its own set if the earlier
    attempt committed rows then failed, or is another attempt still
    without a disposition.
@@ -194,7 +199,7 @@ replace them.
 
 Delivered statistics describe the association set, following `dev`'s
 order: crossmatch, statistics, prune. Pruned-set input is designed in
-but unused ([products](products) page): the key can already name either
+but unused ([foundation](foundation) page): the key can already name either
 kind of set. Enabling it later needs a settings change and the code
 behind it.
 

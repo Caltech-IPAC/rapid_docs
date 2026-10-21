@@ -9,6 +9,16 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's ruling of 2026-10-20 on the foundation. The
+[foundation](foundation) page states the design it opened.
+
+(decision-foundation-dev-prior-art)=
+**`dev`'s shapes are prior art**: the rule that the rebuild coexist with
+`dev`'s schema, and the principle that every port minimise its
+differences from `dev`, are revoked. `dev`'s table shapes and column
+names are kept where they cost nothing and the team's queries read
+them. (Ben, 2026-10-20)
+
 Ben's rulings of 2026-10-08 on the pipeline's Python environment, the
 rapid-python RPM, after a review of the environment. The infrastructure
 repository's rapid-python README states the design they produced.
@@ -144,25 +154,25 @@ makes them the team's; each page states the rule.
 
 - 2026-09-21: keep the `dev` schema: rename or drop nothing; add
   columns and tables where the vocabulary needs them
-  ([products](products)). The rebuild's schema coexists with `dev`'s and
-  writes it ([runs](runs)).
+  ([foundation](foundation)). The rebuild's schema coexists with `dev`'s and
+  writes it ([foundation](foundation)).
 - 2026-09-21: retain run records in full; deleting a run's data changes
-  state, not history ([runs](runs)).
+  state, not history ([foundation](foundation)).
 - 2026-09-21: current result sets are readable by any run as frozen
   inputs, by instance id; scratch result sets only within their own run
-  ([products](products)).
+  ([foundation](foundation)).
 - 2026-09-22: every ported stage minimises differences from `dev` and
   makes anything that could be left unused optional and off by default
   (every stage page). The catalog stage's detection member is per-differencer
   and recorded with the instance; `vbest` stays the query surface
-  ([products](products)).
+  ([foundation](foundation)).
 - 2026-09-22: all promotions take one transaction-scoped advisory lock
-  ([runs](runs)).
+  ([foundation](foundation)).
 - 2026-09-23: `dev`'s once-per-date CLUSTER and ANALYZE move to their
   own `maintain` stage ([maintain](maintain), [load](load)).
 - 2026-09-23: only one producer's frozen inputs bind at a time
-  ([runs](runs)); rebuild deletion and cleanup never touch anything
-  `dev` wrote ([runs](runs)).
+  ([foundation](foundation)); rebuild deletion and cleanup never touch anything
+  `dev` wrote ([foundation](foundation)).
 - 2026-09-23: no per-child UNIQUE on `(pid, id, isdiffpos)`; SFFT loads
   against its own `pid`; a psf instance's `version` equals the allocated
   legacy number and `psfs`' key stays global ([load](load)).
@@ -190,7 +200,7 @@ removes it here.
 - **Trial policy.** `rebuild-trial@1`'s `approval: trial` is a trial
   approval, not the team's sign-off; promotion refuses a policy with
   `approval: none`, and automatic promotion needs a team approval and
-  `auto_promote: true` ([checks](checks)). (2026-09-24, 2026-09-25)
+  `auto_promote: true` ([foundation](foundation)). (2026-09-24, 2026-09-25)
 - Every check records a row; one that raises records `failed`. (2026-09-24)
 - `catalog-counts-vs-reference@1` finds its reference by slot;
   `rebuild-trial@1` marks `difference-image-statistics` required and
@@ -235,7 +245,7 @@ removes it here.
   (2026-09-24)
 - Run deletion locks the run, verifies the owner, and refuses while a
   frozen input binding depends on it or a reference row would be
-  orphaned; the science-row cleanup set is fixed on [runs](runs).
+  orphaned; the science-row cleanup set is fixed on [foundation](foundation).
   (2026-09-24)
 - Every submission binds its input set before allocating the attempt.
   A name that resolves to nothing is logged, not refused. An unreadable
@@ -319,7 +329,7 @@ removes it here.
   ([stage-contract](stage-contract)) (2026-09-27)
 - **Running checks against a run.** That code lives in `rapidpipe.runs`,
   not `rapidpipe.checks`, since `checks` sits below `runs` in the layer
-  order. ([stage-contract](stage-contract), [runs](runs)) (2026-09-27)
+  order. ([stage-contract](stage-contract), [foundation](foundation)) (2026-09-27)
 - **`run --help` grouping.** `rapidpipe run --help` groups its
   subcommands under five titled sections, lifecycle, recovery,
   promotion, housekeeping and inspection ([tool](tool)); no subcommand
@@ -357,7 +367,7 @@ removes it here.
 
 ### Releases
 
-- [Releases](releases) defines the release command, tag form
+- [foundation](foundation) defines the release command, tag form
   (`rebuild-v0.<n>`, annotated, remote authoritative), and `releases`
   and `release_deployments` tables. Account-specific steps are hooks.
   Migrations are applied with recorded checksums before a cut records.
@@ -397,7 +407,7 @@ removes it here.
 
 (decision-slot-identity)=
 - **Association-set identity.** The slot-identity table on
-  [products](products) is the sole statement. An association set's
+  [foundation](foundation) is the sole statement. An association set's
   identity adds the field, crossmatch settings hash, sorted source-set
   identities, and a hash of its base's own identity; the proposal's shorter
   wording, which omitted the base, is withdrawn with the table copy it
@@ -406,7 +416,7 @@ removes it here.
 (decision-pending-sharing-rule)=
 - **Sharing rule widening.** The specification lets any run read
   *current* result sets and keeps scratch within its run; the eligibility
-  table on [products](products) also lets another run's stage read a
+  table on [foundation](foundation) also lets another run's stage read a
   *selected candidate*, whatever its check outcome. The team must decide
   whether selected candidates are readable across runs, then align the
   specification or the table. (2026-09-26)

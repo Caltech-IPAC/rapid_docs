@@ -154,7 +154,7 @@ These go beyond consistency: each removes a mechanism.
 - **One notion of "current".** `vbest` on the `dev` tables and
   `current_selection` both answer "which one do consumers see", and
   promotion maintains both. Consumers moving to `current_selection` is
-  already the recorded direction ([products](../system/products.md));
+  already the recorded direction ([foundation](../system/foundation.md));
   retiring `vbest` maintenance waits for the team's existing queries to
   move.
 - **The transitional cleanup grant.** The workstation role still carries
@@ -268,7 +268,7 @@ field per source changes no row count: it writes one column's value. The
 lead's approval of that stamping (2026-09-26) is recorded on
 [load](../system/load.md).
 
-Two consequences for the pages. [products](../system/products.md) says ZOGY
+Two consequences for the pages. [foundation](../system/foundation.md) says ZOGY
 registers "as in `dev`", but `dev`'s own run of 2026-08-09 registered its
 SFFT difference for this exposure; which differencer `dev` registers is a
 question for the lead. And the rebuild's execution records hold `{}` for

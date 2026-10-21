@@ -1,10 +1,10 @@
 # Operations: live processing, reprocessing and development together
 
 **Status: DRAFT, a proposal.** The team has not yet ruled on these
-operations proposals. Landed behaviour is on [loop](loop),
-[products](products), [runs](runs) and [checks](checks). This page changes
+operations proposals. Landed behaviour was on [loop](loop)
+and the run-model pages the [foundation](foundation) replaced. This page changes
 no code, schema or other page's rules. [Specification](specification),
-[runs](runs), [products](products) and [loop](loop) remain the design
+[foundation](foundation) and [loop](loop) remain the design
 authority; proposed changes identify the sentence they would change.
 
 ## What this page assumes about the mission
@@ -14,7 +14,7 @@ Edges). The recommendation depends on the following assumptions.
 
 - **Delivery manifest.** Each delivery arrives with a manifest naming, per
   file, the exposure, detector, delivered version and checksum: the
-  shape `admit` already reads ([products](products), the l2 image).
+  shape `admit` already reads ([foundation](foundation), the l2 image).
   RAPID discovers files by listing their delivery location; it does not
   need a message.
 - **Re-delivery signalling.** A corrected file carries a higher delivered
@@ -52,7 +52,7 @@ This shape is rejected.
 Changing the input set after creation loses the frozen provenance
 protected by the specification's Runs section. Whole-run promotion
 becomes meaningless, so every promotion is piecemeal. A release change
-puts two releases in one run, against [releases](releases)' "a run never
+puts two releases in one run, against the retired releases page's "a run never
 spans a release". `run create --seed
 --only-failed` seeds a replacement for all operations instead of one
 date. The per-date association base becomes a same-run read, skipping
@@ -73,7 +73,7 @@ identity: the `processing-date-loop` registry row, its spec and its
 The stream discovers unadmitted deliveries instead of reading them
 from the spec. A date may have several batches (Closure and latency);
 promotion supersedes by science slot (Replacement scope); publication
-follows [products](products), "Reading across runs", and its eligibility
+follows [foundation](foundation), "Reading across runs", and its eligibility
 table. Runs, units, attempts, custody, the promotion lock, release
 binding, recovery, the base-catalog rule, deletion and the scratch path
 stay unchanged.
@@ -94,7 +94,7 @@ the same mechanism as a new date.
 ## Replacement scope
 
 Promotion supersedes by science slot. Each kind's identity key and slot
-are on [products](products), "Identity". [Runs](runs), "Rules", defines
+were on the retired products page, "Identity"; its "Rules" defined
 slot replacement, including the rule that an `association-set`
 promotion replaces only an ancestor of the set it promotes.
 
@@ -190,7 +190,7 @@ others.
 
 The proposed `rebuild-production@1` requests `auto_promote = true`;
 team approval is pending. A policy is immutable once landed
-([checks](checks)), so its file must land in a team-approved pull
+([foundation](foundation)), so its file must land in a team-approved pull
 request carrying `approval = "team"` and `approved_by` set to the
 approver's login. Until then, its content exists only in the table below,
 with no file to edit. No other path raises a policy to `team`.
@@ -217,7 +217,7 @@ production batches under that ruling, not from `dev`.
 
 The catalog-count check stays advisory until earlier production runs
 provide current source sets for the same frames. It compares another
-run's source set, never a reference catalog ([checks](checks)).
+run's source set, never a reference catalog ([foundation](foundation)).
 
 ## Reference eligibility and selection
 
