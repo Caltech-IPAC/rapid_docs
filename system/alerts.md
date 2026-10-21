@@ -2,6 +2,11 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 The `alerts` stage builds an Avro container for one finalized difference
 image and records each alert in an outbox. It lands on the pipeline
 repository's `rebuild` branch
@@ -12,7 +17,7 @@ repository's `rebuild` branch
 `pipeline/produceAlertsForProcDate.py` and `alerts/` (schema
 `rapid.v00_04`). Every ported stage minimises differences from `dev` and
 leaves optional features designed in but off by default. The
-[products](products) page fixes the vocabulary; this page states how
+[foundation](foundation) page fixes the vocabulary; this page states how
 the stage meets it and amends two of its paragraphs below.
 
 ## In plain terms
@@ -176,7 +181,7 @@ pruned-set rule above.
 
 "Any result set" is restricted here to the source sets named by the
 association chains (each key's `source_sets`). Every history and
-association read must satisfy the [products](products) page's reading
+association read must satisfy the [foundation](foundation) page's reading
 rule: the source set must be complete, retained, and either the alerts
 run's own or `candidate`/`current` from a selected attempt. A chain
 naming a scratch or unselected source set exits 65. Only the named sets
@@ -300,7 +305,7 @@ cutout are small enough to share a block.
 `UNIQUE (instance, candidate)` is the row's own idempotency key, the
 same pair a rerun's recovery reads back.
 
-This amends the general locator description in [runs.md](runs)'s
+This amends the general locator description in [foundation](foundation)'s
 storage-layout paragraph: the locator is an Avro block plus the record's
 position within it and within the container.
 

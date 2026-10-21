@@ -2,6 +2,11 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 For one observation date and detector, `maintain` clusters the `sources`
 child table on its position index and analyzes it. It runs once, after
 the date's last `load` unit and before `crossmatch` reads the table, to
@@ -16,7 +21,7 @@ recluster the table on every load.
 The implementation is on the pipeline repository's `rebuild` branch:
 `rapidpipe/stages/maintain.py`, `rapidpipe/db/sources.py`'s
 `cluster_and_analyze`, and migration `20260924-02`. The
-[products](products) page fixes the vocabulary.
+[foundation](foundation) page fixes the vocabulary.
 
 ## Unit
 

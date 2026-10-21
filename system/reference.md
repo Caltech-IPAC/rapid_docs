@@ -2,6 +2,10 @@
 
 **Status: DRAFT**
 
+This stage still runs on the older contract ([stage-contract](stage-contract),
+"Stages on the older contract"). Where this page describes registration,
+custody, runs or promotion, the [foundation](foundation) page governs.
+
 The `reference` stage coadds already-admitted science frames for one
 field and filter with `awaicgen`, catalogs the coadd with SExtractor,
 and stamps bookkeeping keywords on the result. It ports `dev`'s chain
@@ -19,7 +23,7 @@ repository's `rebuild` branch as `rapidpipe/stages/reference.py`,
 `rapidpipe/science/reference/`, `rapidpipe/settings/reference.toml` and
 the packaged `cdf/rapidSex*RefImage*` files. Every ported stage
 minimises differences from `dev` and designs in, off by default,
-anything that could be left unused. The [products](products) page fixes
+anything that could be left unused. The [foundation](foundation) page fixes
 the vocabulary.
 
 ## Inputs
@@ -131,7 +135,7 @@ new product. Truncating the digest offers no benefit and adds collision
 risk, so the full digest is kept.
 
 `refimages.version` is a separate legacy per-(`field`, `fid`, `ppid`)
-counter, allocated at registration as [products](products) describes
+counter, allocated at registration as [foundation](foundation) describes
 for every legacy version column. `dev`'s unchanged `addRefImage`
 allocates `coalesce(max(version), 0) + 1` over the whole `refimages`
 table for that triple, across all runs. The row records `run`,
@@ -205,7 +209,7 @@ covers `refimages`; `20260924-09` drops the baseline schema's `NOT NULL`
 constraint on `refimmeta.npucatsources` before a null can be written.
 The three satellite tables have no run column and are reached only
 through their owning `refimages` row's `rfid`. That relationship alone
-does not provide deletion handling. The [runs](runs) page's deletion
+does not provide deletion handling. The [foundation](foundation) page's deletion
 section fixes cleanup of a scratch run's own reference, amending its
 cleanup-set sentence. Any needed stored function missing from the trial
 database is ported inline into the register code, as `sources.py`

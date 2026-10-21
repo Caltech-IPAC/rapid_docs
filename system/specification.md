@@ -2,6 +2,13 @@
 
 **Status: DRAFT**
 
+The [foundation](foundation) page states the record the rebuild is built
+on and the thin chain of stages over it. It replaces this page's Runs and
+Releases sections and the candidate checks: runs are recipes, jobs are
+executions, and official bindings changed in recorded groups take the
+place of units, attempts, custody, promotion, check policies and
+releases. Where the two pages differ, the foundation page governs.
+
 This specification replaces the earlier design corpus, retained in the
 repository's history. The team owns the design and every ruling recorded
 on the [decisions](decisions) page. The team reviews this page at the
@@ -222,7 +229,7 @@ A candidate becomes current only if its recorded image is a released
 artifact; tagging related source afterwards is not enough. Before
 operations move to a release, schema deployment documents migration
 order, compatibility with active runs, and recovery. The
-[releases](releases) page defines the mechanism, record and command.
+[foundation](foundation) page defines the mechanism, record and command.
 
 ## Edges
 
@@ -326,10 +333,10 @@ on the `rebuild` branch, documented here:
 | Part | Scope | Pages |
 |---|---|---|
 | 2 | Stage entrypoints | [stage-contract](stage-contract); [reference](reference), [difference](difference), [load](load), [maintain](maintain), [crossmatch](crossmatch), [statistics](statistics), [finalize](finalize), [alerts](alerts), [prune](prune), [export](export) |
-| 3 | Runs, attempts, the three output states | [runs](runs) |
+| 3 | Runs, attempts, the three output states | [foundation](foundation) |
 | 4 | Command-line tool | [tool](tool) |
-| 5 | Releases | [releases](releases) |
-| 6 | Candidate checks, promotion and recovery by hand | [checks](checks); recovery rules on [runs](runs) |
+| 5 | Releases | [foundation](foundation) |
+| 6 | Candidate checks, promotion and recovery by hand | [foundation](foundation) |
 | 7 | Scheduled processing-date loop | [loop](loop) |
 | 8 | Slower pipelines and exports | [reference](reference), [export](export) |
 
@@ -344,7 +351,7 @@ SMDC cutover; none is ADOPTED.
   The rebuild ships `rebuild-trial@1`, a trial-level policy requiring
   promotion by hand. A team-approved policy and whether it permits
   automatic promotion remain open
-  ([checks](checks) page).
+  ([foundation](foundation) page).
 - The boundary between mission-supplied data and RAPID-derived
   products, and what each side's retention and provenance owe.
 - Admission rules for duplicate, incomplete or corrected inputs: the

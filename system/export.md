@@ -2,10 +2,15 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 The `export` stage builds a HATS (Hierarchical Adaptive Tiling Scheme)
 source catalog from named, completed source sets and publishes it as one
 `catalog-export` instance through the manifest, like other stages'
-products. The [products](products) page fixes the vocabulary.
+products. The [foundation](foundation) page fixes the vocabulary.
 
 The stage lands on the pipeline repository's `rebuild` branch
 (`rapidpipe/stages/export.py`, `rapidpipe/settings/export.toml`,
@@ -164,7 +169,7 @@ never the unnamed set or the association set.
   `pipeline/generateLightCurveHATSCatalog.py`, not ported;
   `[export] catalog_type = "light-curves"` exits 64.
 - Delivery: where a `catalog-export` product is read from once made,
-  since [products](products) marks it "none; exported."
+  since [foundation](foundation) marks it "none; exported."
 - Catalog naming: `[hats] catalog_name` fixes one directory name per
   settings profile; how two exports of the same field and export type,
   or a real deployment serving several catalogs, would be named apart is

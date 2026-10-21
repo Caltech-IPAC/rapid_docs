@@ -2,6 +2,10 @@
 
 **Status: DRAFT**
 
+This stage still runs on the older contract ([stage-contract](stage-contract),
+"Stages on the older contract"). Where this page describes registration,
+custody, runs or promotion, the [foundation](foundation) page governs.
+
 The `difference` stage takes one detector image and the reference for
 its field, subtracts them with ZOGY exactly as the `dev` science pipeline
 does, and writes the difference, uncertainty and significance images
@@ -14,7 +18,7 @@ The stage lands on the pipeline repository's `rebuild` branch
 (`rapidpipe/stages/difference.py`, `rapidpipe/settings/difference.toml`,
 `rapidpipe/products/diffimage.py`, `rapidpipe/db/diffimages.py`). Every
 ported stage minimises differences from `dev` and designs in, off by
-default, anything that could be left unused. The [products](products)
+default, anything that could be left unused. The [foundation](foundation)
 page fixes the vocabulary and field list used here.
 
 ## Inputs

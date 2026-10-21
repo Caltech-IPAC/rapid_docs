@@ -2,9 +2,14 @@
 
 **Status: DRAFT**
 
+The module this page describes was retired from the `rebuild` branch with
+the run model. The [foundation](foundation) page states what replaced it;
+this page stays as the record of the port until the replacement's own page
+supersedes it.
+
 `crossmatch` assigns newly loaded sources to astronomical objects and
 records the associations in `astroobjects_<field>` and `merges_<field>`.
-The [products](products) page fixes the vocabulary.
+The [foundation](foundation) page fixes the vocabulary.
 
 ## In plain terms
 
@@ -236,7 +241,7 @@ recorded disposition. It does not reuse a different attempt's set if
 that attempt committed rows and then failed, or still has no disposition.
 Those rows stay the run's own, but a fresh attempt writes a fresh set.
 The check uses `db/objects.find_complete_result_set`, joining `attempts`;
-the [runs](runs) page has the general rule. The gap between a committed
+the [foundation](foundation) page has the general rule. The gap between a committed
 write and a published manifest remains a stage-contract matter, not
 closed here.
 

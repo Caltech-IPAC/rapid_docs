@@ -2,6 +2,10 @@
 
 **Status: DRAFT**
 
+This stage still runs on the older contract ([stage-contract](stage-contract),
+"Stages on the older contract"). Where this page describes registration,
+custody, runs or promotion, the [foundation](foundation) page governs.
+
 The `finalize` stage stamps a difference image's header and republishes
 its bundle as new instances. It lands on the pipeline repository's
 `rebuild` branch
@@ -10,7 +14,7 @@ its bundle as new instances. It lands on the pipeline repository's
 ported from `dev`'s post-processing pipeline, `ppid` 17
 (`pipeline/awsBatchSubmitJobs_runSinglePostProcPipeline.py`). Every
 ported stage minimises differences from `dev` and leaves optional
-features designed in but off by default. The [products](products) page
+features designed in but off by default. The [foundation](foundation) page
 fixes the vocabulary.
 
 ## In plain terms

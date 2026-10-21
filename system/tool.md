@@ -2,6 +2,11 @@
 
 **Status: DRAFT**
 
+Parts of this page describe the run model that the [foundation](foundation)
+page replaced: units, attempts, custody, promotion, checks and releases.
+Where the two differ, the foundation page governs; its "The verbs" section
+lists the commands the tool has today.
+
 `rapidpipe` is the team's single command-line tool, shipped in the
 pipeline repository and already the image's entrypoint for stage
 invocations. It meets the [specification](specification)'s Tools
@@ -19,19 +24,19 @@ arguments keep their names.
 
 | Operation | Subcommand |
 |---|---|
-| Create a run | `run create` (`--seed <run>` records lineage only: it inherits no settings and no input references from the seeding run, unless paired with `--only-failed`, which makes it a recovery run over the seed's non-complete units instead (the [runs](runs) page has the mechanics); `--release <tag>` is the [releases](releases) page's; `--auto-promote --check-policy P` is refused unless P permits automatic promotion (the [checks](checks) page has the gate)) |
+| Create a run | `run create` (`--seed <run>` records lineage only: it inherits no settings and no input references from the seeding run, unless paired with `--only-failed`, which makes it a recovery run over the seed's non-complete units instead (the [foundation](foundation) page has the mechanics); `--release <tag>` is the [foundation](foundation) page's; `--auto-promote --check-policy P` is refused unless P permits automatic promotion (the [foundation](foundation) page has the gate)) |
 | Start a stage or the whole loop | `run start` |
 | Rerun part of a run | `run start --stage <stage>` |
-| Watch progress | `run status [--watch]`, `run show` (a `state:` block at the end, after `units:`, `attempts:` and any `promotions:`; the [checks](checks) page has the states), `run timings [--stage S] [--json]` (queue, execution and orchestration time per attempt; the [observability](observability) page) |
+| Watch progress | `run status [--watch]`, `run show` (a `state:` block at the end, after `units:`, `attempts:` and any `promotions:`; the [foundation](foundation) page has the states), `run timings [--stage S] [--json]` (queue, execution and orchestration time per attempt; the [observability](observability) page) |
 | Cancel and restart from failure | `run cancel <attempt>`, then `run start` |
 | List and compare runs | `run list`, `run compare <a> <b>` (each `instance` line carries the slot column beside the provenance key) |
-| Promote a candidate | `run promote --check-policy P` (defaults to the run's own `check_policy_ref`, then `rebuild-trial@1`); `run promote-plan <run>` prints the run's slot groupings as a frozen plan, without promoting; `run promote <run> --plan <file>` applies that plan, refusing (exit 1) if the current selection or the run's candidates have moved since, or refusing (exit 64) if the file is not a non-empty JSON list of `{kind, slot, before, after}` entries (JSON `null` included); `run rollback` ([checks](checks) page has the gate) |
+| Promote a candidate | `run promote --check-policy P` (defaults to the run's own `check_policy_ref`, then `rebuild-trial@1`); `run promote-plan <run>` prints the run's slot groupings as a frozen plan, without promoting; `run promote <run> --plan <file>` applies that plan, refusing (exit 1) if the current selection or the run's candidates have moved since, or refusing (exit 64) if the file is not a non-empty JSON list of `{kind, slot, before, after}` entries (JSON `null` included); `run rollback` ([foundation](foundation) page has the gate) |
 | Delete scratch | `run delete`, `run expire`, `run pin` / `run unpin` |
-| One unit by hand | `run submit`, `run reconcile` (`--resolve-jobless [--older-than SECONDS]` records a job-less attempt `lost`; the [runs](runs) page has the mechanics), `run local` |
-| Verify a candidate | `check list`, `check run`, `check show` (the check commands below; the [checks](checks) page) |
+| One unit by hand | `run submit`, `run reconcile` (`--resolve-jobless [--older-than SECONDS]` records a job-less attempt `lost`; the [foundation](foundation) page has the mechanics), `run local` |
+| Verify a candidate | `check list`, `check run`, `check show` (the check commands below; the [foundation](foundation) page) |
 | A stage directly | `stage run <name> …` (a synonym of `stage <name> …`, the frozen invocation form the container's entrypoint calls), `stage list`, `stage describe <name>` |
 | Fixtures | `selftest --stage <name>`, one of `reference`, `difference`, `finalize`, `load`, `maintain`, `crossmatch`, `alerts`, `statistics`, `prune`, `export`; `admit` and `register` have no fixture |
-| Releases | `release cut\|show\|list\|verify` (the release commands below; the [releases](releases) page) |
+| Releases | `release cut\|show\|list\|verify` (the release commands below; the [foundation](foundation) page) |
 | The processing-date loop | `loop run\|plan\|show` (the loop commands below; the [loop](loop) page) |
 
 `rapidpipe run --help` groups the subcommands above under five titled
@@ -72,7 +77,7 @@ restarts one attempt by hand.
 A run created with `--release <tag>` submits to that release's recorded
 job-definition revisions rather than the current pins. Its outputs are
 promotable without the unreleased-image exception
-([releases](releases) page).
+([foundation](foundation) page).
 
 Each stage resolves inputs in this order: explicit command-line
 `--inputs`, a `--template` composed through `run inputs` (below), then
@@ -128,7 +133,7 @@ for a network error.
 Binding is idempotent per (unit, instance), so a retry or seeded
 `--only-failed` re-run binds nothing new. The unit becomes a live
 consumer of its declared inputs at submission, before producing an
-output that depends on them ([runs](runs) page, "Units", "Deletion").
+output that depends on them ([foundation](foundation) page, "Units", "Deletion").
 
 This resolves an explicit whole input set. Which reference a field
 should use among several eligible ones remains open (below).
@@ -210,7 +215,7 @@ unaffected.
   among several eligible ones): still open, and not resolved by the
   [loop](loop) page's own field-level binding either.
 - The automatic check gate `run promote` consults is on the
-  [checks](checks) page; the team-approved policy content behind it is
+  [foundation](foundation) page; the team-approved policy content behind it is
   scientific and stays undecided there.
 - Removal of the transitional direct cleanup attachment on the
   workstation role, once the assumed-role path is proven.
