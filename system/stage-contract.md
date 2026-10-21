@@ -31,13 +31,13 @@ import package `rapidpipe`. The word `rapid` alone means the project.
 | `rapidpipe.foundation` | The operations over `database/schema.sql`: runs and jobs, `change` and `undo`, `publish`, the stage contract (`JobContext`, `run_job`), and reading and writing `file://` and `s3://` prefixes. |
 | `rapidpipe.stages` | One module per stage. |
 | `rapidpipe.launch` | Submitting a recorded job to Batch. |
-| `rapidpipe.selftest` | The packaged fixtures of the stages still on the older contract, and the runner that drives them. |
+| `rapidpipe.selftest` | The packaged fixture of `finalize`, the runner that drives the stages still on the older contract, and the fake toolkits the `reference` and `difference` unit tests use. |
 | `rapidpipe.cli` | The command-line tool: parses the command line and prints, with no orchestration of its own. |
 
 A unit test enforces the dependency order across every module,
 including lazy and relative imports: a unit imports only units strictly
-below it. From lowest to highest: the leaf modules (`exitcodes`, `log`,
-`revision`, `seams`, with no `rapidpipe` import), `products`, then
+below it. From lowest to highest: the leaf modules (`exitcodes`, `log`
+and `revision`, with no `rapidpipe` import), `products`, then
 `db`, `science` and `foundation` (which do not import one another),
 `stages`, `launch`, `selftest`, then `cli`. A stage module never imports
 another stage module.
@@ -49,8 +49,11 @@ another stage module.
 A stage is `rapidpipe/stages/<name>.py` with one function,
 `run(job: JobContext) -> None`. The stage named `import` lives in
 `import_products.py`, since `import` is a Python keyword. The stages on
-this contract are `import`, `associate` and `packet`; the
-[foundation](foundation) page describes each.
+this contract are `import`, `reference`, `difference`, `associate` and
+`packet`; the [foundation](foundation) page describes each. A stage
+that needs a C tool (awaicgen, SExtractor, SWarp, ZOGY, SFFT) gets it
+from a `toolkit()` function in its module, which its unit tests
+replace with fakes.
 
 `JobContext` carries:
 
@@ -111,17 +114,25 @@ way of running a stage goes through it:
   [--inputs JSON] [--expects JSON] [--excludes JSON]` records the job
   and runs it in this process;
 - `rapidpipe job run --job <id>` runs an existing job's next attempt;
-- `rapidpipe job submit` records the job and submits one Batch job
-  whose command is `rapidpipe job run --job <id>`.
+- `rapidpipe job submit ... --job-definition <name:revision>` records
+  the job and submits one Batch job to the queue in
+  `RAPIDPIPE_BATCH_JOB_QUEUE`, whose command, after the image's
+  `rapidpipe` entrypoint, is `job run --job <id>`.
 
 `run_job` reads the job and stops at once, touching no file, if it is
 already published. Otherwise it claims the next attempt, marks the job
-`running` with its start time, closes its connection, and calls the
-stage's `run(job)`. Under an `s3://` outputs root the stage writes into
-a local working directory, which is uploaded to the attempt's prefix,
-manifest last, before publication. Then it calls `publish` and records
-the end time and exit code. Batch runs one attempt at a time; two
-concurrent attempts of one job are not supported on `s3://`.
+`running` with its start time and, from `RAPID_IMAGE_DIGEST`, the image
+digest the job definition pins (none from a checkout), closes its
+connection, and calls the stage's `run(job)`. Under an `s3://` outputs
+root the stage writes into a local working directory, which `put`
+uploads to the attempt's prefix, manifest last, before publication.
+Then it calls `publish`, records the end time and exit code, and
+returns the publisher's result with `peak_rss_kib`: the peak resident
+memory of the Python process and of its largest finished child. Batch
+runs one attempt at a time; two concurrent attempts of one job are not
+supported on `s3://`. The [foundation](foundation) page states how the
+prefix functions behave and how a commit gets its image and job
+definition.
 
 ### Exit codes
 
@@ -137,18 +148,25 @@ Batch resubmission of it, and lands in a new attempt.
 
 ## Stages on the older contract
 
-`admit`, `reference`, `difference` and `finalize` still run as
-`rapidpipe stage <name> --run --unit --attempt --inputs --outputs
-[--settings] [--dry-run]`, through the shared runner `run_stage` in
-`rapidpipe/stages/contract.py`, with their default settings under
-`rapidpipe/settings/<name>.toml` and their fixtures under `rapidpipe
-selftest`. They write files and a manifest but publish nothing, and
-their exit codes are the six of `STAGE_EXIT_CODES` (0, 64, 65, 69, 70,
-75). Each moves to `run(job)` when it is ported, declaring the rows its
-registration block carries today (`l2files`, `refimages` with its
-children, `diffimages`, `psfs`, and for `difference` the `sources` set)
-as Parquet outputs, and computing limiting magnitude, overlapping
-fields and sky indices before publication.
+`admit` and `finalize` still run as `rapidpipe stage <name> --run
+--unit --attempt --inputs --outputs [--settings] [--dry-run]`, through
+the shared runner `run_stage` in `rapidpipe/stages/contract.py`, with
+their default settings under `rapidpipe/settings/<name>.toml` and
+`finalize`'s fixture under `rapidpipe selftest`. They write files and a
+manifest but publish nothing, and their exit codes are the six of
+`STAGE_EXIT_CODES` (0, 64, 65, 69, 70, 75). They cannot run on Batch:
+`job submit` runs only `run(job)` stages. Each moves to `run(job)` when
+it is ported, declaring the rows its registration block carries today
+(`l2files` for `admit`, a `diffimages` row for `finalize`) as Parquet
+outputs, and computing
+limiting magnitude, overlapping fields and sky indices before
+publication.
+
+`reference` and `difference` ported the same way, and the port set the
+pattern: the module's settings file becomes the stage's table in the
+run's body, its old entry point, selftest module and fixtures are
+deleted rather than kept beside the new one, and the science modules
+keep their `# ported-from:` pins on `dev`.
 
 ## What this replaces
 
@@ -162,6 +180,5 @@ stages (`register`, `load`, `maintain`, `crossmatch`, `statistics`,
 
 ## Not decided here
 
-- The port of `reference` and `difference` to `run(job)`, and how
-  `dev`'s later changes to differencing are taken in first.
+- The port of `admit` and `finalize` to `run(job)`.
 - The C tool packaging beneath `rapidpipe.science`.

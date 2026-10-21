@@ -2,9 +2,11 @@
 
 **Status: DRAFT**
 
-This stage still runs on the older contract ([stage-contract](stage-contract),
-"Stages on the older contract"). Where this page describes registration,
-custody, runs or promotion, the [foundation](foundation) page governs.
+This page describes the stage as ported to the older contract. It now
+runs on the foundation's `run(job)` contract, which the
+[foundation](foundation) page's `reference` section states; where this
+page describes registration, custody, runs or promotion, that page
+governs.
 
 The `reference` stage coadds already-admitted science frames for one
 field and filter with `awaicgen`, catalogs the coadd with SExtractor,

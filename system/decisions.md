@@ -9,6 +9,15 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's ruling of 2026-10-21 on the SMDC step. The
+[foundation](foundation) page states the procedure it shaped.
+
+(decision-smdc-prototype)=
+**SMDC is a prototype**: the foundation's move onto SMDC needs no
+attended migration, no backup before the schema is replaced and no
+fence on the pooler; it proceeds as far as the plan allows.
+(Ben, 2026-10-21)
+
 Ben's ruling of 2026-10-20 on the foundation. The
 [foundation](foundation) page states the design it opened.
 

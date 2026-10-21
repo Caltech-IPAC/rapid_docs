@@ -2,9 +2,11 @@
 
 **Status: DRAFT**
 
-This stage still runs on the older contract ([stage-contract](stage-contract),
-"Stages on the older contract"). Where this page describes registration,
-custody, runs or promotion, the [foundation](foundation) page governs.
+This page describes the stage as ported to the older contract. It now
+runs on the foundation's `run(job)` contract, which the
+[foundation](foundation) page's `difference` section states; where this
+page describes registration, custody, runs or promotion, that page
+governs.
 
 The `difference` stage takes one detector image and the reference for
 its field, subtracts them with ZOGY exactly as the `dev` science pipeline
