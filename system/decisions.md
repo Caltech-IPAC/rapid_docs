@@ -9,6 +9,26 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's rulings of 2026-10-21 evening on the instance type and the plan
+in force. The [foundation](foundation) page states the design they
+shaped, and the [stage contract](stage-contract) page the execution
+record.
+
+(decision-instance-type)=
+**The instance type is recorded and no family is pinned**: every job
+records the instance type it ran on beside its image digest, and the
+compute environment is not pinned to one instance family.
+(Ben, 2026-10-21 20:41 PDT)
+
+(decision-hlwas-direction)=
+**The exercised HLWAS pipeline is the plan in force**: the direction
+question is set aside; the plan is a heavily exercised pipeline from
+ASDF intake through Kafka publication, with the data entirely within
+SMDC and nothing imported from another centre, starting with the SOC
+HLWAS simulation without source injection, and iterating and ramping
+once it runs end to end. The test is that the chain has the right
+shape and functions on simple data. (Ben, 2026-10-21 20:50 PDT)
+
 Ben's rulings of 2026-10-21 on the night through the chain. The
 [foundation](foundation) page states the design they shaped, and the
 [stage contract](stage-contract) page the retry and the PSF input.

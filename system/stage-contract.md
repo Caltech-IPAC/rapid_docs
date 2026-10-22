@@ -125,7 +125,9 @@ way of running a stage goes through it:
 `run_job` reads the job and stops at once, touching no file, if it is
 already published. Otherwise it claims the next attempt, marks the job
 `running` with its start time and, from `RAPID_IMAGE_DIGEST`, the image
-digest the job definition pins (none from a checkout), closes its
+digest the job definition pins (none from a checkout) and beside it the
+instance type from the instance's metadata service (none when it does
+not answer), closes its
 connection, and calls the stage's `run(job)`. Under an `s3://` outputs
 root the stage writes into a local working directory, which `put`
 uploads to the attempt's prefix, manifest last, before publication.
@@ -141,8 +143,8 @@ definition.
 
 | Code | Meaning |
 |---|---|
-| 0 | The job was published, or was already published |
-| 1 | The job was published, but its automatic binding was refused; its rows are an unbound candidate |
+| 0 | The job was published, or was already published; or it was published and its automatic binding was refused only because its run is not live, the refusal on its row and on standard error |
+| 1 | The job was published, but its automatic binding was refused for another reason, such as an expected binding no longer open; its rows are an unbound candidate |
 | 64 | Usage: bad arguments, no outputs root, or a stage with no `run(job)` |
 | 70 | The stage or the publication raised; the job is marked `failed` |
 | 75 | The database could not be reached after the connection's own retries: a temporary dependency failure |
@@ -184,8 +186,9 @@ This contract replaces the run model's stage invocation: the
 checks before a stage reads, `register` writing rows from manifests,
 and stages writing catalog rows themselves. The run model's database
 stages (`register`, `load`, `maintain`, `crossmatch`, `statistics`,
-`prune`, `alerts`, `export`) were retired with its schema; `import`,
-`associate` and `packet` replace the ones the thin chain needs.
+`prune`, `alerts`, `export`) were retired with its schema; `intake`,
+`import`, `associate` and `packet` replace the ones the thin chain
+needs.
 
 ## Not decided here
 

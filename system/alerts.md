@@ -311,6 +311,11 @@ position within it and within the container.
 
 ## Kafka
 
+The foundation publishes packets to Kafka with its own verb, `rapidpipe
+publish`, after the packet stage; the [foundation](foundation) page
+states it under Publication to Kafka. What follows is the retired
+stage's record.
+
 `[publish] kafka` defaults to `false`. Setting it `true` exits 64,
 "Kafka publication is not enabled in this build": the same refusal
 `dev`'s own pipeline path takes, since `dev` never constructs a Kafka
