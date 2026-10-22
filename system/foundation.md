@@ -11,8 +11,9 @@ package `rapidpipe.foundation`, the stages `import`, `reference`,
 `scripts/read_packets.py` and the queries in `database/queries.sql`.
 The [stage contract](stage-contract) page states what a stage is under
 it, and the [decisions](decisions) page records the rulings it rests
-on. The chain has run end to end on SMDC's database and AWS Batch; the
-last two sections give the procedure and what it measured.
+on. The chain has run end to end on SMDC's database and AWS Batch over
+one field's whole night, 69 epochs; the last sections give the
+procedure, the checks the night met and what it measured.
 
 ## In plain terms
 
@@ -73,7 +74,7 @@ distinct live streams:
 | `exposures` | dataset, expid | `exposures` |
 | `l2files` | dataset, expid, sca, fid | `l2files` |
 | `diffimages` | dataset, expid, sca, fid | `diffimages` |
-| `psfs` | dataset, fid, sca | `psfs` |
+| `psfs` | dataset, fid, sca, kind | `psfs` |
 | `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
 | `sources` (source set) | dataset, expid, sca, fid | `sources` |
 | `objects` (object set) | dataset, survey, field | `objects`, with child `memberships` |
@@ -87,7 +88,11 @@ exactly one key of that set's product.
 
 The pipeline id that `dev` carries in nearly every image query is not
 in any key: a run has one differencer, and a second differencer is
-another run.
+another run. A PSF's kind is in its key, `science` or `reference`
+({ref}`ruling <decision-psf-kind>`): the science image's PSF and the
+reference image's PSF of one filter and SCA are different products,
+which the key without the kind merged. `dev`'s `psfs` has no such
+column; this is the identity rule applied.
 
 ### Inputs are chosen at launch and recorded
 
@@ -146,7 +151,8 @@ and returns. The publisher then, serialised on the job's row:
    opens the job's; otherwise it rolls back to the savepoint and records
    the refusal on the job;
 5. commits, all of the above in one short transaction, then runs
-   `ANALYZE` on the tables it loaded.
+   `ANALYZE` on the tables it loaded, and on `official` when its
+   binding wrote there.
 
 A refused job's rows stay published as an unbound candidate, visibly,
 and a later change group can bind them. A retry finds its job published
@@ -296,8 +302,9 @@ read.
 **One schema file, applied fresh.** `schema.sql` holds every table,
 view and operation, with the q3c extension and its indexes in a block
 that continues where q3c is absent, as on a developer's container. The
-apply is one `psql -f`. There is no migration machinery until the first
-change after real data; from then on changes are incremental SQL.
+apply is one `psql -f`. There is no migration machinery: the PSF kind
+was the first change after real data, and it and every later change
+are incremental SQL run once.
 
 Immutability is of published rows and their bytes, not of every field:
 bindings close and job state changes. Retention is deferred, and its
@@ -352,9 +359,18 @@ records the job, then submits one Batch job whose command is `job run
 --job <id>`, with the outputs root (which must be `s3://`) in the
 container's environment; the job definition's parameter tree names the
 database. The container runs one attempt and publishes it, exactly as
-`job run` does on a host. A retry is the same Batch request submitted
-again: `job run` stops on a published job and otherwise takes the next
-attempt. Running the job records the job definition's image digest on
+`job run` does on a host. Batch retries exit 75 and nothing else
+({ref}`ruling <decision-batch-retry>`): the job definition allows three
+attempts, the first run and two retries, and its rules retry on exit
+75, the stage contract's temporary dependency failure, and end the job
+on any other exit code or on a failure with no exit code, such as a
+reclaimed instance. Exits 64, 65 and 70 are faults a retry would only
+repeat. A retry after a late commit is safe because `job run` stops on
+a published job and otherwise takes the next attempt. Batch places a
+retry within seconds, with no backoff, so the three attempts ride out a
+database outage only as long as the connection's own retries inside
+each attempt, about 8 s each. A job can still be resubmitted by hand,
+the same Batch request again. Running the job records the job definition's image digest on
 the job row, and its printed result carries the peak resident memory
 of the stage's process and of its largest child, which is how a
 toolkit binary's memory is seen; Batch itself reports no memory figure.
@@ -378,7 +394,7 @@ image. Each simplification keeps the shape of the full stage.
 |---|---|---|---|
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `reference` | the field's `l2files` rows for one filter and SCA | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, the science PSF and the reference PSF; the cap on sources | the ZOGY difference image and the files `packet` reads beside it, SFFT and naive as `dev` runs them; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and one `psfs` row of each kind, `science` and `reference`; the cap on sources | the ZOGY difference image and the files `packet` reads beside it, SFFT and naive as `dev` runs them; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
 | `associate` | the epoch's source sets for the field and its eight neighbours; the predecessor object set, or none; the exclusions | `objects.parquet` (every object of the field, id carried forward or position-hashed, founding position, sufficient sums) and `matches.parquet` (this epoch's memberships) | `rubrat`, `sumrat`; field parallelism |
 | `packet` | the epoch's source set; the object set to use, and through it its chain and exclusions; the window's difference and science images with their PSFs; the predecessor packet sets; the Gaia product; the reference and its mosaic catalog | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet` | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
@@ -397,46 +413,21 @@ a source set's job binds one key. The kept sources are mapped onto the
 `sources` columns with the old load stage's join, and their HEALPix and
 tessellation columns are computed. A row's `filename` is the URL of the
 copy under the job's prefix; every file is reached through its row.
+A PSF's `psf` scope declares its kind; the stage reads the file's
+`PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
+before any manifest if it names the other kind. A file with no keyword
+imports under the declared kind, and the manifest says so.
 
-### reference
+### reference and difference
 
-`reference` coadds the L2 images its job names into one reference for
-a field, filter and SCA, with `dev`'s steps in `dev`'s order: each
-frame reformatted and scaled to the filter's zero point, the awaicgen
-mosaic with its coverage and uncertainty maps, the coverage and image
-measurements `dev` keeps, SExtractor on the mosaic, and a header stamp
-naming the run, job, attempt and stage. Frames are coadded in order of
-observation time; fewer than `min_frames` fails the job, and frames
-past `max_frames` are left out and named in the manifest.
-
-The stage draws the reference's `rfid` from the table's own sequence
-while it reads its inputs, so the member and catalog rows carry it
-before publication. That `rfid` is the foundation's; an imported
-reference keeps the source system's id as an import-only value. The
-mosaic carries the filter's zero point as `MAGZP` (26.863 for W146),
-where the imported reference from `dev`'s August run carries the scalar
-fallback, 17.0.
-
-### difference
-
-`difference` subtracts one epoch's L2 image from the reference its job
-names, with ZOGY, and runs SFFT and the naive subtraction beside it as
-`dev` does. The science was refreshed from `dev` before the port: the
-image FWHM from point sources, the reference background subtracted by
-the science image's background estimator, the detection overrides of
-the SFFT and naive catalogs, SFFT's coverage mask, and `dev`'s current
-SExtractor tables. Gain matching reads the reference's zero point from
-its own `MAGZP`, so an imported and a coadded reference both work.
-
-ZOGY needs two PSFs, the science image's and the reference image's.
-Both are `psfs` rows under the same key, and the stage tells them apart
-by the `PSFKIND` keyword in each file, failing unless there is exactly
-one of each. A run has one differencer, so only the ZOGY image is
-published as a `diffimages` row; the SFFT and naive files stay under
-the prefix for diagnosis. The `sources` set is the ZOGY positive PSF-fit
-catalog, capped at `max_sources` by flux over its error (0 keeps every
-source), through the same mapping the import uses. A missing catalog
-publishes an empty set with its outcome bit set in `infobitssci`.
+The [reference](reference) page states `reference`: its scope (field,
+filter and SCA), the `l2files` rows it coadds in `dev`'s order, the
+three tables it declares with the `rfid` it draws, and its settings.
+The [difference](difference) page states `difference`: its scope (one
+epoch's key), its four inputs (the L2 row, a reference, and one PSF of
+each kind), the ZOGY image and source set it declares with the `pid` it
+draws, and its settings. A run has one differencer, so only the ZOGY
+image is published; the SFFT and naive files stay under the prefix.
 
 ### associate
 
@@ -511,7 +502,8 @@ cap `max_sources` (500); `associate.match_radius` (1.528e-05 degrees),
 and `[difference]` carry `dev`'s ini sections as subtables, one per
 section, with `dev`'s values (`min_frames` 2 and `max_frames` 25 among
 them); `[difference]` adds `max_sources` (500) with the import's
-meaning. The paths in those tables are the pipeline image's; a run
+meaning, and `[difference.statistics] clip_correction_seed` (0) makes
+the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
 never settings: the import's source directory is its job's scope and
 the outputs root is the environment's.
@@ -564,7 +556,7 @@ minutes. The same observations on synthetic rows run in CI under
 
 The SMDC database `rapid` holds the foundation in its `public` schema,
 and the pipeline repository's `docs/foundation-smdc-step.md` is the
-procedure, one command and then its check per step. It has five parts.
+procedure, one command and then its check per step. It has six parts.
 
 **The schema.** `public` is dropped and recreated from `schema.sql` in
 one transaction, through the pooler, as the database owner. Everything
@@ -604,104 +596,218 @@ row count is unchanged except `official`'s, so nothing is deleted.
 **Uncapped.** The same chain at `max_sources = 0`, against the same
 reference, measured per stage, then its own change group and undo.
 
+**The night.** The sixth part takes one field's whole simulated night,
+69 epochs of one SCA in one filter, through the chain twice: once in
+the shape of the live loop and once as a campaign, then makes the
+campaign official and exercises the operations on it.
+
+- *The PSF kind and the read role* went in as the first incremental
+  SQL, in one transaction as the database owner: the `kind` column,
+  each existing row's kind read from its file's keyword, the check
+  constraint, the unique key and the view replaced, and the kind
+  backfilled into the stored keys of `official` and `job_inputs`, which
+  compare a key as a whole. The reference PSF, unbound until then
+  because its key collided with the science PSF's, was bound by one
+  group. The team's read role gained `SELECT` on every table and view
+  of `public`, and the same by default on anything created later
+  ({ref}`ruling <decision-read-role>`).
+- *The cutover* was one change group of two rows: it closed the
+  baseline run's live binding and opened one for a new run, created
+  not live a moment before. Every product binding stayed on the
+  baseline's jobs, because a cutover carries only what it names.
+- *The live loop* imported the night's 67 further epochs under the new
+  live run, one host job per epoch in order of `mjdobs`, each bound by
+  the publisher as it landed. `associate` and `packet` then ran on
+  Batch for each epoch in turn: each `associate` named the current
+  official object set as its predecessor, and each `packet` named the
+  earlier packet sets' `forced.parquet` among its inputs, since a set's
+  forced rows cover only the objects that triggered in it. All 134 jobs
+  succeeded on their first attempt and were bound automatically. The
+  night's last object set holds 1,504 objects with 2,547 memberships
+  across 69 sets, and 69 packet sets hold 2,488 packets, all read clean
+  by the reader.
+- *The campaign*, a run that is not live and keeps every source,
+  coadded a reference from the night's first 25 epochs (none of the
+  25 frames of `dev`'s reference is in the night), differenced all 69
+  epochs on Batch at once and one epoch a second time, and ran
+  `associate` and `packet` over the first five epochs. Everything
+  published unbound.
+- *One change group made the campaign official*: it opened 145
+  bindings, the reference, 69 difference images, 69 source sets, the
+  last object set and five packet sets, and closed the 209 it replaced,
+  including the live loop's packet sets for epochs 6 to 69 with nothing
+  opened in their place. Exposures, L2 files, PSFs, the Gaia copy and
+  the live binding did not move. Of the two executions of one epoch,
+  the group bound the first; the other stays a visible candidate.
+- *A mid-night epoch was replaced*: the third epoch of the campaign's
+  chain was differenced again, an `associate` job named the new source
+  set, the night's last object set as predecessor and the old source
+  set as an exclusion, a `packet` job followed for that epoch, and one
+  group bound the four keys together, so there was no moment when the
+  sources had moved and the objects had not. The packets of epochs 4
+  and 5 stay as published, and three of them carry an epoch-3 detection
+  of the old set in their history; they are valid against their
+  recorded inputs. A loop does nothing about them, since a packet is a
+  record at its trigger time; a campaign that wants them consistent
+  reruns from the replaced epoch.
+- *Undo* of the replacement group restored the open bindings row for
+  row. The undo of the night's group then refused, because the first
+  undo had reopened four of its keys as new rows and an undo never
+  reopens a closed row; an explicit group that closed the current
+  binding on each key the night's group opened and reopened what it
+  closed restored the earlier state row for row. The night's group was
+  then applied again, so the campaign's products are official and the
+  live run is unchanged.
+- *Two change groups closing the same binding at once, through the
+  pooler*: the second blocked on the row lock, then refused naming the
+  binding, and nothing was half-applied.
+
+## Validation
+
+A night is one coherent account when it meets ten checks. Each is a
+function over the views, the tables, the Parquet under the prefixes and
+the Avro read with the reader's own functions, and prints a pass line
+or its first counter-example. Checks 1 to 6 run on a whole run's
+products; 7 to 10 on the operations.
+
+1. **Lineage closes.** Every published row names a published job and
+   every job a run; every `job_inputs` row resolves to a published row
+   of its product and key; every binding, open or closed, names a
+   published job's rows. No orphans either way.
+2. **Parquet and tables agree.** Each declared output's row count is
+   the table's count for that job, and the manifest's checksums match
+   the bytes in the prefix.
+3. **The chain.** `members_official` equals the union of
+   `matches.parquet` over the object set's predecessor chain, less
+   exclusions, row for row; every object's sums reproduce its members'
+   mean and standard deviation; every object of a set is in the next.
+4. **Packets.** Against the packet job's own recorded inputs, never the
+   current official sets: every history detection precedes the
+   trigger, `nDiaSources` counts the memberships up to the trigger, the
+   three cutouts open, every forced row equals the row of the
+   `forced.parquet` its inputs name, and every index row resolves to
+   its Avro record. The reader passes on every set.
+5. **Forced photometry is measured once.** Each (object, image) pair is
+   measured in one packet set; a set that carries a reused row carries
+   the same measurement, value for value.
+6. **Two executions of one key** both publish with equal rows, and at
+   most one is official while the other is a visible candidate.
+7. **One group makes a night official**: every view the group names
+   moves to the new jobs, nothing it does not name moves, and every
+   table's row count is unchanged except `official`'s.
+8. **A replacement conserves membership**: the official members are
+   the predecessor's, less every membership of the old source set,
+   plus the replacement's matches, row for row, and only the touched
+   objects change.
+9. **Undo restores** the open bindings row for row, deleting nothing.
+10. **Two concurrent groups on one binding**: one commits, the other
+    refuses naming the binding, and nothing is half-applied.
+
+On 2026-10-21 the night met all ten. Checks 1 to 6 held on the live
+loop's run, 69 sets deep, and again on the campaign's after it became
+official, five sets deep; 7 to 10 held on the campaign. Check 9 held
+by the rule's own refusal: after a later group has moved one of its
+keys, an undo refuses and an explicit group restores.
+
 ## Measurements
 
-Measured 2026-10-21 on SMDC, two epochs (expid 84613 and 84624) of
-field 4658155, SCA 8, filter W146, every stage on Batch with one vCPU
-and 15 GiB per job. The pipeline repository's runbook carries the full
-tables, ids and commands; these are its results. They are observations,
-not gates.
+Measured 2026-10-21 on SMDC, field 4658155, SCA 8, filter W146, every
+Batch job with one vCPU. The pipeline repository's runbook carries the
+full tables, ids and commands; these are its results. They are
+observations, not gates: latency and performance are a later task
+({ref}`ruling <decision-latency-later>`).
 
-| Stage | Epoch | In container, cap 500 | In container, uncapped | Peak memory, process / largest child | Outputs |
+| Stage | Jobs | In container | Queue wait | Peak memory, process / largest child | Output per job |
 |---|---|---|---|---|---|
-| `reference` | both | 36.8 s | (the same reference) | not recorded | three 196 MB images, an 8.3 MB catalog |
-| `difference` | 84613 | 1,348 s | 1,369 s | 1.37 GiB / 14.35 GiB | 72 files, 2.82 GB |
-| `difference` | 84624 | 1,324 s | 1,353 s | 1.31 GiB / 14.35 GiB | 72 files, 2.82 GB |
-| `associate` | 1 | 2.8 s | 3.2 s | 227 MiB | 10.3 KB |
-| `associate` | 2 | 2.7 s | 2.9 s | 228 MiB | 13.5 KB |
-| `packet` | 84613 | 21.5 s | 14.1 s | 844 MiB | 15.7 MB |
-| `packet` | 84624 | 17.8 s | 18.5 s | 845 MiB | 14.1 MB |
+| `import`, on a host | 67 | 5.9 to 7.1 s, mean 6.4 s | | | about 327 MB |
+| `reference`, 25 frames | 1 | 227 s | 115 s, from a cold queue | 1.35 / 1.41 GiB | 595 MB |
+| `difference` | 71 | 1,091 to 1,181 s, median 1,124 s | 2.4 to 222 s, median 166 s | at most 1.39 / 14.54 GiB | 72 files, about 2.8 GB |
+| `associate`, live loop | 67 | 2.4 to 10.0 s, mean 2.7 s | median 6.9 s | 227 to 243 MiB | a few KB |
+| `packet`, live loop | 67 | 28 s at 3 window images to 362 s at 69, mean 189 s | median 7.1 s | 844 to 1,036 MiB | 469 MB of Avro in all |
+| `associate`, campaign | 5 | 2.7 to 3.0 s | | 224 to 230 MiB | a few KB |
+| `packet`, campaign | 5 | 12.7 to 37.8 s | | 844 to 848 MiB | 61 MB in all |
 
-Peak memory is from the uncapped run, the first to report it. A cold
-queue added about two minutes before the first job of each run; jobs
-that found an instance running waited under ten seconds. The baseline's
-`job local` jobs on a host took 1 to 10 s each, and the schema replace
-took 1 s.
-
-- **Sources per image before the cap**: 5,703 and 5,544, against 5,450
-  and 5,586 in `dev`'s own catalogs of the same images. The same code on
-  the same inputs counted 5,539 for 84624 in the capped run, so the
-  stage is not reproducible run to run by a few sources; the cause is
-  not established. The plan's figure of 16 to 43 thousand sources per
-  image is not reproduced on these two images, by the port or by `dev`.
-- **Objects, memberships and packets**: 155 objects (82 founded by the
-  first epoch, 73 by the second), 82 and 73 memberships, 82 and 73
-  packets, all read CLEAN by the reader. Removing the cap changes none
-  of these: `associate` accepts 199 and 158 sources by flags and
-  signal-to-noise, all inside the brightest 500.
-- **The matcher** took about 1 s per epoch at 227 MiB on those sources.
-- **The member chain** is two sets deep on this field. A synthetic
-  chain on a local database, with 1,000 memberships per set, measured
-  the packet stage's reads: at 10,000 sets and 10 million memberships
-  the chain walk took 9.9 ms, the trigger lookup 12 ms, and 500
-  objects' history 0.92 s for 1.58 million rows. The history read grows
-  with the rows it returns, not the depth.
-- **A change group** of eight keys took 19.3 ms through the pooler and
-  its undo 15.3 ms; the command around each took 0.40 s, mostly
-  start-up. The local curve's 0.14 ms per key predicts 1.1 ms; the rest
-  is round trips to the pooler.
-- **The Batch-made sources against `dev`'s**: 1 to 2% of the capped 500
-  match `dev`'s within the match radius, and the difference images
-  correlate at 0.71 to 0.73. The Batch reference coadds the two epochs
-  being differenced, so each subtraction removes half of itself; `dev`'s
-  reference is 25 other frames. Against `dev`'s reference, the port's
-  host difference image correlates with `dev`'s at 0.99989. With two
-  epochs the Batch result proves the chain, not the science.
+- **The fan-out.** All 70 difference jobs of the campaign started within
+  240 s of the first submit and ran at once; the last published 23 min
+  19 s after the first was submitted. The largest child process peaked
+  at 14.54 GiB, against the job definition's 24 GiB.
+- **The live loop's chain**, first submit to last packet, took 3 h 53
+  min. The `associate` chain alone took 27 min; the `packet` chain is
+  the critical path, because each packet job waits for the one before
+  in order to reuse its forced rows. Forced photometry is 69% of the
+  packet stage's time, about 3.6 s per window image, and a newly
+  triggering object is measured on every earlier image of the night.
+  The night produced 87,404 forced rows, 62,427 of them measured.
+- **Chain depth.** At 69 sets the chain walk took 1.8 ms and
+  `members_official` 32 ms; at 5 sets, 1.8 ms and 5.1 ms.
+- **Change groups.** The cutover, two rows, took 4.1 ms. The night's
+  group, 145 opens and 209 closes, took 257 ms in the operation, 1.23
+  ms per key, and 0.58 s with process start-up; eight keys had taken
+  2.4 ms per key, and a local database 0.14 ms. The replacement's
+  group of four keys took 12.1 ms, its undo 8.9 ms.
+- **The ten checks** took 255 s on the live loop's run and 145 s on the
+  campaign's, mostly reading S3.
+- **The database** is 239 MB: `sources` 102 MB, `objects` 19 MB,
+  `forced` 19 MB, and every other table under 2 MB. `official` holds
+  961 rows. All 23 statements of `database/queries.sql` run under 30 ms
+  at this size.
+- **Storage.** The live loop's run holds 22.4 GB under the scratch root,
+  almost all the imported images; the campaign's holds 201 GB, 197 GB
+  of it the difference stage's working files.
+- **The retry.** A job that could not reach the database exited 75 on
+  each of three attempts, 33 s from the first start to the last stop; a
+  job with a bad parameter tree exited 64 once.
+- The source counts and the comparison with `dev`'s night are on the
+  [difference](difference) and [reference](reference) pages.
 
 **Against the hour per image.** The provisional requirement is an alert
 current within an hour of an image's delivery
-({ref}`ruling <decision-latency>`). On this chip, one image's chain on
-Batch took about 25 minutes: two of cold queue, 22.5 to 23 of
-difference, and under half a minute for `associate` and `packet`. The
-difference stage is 95% of it, the cap does not change its cost, and
-its largest child process peaked 0.65 GiB under the job definition's
-15 GiB. These figures cover two epochs and one chip, with a reference
-that includes the images it is subtracted from.
+({ref}`ruling <decision-latency>`). On this chip one epoch's chain on
+Batch takes about 19 minutes of difference, seconds of `associate`, and
+a packet job that grows with the window, from under a minute to six
+minutes over one night; the difference stage dominates until the
+window is long. Shortening either is the later task the latency
+ruling names.
 
-**Not measured, for want of data on the host that ran it**: the field's
-other epochs and a second field; the matcher and the difference stage
-at the plan's density; a night's fan-out across 18 chips; packets with
-a thirty-day window; a reference built from other frames; completeness
-against the injected sources; and the rubrat, NED and NED-LVS matches,
-whose model and catalog copies are in a bucket this account cannot
-read. sumrat needs no new data, but no stage computes it yet.
+**Not measured, for want of data on the host that ran it**: a second
+field; a night's fan-out across 18 chips; the matcher and the
+difference stage at the plan's density; a thirty-day window of real
+cadence; completeness against the injected sources; and the rubrat,
+NED and NED-LVS matches, whose model and catalog copies are in a bucket
+this account cannot read. sumrat needs no new data, but no stage
+computes it yet.
 
 ## Not decided here
 
 - The cost of following an object set's predecessor chain when a field
-  has tens of thousands of sets. The synthetic measurement above finds
-  no need for compaction at ten thousand; if it bites later, a periodic
-  set holding the full membership compacts the chain, a job like any
-  other.
-- Forced photometry's cost at scale. On the thin field it is two to
-  four seconds per window image, dominated by opening the images, not
-  by the fits.
+  has tens of thousands of sets. A synthetic chain of ten thousand sets
+  walked in 9.9 ms and the night's 69 in 1.8 ms; if it bites later, a
+  periodic set holding the full membership compacts the chain, a job
+  like any other.
+- Forced photometry's cost at scale. It is about 3.6 s per window
+  image, dominated by opening the images, and it orders the packet
+  jobs into one chain. Measuring a night's new objects per image across
+  jobs, or naming predecessor sets for reuse without waiting on them,
+  would change both.
+- The cost of a large change group, about three round trips per item
+  through the pooler: 1.23 ms per key at 145 keys. A set-based close
+  and open would remove most of it.
+- Whether an undo after a later group has moved one of its keys should
+  have a verb. Today it refuses, which is the safety the design asks
+  for, and an explicit group restores.
+- A published job of a run that is not live, launched with `expects`,
+  has its binding refused, exits 1, and Batch reports it failed though
+  its rows are published. Launching without `expects`, or exiting 0
+  when the refusal is the run's liveness, would make the two agree.
+- The difference stage's rows differ in some columns between CPU
+  families on the same inputs, by unverified cause. Recording the
+  instance type beside the image digest would make a re-execution
+  comparable.
+- Packets after a replacement stay as published with the old
+  detections in their history; whether a loop should ever rebuild
+  them is open. A campaign reruns from the replaced epoch.
 - Dense-field memory for `associate` and packet counts per chip.
-- The cost of a large change group. The operation is linear at about
-  0.14 ms per key on a local database and dominated by round trips
-  through the pooler; a set-based close and open would remove most of
-  it. On an `official` table never analysed, the planner picks the
-  wrong partial index, and the publisher analyses only the tables it
-  loads.
-- Whether the PSF key needs a kind. The science and reference PSFs of
-  one filter and SCA share a key today, and `difference` tells them
-  apart by a keyword in the file.
-- Whether the team's read role reads the foundation's tables, or only
-  the official views. It has `USAGE` on the schema and no `SELECT`.
 - The meaning of `nDiaSources` in the 00.06 schema's own documentation,
   which is `dev`'s; changing it is a schema change for the team.
 - `packet.edge_pixels` is in the thin run's settings and read by no
   stage, since no two-pixel edge rule exists in `dev`'s alerts code.
-- The imported reference has no `refimimages` rows, since the source
-  system's rows do not name its members; a reference `reference` makes
-  has them.
