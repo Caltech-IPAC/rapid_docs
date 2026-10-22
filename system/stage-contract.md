@@ -63,7 +63,10 @@ replace with fakes.
   its own table;
 - `inputs`: the job's recorded `job_inputs` rows (`kind`, `product`,
   `key`, `source_job`, `binding`), the authority for what the stage
-  reads;
+  reads. An input is told apart from another of its product by its key
+  alone: a `psfs` key carries its `kind`, `science` or `reference`, so
+  `difference` names one of each and never reads a file to decide
+  which is which;
 - `attempt` and `prefix`: the attempt number and its URL,
   `<outputs root>/<run>/<stage>/<job>/<attempt>/`, and `path`, the local
   directory the stage writes into;
@@ -142,9 +145,15 @@ definition.
 | 1 | The job was published, but its automatic binding was refused; its rows are an unbound candidate |
 | 64 | Usage: bad arguments, no outputs root, or a stage with no `run(job)` |
 | 70 | The stage or the publication raised; the job is marked `failed` |
+| 75 | The database could not be reached after the connection's own retries: a temporary dependency failure |
 
-Nothing retries by itself. A retry is `job run` on the same job, or a
-Batch resubmission of it, and lands in a new attempt.
+On Batch, exit 75 and nothing else is retried: the job definition
+allows three attempts, and any other exit code, or a failure with no
+exit code, ends the job. A bad parameter tree is 64 and is not retried.
+Off Batch nothing retries by itself. Every retry, whether Batch's, a
+`job run` on the same job or a resubmission, lands in a new attempt,
+and one that finds the job published stops at once. The
+[foundation](foundation) page states the rule and why.
 
 ## Stages on the older contract
 

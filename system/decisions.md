@@ -9,6 +9,31 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's rulings of 2026-10-21 on the night through the chain. The
+[foundation](foundation) page states the design they shaped, and the
+[stage contract](stage-contract) page the retry and the PSF input.
+
+(decision-latency-later)=
+**Latency is later**: latency and performance optimisation are a later
+task. The current focus is coherent, validated machinery end to end;
+every run takes metrics and records improvements it sees, and no
+measurement gates anything. (Ben, 2026-10-21)
+
+(decision-psf-kind)=
+**The PSF key gains a kind**: a `psfs` row is `science` or `reference`,
+and the kind is in its scientific key, so the two PSFs of one filter
+and SCA are distinct products. (Ben, 2026-10-21)
+
+(decision-read-role)=
+**The read role selects**: the team's read role has `SELECT` on every
+table and view of the foundation's schema, and on those created later.
+(Ben, 2026-10-21)
+
+(decision-batch-retry)=
+**Batch retries exit 75 and nothing else**: three attempts, the first
+run and two retries, on the stage contract's temporary dependency
+failure; every other exit ends the job. (Ben, 2026-10-21)
+
 Ben's ruling of 2026-10-21 on the SMDC step. The
 [foundation](foundation) page states the procedure it shaped.
 
