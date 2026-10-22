@@ -6,14 +6,18 @@ This page states how RAPID records what it made and which of it is
 official, and the narrow chain of stages built on that record, from
 stored images to alert packets. It is the design the `rebuild` branch
 of the pipeline repository implements: `database/schema.sql`, the
-package `rapidpipe.foundation`, the stages `import`, `reference`,
-`difference`, `associate` and `packet`, the reader
-`scripts/read_packets.py` and the queries in `database/queries.sql`.
+package `rapidpipe.foundation`, the stages `intake`, `import`,
+`reference`, `difference`, `associate` and `packet`, the loop, the
+Kafka publication, the reader `scripts/read_packets.py`, the run
+validation `scripts/validate_run.py` and the queries in
+`database/queries.sql`.
 The [stage contract](stage-contract) page states what a stage is under
 it, and the [decisions](decisions) page records the rulings it rests
 on. The chain has run end to end on SMDC's database and AWS Batch over
-one field's whole night, 69 epochs; the last sections give the
-procedure, the checks the night met and what it measured.
+one field's whole night, 69 epochs, and then from SOC L2 ASDF files to
+the Kafka topic over 426 epochs of a simulated wide-area survey; the
+last sections give the procedure, the checks both met and what they
+measured.
 
 ## In plain terms
 
@@ -52,7 +56,7 @@ from the run's body.
 A job is one execution of one stage under a run. The `jobs` row holds
 the stage, its scope, its state (`launched`, `running`, `published` or
 `failed`), the image digest it ran under (none for a job run from a
-checkout), the settings hash, the attempt whose outputs were published,
+checkout) and beside it the instance type, the settings hash, the attempt whose outputs were published,
 its manifest, the launched, started and ended times, the exit code, and
 the reason an automatic binding was refused, if one was. Local and
 Batch executions both get a job row. A killed execution is a job row
@@ -331,9 +335,14 @@ and `dev`'s per-object forced-photometry store.
 | `rapidpipe job local --run --stage --scope JSON [--inputs JSON] [--expects JSON] [--excludes JSON]` | records a job and runs it in this process, then publishes |
 | `rapidpipe job run --job <id>` | runs an existing job's next attempt, then publishes; stops at once if the job is published |
 | `rapidpipe job submit ... --job-definition <name>` | records a job and submits one Batch job whose command is `job run` |
+| `rapidpipe publish --run <id> [--settings FILE]` | produces the run's official, unstamped packet sets to the Kafka topic and stamps each (Publication to Kafka, below) |
+| `rapidpipe loop --run --filters --scas --pointings --job-definition` | carries a selection one stage forward per pass until it drains ([loop](loop)) |
 
-A refusal exits 1 with the binding named; a missing row or unreadable
-file exits 64.
+A refusal exits 1 with the binding named. The exception is a refusal
+because the job's run is not live: the job is published and its rows
+are an unbound candidate, which is what a run that is not live is for,
+so the job exits 0 and the refusal is on its row and on standard
+error. A missing row or unreadable file exits 64.
 
 ### Where outputs live
 
@@ -370,8 +379,13 @@ a published job and otherwise takes the next attempt. Batch places a
 retry within seconds, with no backoff, so the three attempts ride out a
 database outage only as long as the connection's own retries inside
 each attempt, about 8 s each. A job can still be resubmitted by hand,
-the same Batch request again. Running the job records the job definition's image digest on
-the job row, and its printed result carries the peak resident memory
+the same Batch request again. Running the job records the job
+definition's image digest on the job row and beside it the instance
+type, read from the instance's metadata service when the attempt
+starts (none when the service does not answer, as on a developer's
+machine), so a re-execution can be compared with the instance it ran
+on ({ref}`ruling <decision-instance-type>`). The compute environment is
+not pinned to one instance family. The job's printed result carries the peak resident memory
 of the stage's process and of its largest child, which is how a
 toolkit binary's memory is seen; Batch itself reports no memory figure.
 
@@ -392,6 +406,7 @@ image. Each simplification keeps the shape of the full stage.
 
 | Stage | Reads (named in `job_inputs`) | Writes (declared outputs) | Left out until breadth |
 |---|---|---|---|
+| `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `exposures` and `l2files`, with limiting magnitude, overlapping fields and sky indices computed | other filters, for want of their PSFs |
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `reference` | the field's `l2files` rows for one filter and SCA | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and one `psfs` row of each kind, `science` and `reference`; the cap on sources | the ZOGY difference image and the files `packet` reads beside it, SFFT and naive as `dev` runs them; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
@@ -417,6 +432,15 @@ A PSF's `psf` scope declares its kind; the stage reads the file's
 `PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
 before any manifest if it names the other kind. A file with no keyword
 imports under the declared kind, and the manifest says so.
+
+### intake
+
+The [intake](intake) page states `intake`: its scope (one file of a
+dataset), the science PSF it names, the conversion ported from `dev`,
+the `exposures` and `l2files` rows it declares with the `expid` packed
+from the file's name, and its settings. Where `import` copies products
+another system made, `intake` makes the L2 product from the raw file,
+so a run that starts from intake owns its data from the first stage.
 
 ### reference and difference
 
@@ -490,6 +514,42 @@ stated size with the stated fill; that every forced value equals the
 precedes its trigger; and that every index row decodes to its record
 and names the job's recorded inputs.
 
+### Publication to Kafka
+
+`rapidpipe publish --run <id>` takes every packet set of the run that is
+official and not yet stamped, and produces one message per packet to the
+topic. The key is the packet set's job and the packet's source id; the
+value is a one-record Avro container, the set's container header with
+the packet's own block, so each message decodes on its own and carries
+its schema. There is no schema registry. The producer waits for every
+acknowledgement from all in-sync replicas, then stamps the set's job
+with the time (`jobs.kafka_published_at`). A producer error leaves the
+set unstamped and the verb exits 70. A crash between the last
+acknowledgement and the stamp offers the set again on the next call, so
+a consumer may see a packet twice; replay is allowed and there is no
+exactly-once delivery. A set that loses its binding before it is
+stamped is not offered.
+
+The cluster's bootstrap servers, the topic and the largest request the
+producer may send are named in the settings file's `[kafka]` table as
+the deployment's parameter names, never their values, and the
+connection authenticates with the caller's own cloud credentials. The
+transport is not part of a run's recipe: `publish` reads the table from
+the shipped settings file or the one `--settings` names, not from the
+run's body.
+
+`scripts/consume_packets.py --run <id>` is the consumer check. It reads
+every partition from its earliest offset to the end offset at its
+start, with no consumer group; keeps the messages whose key names one
+of the run's stamped sets; and requires each to decode as one record
+valid against its index row's schema, to equal the outbox bytes for its
+key, and every stamped packet to be seen at least once. Zero kept is a
+failure.
+
+Today the producer runs where the loop runs, on a host, after the
+packet stage has published. Producing from the packet stage's own Batch
+job, as its last act, is not decided (Not decided here, below).
+
 ### Settings of the thin run
 
 The run's body is `rapidpipe/settings/foundation-thin.toml`, one table
@@ -505,8 +565,10 @@ them); `[difference]` adds `max_sources` (500) with the import's
 meaning, and `[difference.statistics] clip_correction_seed` (0) makes
 the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
-never settings: the import's source directory is its job's scope and
-the outputs root is the environment's.
+never in the shipped file: the import's source directory is its job's
+scope, the intake's source root is the run's own `[intake]
+source_root`, given in the settings overlay at `run create`, and the
+outputs root is the environment's.
 
 ## The queries
 
@@ -556,7 +618,7 @@ minutes. The same observations on synthetic rows run in CI under
 
 The SMDC database `rapid` holds the foundation in its `public` schema,
 and the pipeline repository's `docs/foundation-smdc-step.md` is the
-procedure, one command and then its check per step. It has six parts.
+procedure, one command and then its check per step. It has seven parts.
 
 **The schema.** `public` is dropped and recreated from `schema.sql` in
 one transaction, through the pooler, as the database owner. Everything
@@ -662,6 +724,55 @@ campaign official and exercises the operations on it.
   pooler*: the second blocked on the row lock, then refused naming the
   binding, and nothing was half-applied.
 
+**The wide-area survey.** The seventh part takes the chain from raw
+SOC L2 files to the Kafka topic, with every byte inside SMDC and
+nothing imported from another centre. Its data are STScI's SOC
+simulation r00342 of the High Latitude Wide Area Survey, read from a
+public bucket: 54 pointings on a grid one SCA wide, revisited to within
+a few arcseconds in every pass, with a Gaia-fitted WCS and no
+time-variable sources, so every difference is a null test. It uses F146
+only, the one filter with PSFs on SMDC.
+
+- *Fixes first.* The instance type went onto the job row, a refusal
+  because the run is not live stopped being a Batch failure, the
+  download cache is removed when the process exits, and the reference
+  stage's seed is pinned as the difference stage's is. One proof job on
+  each of two Intel sizes reproduced its epoch's earlier Intel rows bit
+  for bit; the one earlier AMD execution of the same epoch differs from
+  all of them in a few thousand rows, by at most half an arcsecond and a
+  few percent in flux.
+- *The endpoint before breadth.* The GBTDS night's official packets
+  were produced to the topic from the fleet host and read back by the
+  consumer check, every one byte-equal to the outbox; a second publish
+  produced nothing.
+- *A live run beside the GBTDS one.* The HLWAS dataset has its own run,
+  live for its survey and dataset while the GBTDS run stays live for
+  its own, as the one-live-run rule allows. Its 36 F146 PSFs, one of
+  each kind per SCA, were imported under the dataset, and a Gaia DR3
+  copy covering the whole footprint was fetched from the ESA archive
+  and imported under its own catalog name, since the `catalogs` key has
+  no dataset and the GBTDS copy holds the plain name.
+- *One pointing.* The six F146 epochs of one SCA's pointing went through
+  intake, reference, difference, associate and packet on Batch, then to
+  the topic, with the validation checks now a script run over the whole
+  run.
+- *The loop.* `rapidpipe loop` took a second pointing from ASDF to the
+  topic in 18 passes with no hand on it.
+- *The ramp.* The loop's selection widened to every F146 pointing on
+  SCA 8, 312 more epochs on 52 more fields, drained in 15 passes and
+  42.8 minutes with no failed job; then to all 18 SCAs of the first
+  pointing, 102 more epochs, drained in 18 passes and 34.6 minutes. The
+  run ended with 426 epochs on 70 fields, 70 references, 70 per-field
+  chains and 55,436 packets on the topic, every job published and bound.
+- *A field shared by two SCAs.* The pointing grid's step is one SCA
+  width, so SCA 9 of one pointing lands on the field SCA 8 of the next
+  pointing covers. The reference key has no SCA, so SCA 9's epochs were
+  differenced against SCA 8's reference, each naming its own SCA's
+  reference PSF, and were appended to that field's chain after SCA 8's
+  epochs although each was taken earlier. Nothing failed and the chain
+  check held, since it checks integrity and not order; the question is
+  open (Not decided here, below).
+
 ## Validation
 
 A night is one coherent account when it meets ten checks. Each is a
@@ -708,6 +819,18 @@ loop's run, 69 sets deep, and again on the campaign's after it became
 official, five sets deep; 7 to 10 held on the campaign. Check 9 held
 by the rule's own refusal: after a later group has moved one of its
 keys, an undo refuses and an explicit group restores.
+
+Checks 1 to 6 are now one script, `scripts/validate_run.py --run <id>`,
+each a function scoped to one run's jobs. Two are restated for that
+scope: the chain check covers every object set of the run that is bound
+or is the last of its chain, and the forced check requires that a
+packet set's row for an (object, image) pair a recorded predecessor set
+also holds is that predecessor's measurement. Checks 7 to 10 are
+operations with no read-only form over a run, checked as they run. The
+script passed on both GBTDS runs, and on the wide-area run after its
+first pointing, after its second, after the SCA 8 ramp and after the
+18-SCA ramp. The reader was clean on every packet set and the consumer
+check on every packet each time.
 
 ## Measurements
 
@@ -769,9 +892,54 @@ minutes over one night; the difference stage dominates until the
 window is long. Shortening either is the later task the latency
 ruling names.
 
-**Not measured, for want of data on the host that ran it**: a second
-field; a night's fan-out across 18 chips; the matcher and the
-difference stage at the plan's density; a thirty-day window of real
+### The wide-area ramp
+
+Measured 2026-10-22 on SMDC over the F146 ramp on SCA 8, 312 epochs on
+52 fields, all driven by the loop. The compute environment chose
+r6i.8xlarge for nearly every job, because one job definition reserves
+the difference stage's 24 GiB for every stage.
+
+| Stage | Jobs | Queue wait, min / median / max | In container, min / median / max | Peak memory | Output, median per job |
+|---|---|---|---|---|---|
+| `intake` | 312 | 54 / 144 / 158 s | 17.1 / 20.8 / 24.6 s | 910 MiB | 195 MB |
+| `reference`, 6 frames | 52 | 5.0 / 6.5 / 9.2 s | 77 / 98 / 102 s | 2,831 MiB | 596 MB |
+| `difference` | 312 | 7 / 154 / 228 s | 206 / 246 / 327 s | 16,125 MiB | 2.55 GB |
+| `associate` | 312 | 4.6 / 11.5 / 191 s | 2.4 / 3.5 / 11.8 s | 238 MiB | a few KB |
+| `packet` | 312 | 3.0 / 48 / 189 s | 13.0 / 30.2 / 60.5 s | 867 MiB | 26 MB |
+
+- **The drain.** First intake submitted to last packet produced, 42.3
+  minutes. The stages' spans, first launched to last ended: intake 3.5
+  minutes, reference 1.9, difference 9.0, associate 23.8, packet 29.7.
+  At most 290 containers ran at once, the differences.
+- **The chains.** Each field's six associates took 20 minutes end to
+  end for about 21 seconds of containers: a chain advances one link per
+  loop pass ([loop](loop)).
+- **One intake on Batch**: fetch of the 204 MB file 0.8 s, conversion
+  2.7 s, gzip 5.5 s, limiting magnitude 3.5 s, rows 1.0 s, upload and
+  publish 1.5 s.
+- **Kafka.** 43,725 packets in 324 sets, 8.43 GB of Avro, at about 4.3
+  s and 31 packets a second per set; the largest message is 1.5% of the
+  request limit, and every message repeats the 35 KB container header.
+- **The checks.** `validate_run.py` took 20.5 minutes over the 324
+  epochs, the reader two minutes eight sets at a time, and the consumer
+  check 32 minutes at 20 GB of memory.
+- **The database** is 365 MB after the SCA 8 ramp: `sources` 133 MB,
+  `forced` 49 MB, `objects` 48 MB. After the 18-SCA ramp it is 396 MB
+  and `official` holds 3,523 rows.
+- **Storage.** The run's prefix holds 1.2 TB after both ramps; the
+  difference stage's working files are 89% of it, 42 uncompressed FITS
+  files per epoch.
+- **The 18-SCA ramp**: 102 epochs, first intake to last packet 34.0
+  minutes, at most 99 containers at once, 11,711 packets, median queue
+  waits 86 s for intake and 98 s for difference.
+- **The null test.** Per epoch the difference stage found 798 to 1,207
+  detections before the cap of 500, median 954, with 53 to 119 above
+  S/N 20. They sit at and around stars, the residual a PSF made for
+  another simulation leaves; none is variability. SCAs 4 and 5 leave
+  three to four times the bright residuals of the other SCAs.
+
+**Not measured, for want of data on the host that ran it**: the matcher
+and the difference stage at the plan's density; a thirty-day window of real
 cadence; completeness against the injected sources; and the rubrat,
 NED and NED-LVS matches, whose model and catalog copies are in a bucket
 this account cannot read. sumrat needs no new data, but no stage
@@ -795,14 +963,33 @@ computes it yet.
 - Whether an undo after a later group has moved one of its keys should
   have a verb. Today it refuses, which is the safety the design asks
   for, and an explicit group restores.
-- A published job of a run that is not live, launched with `expects`,
-  has its binding refused, exits 1, and Batch reports it failed though
-  its rows are published. Launching without `expects`, or exiting 0
-  when the refusal is the run's liveness, would make the two agree.
 - The difference stage's rows differ in some columns between CPU
-  families on the same inputs, by unverified cause. Recording the
-  instance type beside the image digest would make a re-execution
-  comparable.
+  families on the same inputs, by unverified cause: two Intel sizes
+  agree bit for bit and one AMD execution does not. The instance type
+  is now on every job row, so a comparison can be filtered; whether a
+  run should hold to one family is open, and today it does not.
+- Whether a reference is per field and filter, as its key is today, or
+  per field, filter and SCA; and what a field's chain does with an
+  epoch that arrives after later ones. An SCA landing on a field
+  another SCA referenced is differenced against that stack and joins
+  its chain out of order.
+- A reference disjoint from the epochs it is subtracted from. Today a
+  field's reference coadds the same epochs that are then differenced,
+  which suits a null test and would suppress a real transient.
+- The `catalogs` key, (name, version), is the one key without the
+  dataset. A second footprint's Gaia copy takes its own name today;
+  the key gaining the dataset, as every other key has, would make it
+  one product per dataset.
+- Producing packets to Kafka from the packet stage's own Batch job, as
+  its last act, in place of a host process after the fact. It needs a
+  grant on the Batch job role and a path from the compute environment
+  to the brokers, neither tested.
+- PSFs for the other filters. Only F146's exist on SMDC, so only F146
+  has been run.
+- **Source injection is the next scientific step.** The chain has the
+  right shape and functions on a static simulated sky; whether it
+  finds what is there is the next question, asked by injecting sources
+  into the same data, before more breadth.
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.

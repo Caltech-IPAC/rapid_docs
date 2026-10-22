@@ -200,7 +200,7 @@ authority; `decisions.md` records the team's rulings; `foundation.md`
 and `stage-contract.md` are the two model pages everything else builds
 on, and `foundation.md` governs where an older page still describes the
 retired run model; each pipeline stage has its own page (`reference`,
-`difference`, `load`, `maintain`, `crossmatch`, `statistics`,
+`difference`, `intake`, `load`, `maintain`, `crossmatch`, `statistics`,
 `finalize`, `alerts`, `prune`, `export`); `photometry.md` is not a
 stage page, since the rebuild carries no photometry stage, and holds
 the forced-photometry note instead; `tool.md`, `loop.md` and
