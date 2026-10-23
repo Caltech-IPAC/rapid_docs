@@ -6,18 +6,19 @@ This page states how RAPID records what it made and which of it is
 official, and the narrow chain of stages built on that record, from
 stored images to alert packets. It is the design the `rebuild` branch
 of the pipeline repository implements: `database/schema.sql`, the
-package `rapidpipe.foundation`, the stages `intake`, `import`,
+package `rapidpipe.foundation`, the stages `intake`, `import`, `psf`,
 `reference`, `difference`, `associate` and `packet`, the loop, the
 Kafka publication, the reader `scripts/read_packets.py`, the run
-validation `scripts/validate_run.py` and the queries in
-`database/queries.sql`.
+validation `scripts/validate_run.py`, the check script
+`scripts/check_run.sh` and the queries in `database/queries.sql`.
 The [stage contract](stage-contract) page states what a stage is under
 it, and the [decisions](decisions) page records the rulings it rests
 on. The chain has run end to end on SMDC's database and AWS Batch over
 one field's whole night, 69 epochs, and then from SOC L2 ASDF files to
 the Kafka topic over 426 epochs of a simulated wide-area survey, and
 again after the housekeeping that made each epoch cheaper and gave the
-reference a bound; the last sections give the procedure, the checks
+reference a bound, and then over the simulation's six other filters,
+each with PSFs the pipeline derives itself; the last sections give the procedure, the checks
 they met and what they measured.
 
 ## In plain terms
@@ -386,6 +387,7 @@ measured peak, and the difference stage keeps the definition's 24 GiB:
 | Stage | Asked, MiB | Peak measured on the ramp, MiB |
 |---|---|---|
 | `intake` | 2,048 | 910 |
+| `psf` | 2,048 | 333, at breadth |
 | `reference` | 6,144 | 2,831 |
 | `difference` | 24,576 | 16,125 |
 | `associate` | 1,024 | 238 |
@@ -421,9 +423,12 @@ Each commit that runs on Batch has its own image, tagged
 registered by the infrastructure repository's release hooks. A run's
 revision names the commit; a fix to the code is a new commit, a new
 image, and a new run whose jobs are submitted afresh, so the run and
-job records always name the code that ran. A Batch stage names only
-files in the inputs bucket and outputs under the scratch bucket's root,
-the two places the job role can read.
+job records always name the code that ran. The new run, made live for
+the same dataset, continues from the dataset's official rows, so a fix
+in the middle of a drain resumes where the old run stopped. A Batch
+stage reads only files in the inputs bucket, the run's public source
+root and the CRDS server, and writes only under the scratch bucket's
+root.
 
 ## The thin chain
 
@@ -433,8 +438,9 @@ image. Each simplification keeps the shape of the full stage.
 
 | Stage | Reads (named in `job_inputs`) | Writes (declared outputs) | Left out until breadth |
 |---|---|---|---|
-| `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | other filters, for want of their PSFs |
+| `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
+| `psf` | one SOC L2 file's metadata and the CRDS ePSF reference it names | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and one `psfs` row of each kind, `science` and `reference`; the cap on sources | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
 | `associate` | the epoch's source sets for the field and its eight neighbours; the predecessor object set, or none; the exclusions | `objects.parquet` (every object of the field, id carried forward or position-hashed, founding position, sufficient sums) and `matches.parquet` (this epoch's memberships) | `rubrat`, `sumrat`; field parallelism |
@@ -468,6 +474,15 @@ the `exposures` and `l2files` rows it declares with the `expid` packed
 from the file's name, and its settings. Where `import` copies products
 another system made, `intake` makes the L2 product from the raw file,
 so a run that starts from intake owns its data from the first stage.
+
+### psf
+
+The [psf](psf) page states `psf`: its scope (one file of the filter and
+SCA it serves), the ePSF reference fetched by the name the file
+carries, the fixed reduction to a 61-pixel stamp, the two `psfs` rows
+it declares, and the `EPSFREF` keyword the intake checks against each
+file's own reference. The loop submits one for each filter and SCA that
+lacks its PSFs, so a dataset needs no PSF imported.
 
 ### reference and difference
 
@@ -552,10 +567,17 @@ the packet's own block, so each message decodes on its own and carries
 its schema. There is no schema registry. The producer waits for every
 acknowledgement from all in-sync replicas, then stamps the set's job
 with the time (`jobs.kafka_published_at`). One call opens one database
-connection and one producer for every set it finds, sends them all,
-flushes once, and then stamps each set whose every acknowledgement came
-back. A set with a failed acknowledgement stays unstamped, the others
-are stamped, and the verb exits 70 naming it. A crash between the last
+connection and one producer, then takes its sets one at a time: it
+sends a set's messages, flushes within 120 s, and stamps the set when
+every acknowledgement came back. A set with a failed acknowledgement
+stays unstamped, the others are stamped, and the verb exits 70 naming
+it. A flush that does not finish in time leaves its set and every later
+one unstamped and stops the call, which exits non-zero, and the next
+call sends them again; closing the producer is bounded the same way.
+This replaced one flush per call: with five loops publishing at once,
+batches waited in the client past its delivery timeout, and the
+client's expiry path then killed its own sender thread and left the
+flush waiting with no end. A crash between the last
 acknowledgement and the stamp offers the set again on the next call, so
 a consumer may see a packet twice; replay is allowed and there is no
 exactly-once delivery. A set that loses its binding before it is
@@ -570,13 +592,21 @@ the shipped settings file or the one `--settings` names, not from the
 run's body.
 
 `scripts/consume_packets.py --run <id>` is the consumer check. It reads
-every partition from its earliest offset to the end offset at its
-start, with no consumer group; keeps the messages whose key names one
-of the run's stamped sets; and requires each to decode as one record
-valid against its index row's schema, to equal the outbox bytes for its
-key, and every stamped packet to be seen at least once. Zero kept is a
-failure. It holds one message and one set's outbox at a time, so its
-memory is one set's, whatever the topic's size.
+each partition from the first offset at or after the earliest end time
+of the run's stamped packet jobs, since a set is published only after
+its job has ended, to the end offset at its start, with no consumer
+group; keeps the messages whose key names one of the run's stamped
+sets; and requires each to decode as one record valid against its index
+row's schema, to equal the outbox bytes for its key, and every stamped
+packet to be seen at least once. Zero kept is a failure, so a run with
+no stamped set fails. The client's own record checksum is switched off:
+every kept message is compared byte for byte with the outbox anyway,
+and the client computes that checksum in pure Python, which held the
+read to about 50 messages a second against 805 without it. The check
+holds one message and one set's outbox at a time, so its memory is one
+set's, whatever the topic's size. It holds only within the topic's
+retention, seven days: a run whose messages have aged out fails it as
+never read.
 
 Today the producer runs where the loop runs, on a host, after the
 packet stage has published. Producing from the packet stage's own Batch
@@ -602,7 +632,8 @@ outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
 scope, the intake's source root is the run's own `[intake]
 source_root`, given in the settings overlay at `run create`, and the
-outputs root is the environment's. `[batch.memory_mib]` holds each
+outputs root is the environment's. `[psf]` names the CRDS server and
+the stamp's size ([psf](psf)). `[batch.memory_mib]` holds each
 stage's memory ask (A job on Batch, above). `[reference.selection]
 before_mjd`, the reference bound, is documented in the shipped file and
 absent there: a run sets it in its overlay, and a run without it
@@ -656,7 +687,7 @@ minutes. The same observations on synthetic rows run in CI under
 
 The SMDC database `rapid` holds the foundation in its `public` schema,
 and the pipeline repository's `docs/foundation-smdc-step.md` is the
-procedure, one command and then its check per step. It has eight parts.
+procedure, one command and then its check per step. It has nine parts.
 
 **The schema.** `public` is dropped and recreated from `schema.sql` in
 one transaction, through the pooler, as the database owner. Everything
@@ -846,6 +877,50 @@ the GBTDS run stayed live and untouched, and nothing was deleted.
   the recorded inputs naming a catalog gained their dataset; the bound
   products were unchanged.
 
+**Breadth.** The ninth part ran the simulation's six other filters,
+F087, F106, F129, F158, F184 and F213, without injection
+({ref}`ruling <decision-breadth-before-injection>`), first on SCA 8 of
+all 54 pointings and then on the 18 SCAs of the first pointing.
+
+- *The PSF from each file's reference.* The [psf](psf) stage was proven
+  on F146 first, under a dataset of its own with no PSF imported: the
+  loop's first pass submitted one psf job and no intake, the next
+  admitted the pointing's intakes, and the chain drained with every
+  check clean. Every filter's PSFs were then derived by the loop, 109
+  pairs over seven datasets, and every intake's check of its file's own
+  reference held.
+- *One dataset per filter.* Each filter ran as a dataset of its own
+  with its own live run and its own reference bound, the midpoint of
+  that filter's third and fourth passes, so every field has exactly
+  three reference frames in every filter. A filter's chains, fixes and
+  resumes are its own: three fixes resumed five filters while the
+  sixth, already drained, stayed as it was. The shape avoids cross-band
+  association by construction. A source seen in two filters is two
+  objects in two datasets, and no packet carries forced photometry from
+  another band; whether an object should span bands is open (Not
+  decided here, below).
+- *SCA 8 over the footprint.* The six loops drained 3,456 epochs: 324
+  references, 2,484 differences, associates and packet sets, and
+  503,964 packets on the topic. Three failures seen at this width were
+  fixed in code and each resumed by a new live run of the same
+  datasets: the parameter store throttled 3,400 jobs starting in one
+  minute; one flush per publishing pass hung the producer (Publication
+  to Kafka, above); and the loop's association rule read only its own
+  run's jobs, so a resumed run associated every epoch a second time.
+  That run was taken off live, the state before it restored in one
+  change group with nothing deleted, and the rule now follows the
+  field's official chain ([loop](loop)). A validation false failure on a
+  source catalogued twice was a tolerance below the one-pass variance's
+  rounding floor, and was corrected. Sixteen jobs that Batch failed to
+  start were rerun by hand.
+- *The 18 SCAs of one pointing.* The same six runs took 1,088 more
+  epochs, with 102 psf jobs in the first pass, no code change, and one
+  transient failure: the CRDS server answered 72 of 102 fetches at once
+  with gateway timeouts, and the 72 published when rerun in waves.
+- *The checks.* Every run of the six filters is clean by the check
+  script, after the consumer check stopped reading the topic from its
+  beginning (Validation, below).
+
 ## Validation
 
 A night is one coherent account when it meets ten checks. Each is a
@@ -907,6 +982,14 @@ check on every packet each time. The script now reads every job's
 Parquet and decodes every packet set eight at a time, each worker on
 its own connection, with the same assertions: on the wide-area run it
 took 666 s against 1,512 s.
+
+`scripts/check_run.sh --run <id>` runs a run's three checks in turn,
+`validate_run.py`, the reader over the run's bound packet sets eight at
+a time, and the consumer check, streams their output, and prints one
+line, `Check run <id>: CLEAN|FAIL validate <passed>/<checks> <s> reader
+<clean>/<sets> <s> consumer <seen>/<expected> <s>`, exiting non-zero
+when any of the three fails. Every run of the breadth part was checked
+with it, and every one was clean.
 
 ## Measurements
 
@@ -1009,10 +1092,11 @@ the difference stage's 24 GiB for every stage.
   minutes, at most 99 containers at once, 11,711 packets, median queue
   waits 86 s for intake and 98 s for difference.
 - **The null test.** Per epoch the difference stage found 798 to 1,207
-  detections before the cap of 500, median 954, with 53 to 119 above
-  S/N 20. They sit at and around stars, the residual a PSF made for
-  another simulation leaves; none is variability. SCAs 4 and 5 leave
-  three to four times the bright residuals of the other SCAs.
+  artefact detections before the cap of 500, median 954, with 53 to 119
+  above S/N 20, none of them variability. They sit at and around stars,
+  the residual a PSF mismatch leaves, and on unmasked pixel defects.
+  SCAs 4 and 5 leave three to four times the artefact residuals of the
+  other SCAs.
 
 ### Housekeeping
 
@@ -1038,12 +1122,14 @@ the same pixels.
 | `reference` in the container | 76.4 s, 6 frames | 46.0 s, 3 frames |
 
 - **The disjoint reference.** On one pointing's SCA 8, the three epochs
-  of the fourth to sixth passes left 113, 114 and 128 residuals above
-  S/N 20 against a three-frame reference made from the first three
+  of the fourth to sixth passes left 113, 114 and 128 artefact
+  residuals above S/N 20, PSF mismatch and pixel defects rather than
+  detections, against a three-frame reference made from the first three
   passes, against 72, 75 and 100 under the wide-area run's six-frame
   reference, which held each epoch; the same PSF and pixels, the
   reference the only change. The three epochs gave 551 packets
-  against 447. The bright-residual fraction rose from 0.144 to 0.226.
+  against 447. The artefact fraction above S/N 20 rose from 0.144 to
+  0.226.
   Whether depth or disjointness does it is not separated (Not decided
   here, below).
 - **Packing has a cost in seconds.** An intake took 39 s with six
@@ -1054,6 +1140,70 @@ the same pixels.
 - **The consumer check's time is the topic's.** It reads every
   partition from the earliest offset, so its time grows with the
   topic, whatever the run's size.
+
+### Breadth
+
+Measured 2026-10-23 on SMDC over the six other filters of the wide-area
+simulation, one dataset each, SCA 8 of the 54 pointings and then the 18
+SCAs of the first pointing, every PSF derived by the `psf` stage.
+
+The residual counts below are artefact counts, not detections. The
+simulation has no time-variable sources, and an image study of one F146
+epoch found about three quarters of its packets on stars, where the
+science PSF and the resampled reference's differ (the reference's stars
+are about 15% wider, and the stage hands ZOGY one PSF for both), and
+most of the brightest on unmasked pixel defects; noise accounted for
+essentially none of them, and the pattern repeats from epoch to epoch.
+The table gives the median per differenced epoch of these artefact
+residuals above S/N 20 and their fraction of the 500 kept sources, for
+the 294.1 s exposures, with the 107.5 s exposures of the last two passes
+as "short":
+
+| Filter | SCA 8, 54 pointings | 18 SCAs, first pointing | SCA 4 / SCA 5 | Packets | Run prefixes |
+|---|---|---|---|---|---|
+| F146 | 79 (0.158), one pointing's three epochs | 79 (0.158), the wide-area run, a reference holding the epoch and `dev`'s PSF | 352 / 256 | | |
+| F087 | 110 (0.220) | 103 (0.207) | 401 / 324 | 27,644 | 154 GB |
+| F106 | 97 (0.194); short 44 (0.088) | 97 (0.195); short 49 (0.098) | 393 / 229 | 180,389 | 534 GB |
+| F129 | 92 (0.184); short 44 (0.088) | 118 (0.235); short 54 (0.108) | 500 / 180 | 183,535 | 535 GB |
+| F158 | 148 (0.296); short 78 (0.156) | 161 (0.322); short 86 (0.172) | 500 / 270 | 203,892 | 571 GB |
+| F184 | 333 (0.665) | 214 (0.428) | 500 / 500 | 31,913 | 155 GB |
+| F213 | 33 (0.101), 333 kept | 44 (0.127), 394 kept | 66 / 166 | 14,631 | 148 GB |
+
+- **What the table shows**, descriptively, since filter, depth and PSF
+  change together across its rows: F087, F106 and F129 leave artefact
+  fractions near F146's; F158 leaves more and F184 three to four times
+  as many; F213 is the shallowest band and does not reach the cap. The
+  short exposures halve the artefact fraction in each band that has
+  them and carry about a quarter fewer packets per epoch. SCA 4 holds
+  the most artefact residuals of the 18 in five of the six filters, and
+  every kept source of SCA 4 is above S/N 20 in F129, F158 and F184.
+  SCA 9, differenced against SCA 8's reference because the two share a
+  field, leaves more artefact residuals than SCA 8 in five of the six,
+  where in F146 the two were level.
+- **In all**: 4,544 epochs ingested, 3,266 differenced, 643,004
+  packets, 2.1 TB of run prefixes (0.45 to 0.46 GB per epoch), and a
+  database of 2.74 GB.
+- **Per stage on SCA 8**, medians across the six filters: intake 61 to
+  79 s in the container after a 244 to 305 s queue wait, the six
+  filters' 3,456 intakes submitted at once; reference 99 to 125 s on
+  three frames; difference 181 to 289 s, longer with more containers
+  sharing an instance; associate 4 to 9 s; packet 24 to 31 s at chain
+  depth 2 and 128 to 141 s at depths 13 and 14, its memory flat at under
+  900 MiB. Peak memory stayed within the F146 figures in every stage. The
+  compute environment chose 2xlarge to 8xlarge instances of the m6a,
+  r6i and r7i families.
+- **Forced rows grow with the chain**: about 300 per epoch at depth 2
+  and 1,400 at depth 13, 3.2 million over SCA 8.
+- **Kafka**: about 30 packets a second per loop, one set at a time,
+  with up to six loops publishing together. The topic keeps seven days,
+  unbounded by size.
+- **The checks.** The consumer check had read the topic from its
+  beginning at about 40 messages a second, which made one run's check
+  four hours and growing; the cause was the client's pure-Python record
+  checksum. With the checksum off and the read starting at the run's
+  first packet, a run's consumer check took 4 to 109 minutes, by how
+  much of the topic followed its first packet. `validate_run.py` grows
+  with the chain, 1,850 to 2,710 s at depths 13 and 14.
 
 **Not measured, for want of data on the host that ran it**: the matcher
 and the difference stage at the plan's density; a thirty-day window of real
@@ -1091,23 +1241,29 @@ computes it yet.
   simulation has six F146 epochs per pointing, too few for a six-frame
   reference disjoint from three. The PSF mismatch at stars is under
   both.
-- Where the reference bound goes for each filter of a footprint. The
-  midpoint between the third and fourth passes leaves three F146 epochs
-  on each side.
+- Where the reference bound goes in general. On the HLWAS simulation
+  each filter's bound is the midpoint of its own third and fourth
+  passes, which leaves three reference epochs before it in every filter;
+  a survey without passes needs another rule.
 - The grant and the path for producing packets to Kafka from the
   packet stage's own Batch job ({ref}`ruling <decision-producer-last>`). The
   compute environment and the brokers share a security group that
   admits itself; the Batch job role and its permission boundary hold no
   Kafka action.
-- PSFs for the other filters. Only F146's exist on SMDC; each image's
-  PSF is to come from the CRDS ePSF reference its file names
-  ({ref}`ruling <decision-psf-from-epsf>`), and the conversion from ePSF to the
-  PSF the difference stage reads is new code with no `dev` original.
+- Cross-band association. Each filter is a dataset of its own, so a
+  source seen in two filters is two objects. Whether an object is per
+  band or across bands is open, and with it forced photometry in the
+  other bands at a source's position.
+- The null test's artefacts: the PSF mismatch between the science PSF
+  and the resampled reference ([psf](psf), Not decided here) and pixel
+  defects the intake does not mask. Masking an L2 file's data-quality
+  flags at intake, and rejecting outliers in the reference coadd, are
+  not built.
+- The 107.5 s exposures of the last two passes are differenced against
+  a 294.1 s reference. Whether a short exposure gets a reference of its
+  own exposure time, or is differenced at all, is open.
 - Source injection, outside the pipeline as a dataset of its own
   ({ref}`ruling <decision-injection-outside>`), and its completeness measure.
-- The `psfs` identity sequence meets ids an import copied from a source
-  system: an import that draws an id already written fails at the
-  publish once, and its rerun draws past it.
 - Whether SFFT and the naive subtraction keep running now that only
   their outcome bits remain ([difference](difference)).
 - Packets after a replacement stay as published with the old
