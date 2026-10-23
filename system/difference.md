@@ -5,8 +5,8 @@
 `difference` subtracts one epoch's L2 image from the reference its job
 names, with ZOGY, catalogs the result, and declares the difference
 image and its source set for the publisher. SFFT and the naive
-subtraction run beside ZOGY as `dev` runs them, and their files stay
-under the prefix for diagnosis. The stage ports the science of `dev`'s
+subtraction run beside ZOGY as `dev` runs them, for their outcome bits;
+their files are not published. The stage ports the science of `dev`'s
 `pipeline/awsBatchSubmitJobs_runSingleSciencePipeline.py`, refreshed to
 `dev` at d6aac515, under the foundation's `run(job)` contract:
 `rapidpipe/stages/difference.py` and `rapidpipe/science/difference/` on
@@ -61,10 +61,35 @@ not fatal.
 
 ## Declared outputs
 
-Every working file stays under `diff/` in the attempt's prefix, as
-`dev` uploads its intermediates; `packet` reads the ZOGY difference
-image's neighbours there (its uncertainty map, `diffpsf.fits`, the
-background-subtracted science image and the gain-matched reference).
+The stage publishes, under `diff/` in the attempt's prefix, the files
+that a person or the packet stage reads, and nothing else
+({ref}`decision-difference-trimmed`). `dev` uploads every working file
+for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
+89% of the run's bytes. What is kept, and the reader that earns it:
+
+| File | Why it is kept |
+|---|---|
+| `zogy_diffimage_masked.fits.gz` | the difference; the `diffimages` row names it, and `packet` reads it for the difference cutout and forced photometry |
+| `zogy_diffimage_uncert_masked.fits.gz` | its uncertainty, read by forced photometry |
+| `awaicgen_output_mosaic_cov_map_resampled.fits.gz` | the mask: the resampled reference coverage map the difference is masked with |
+| `zogy_diffimage_masked_psfcat.parquet` | the catalog: ZOGY's positive PSF-fit catalog, uncapped, of which `sources` is the capped set |
+| `diffpsf.fits.gz` | the difference's PSF, for forced photometry on the difference |
+| `bkg_subbed_science_image.fits.gz` | forced photometry on the science image, and the science cutout |
+| `awaicgen_output_mosaic_image_resampled_gainmatched.fits.gz` | the template cutout |
+
+The first four are the ruling's: the difference, its uncertainty, the
+mask and the catalog. The other three are what `packet` reads. Every
+FITS file is gzipped at level 1 as the intake's are, the `diffimages`
+row names the `.fits.gz`, and its checksum is the MD5 of the gzipped
+file. Everything else, the SFFT and naive products, the negatives,
+the intermediates and the input copies, is removed before the upload.
+There is no setting to keep more: a variant is made again by rerunning
+the job. `packet` reads a difference image's neighbours with the same
+suffix as the image, so a run published before the trim, with plain
+FITS, reads as before. Trimming and compressing change no pixel: the
+packets of four epochs published both ways had byte-equal cutouts, 781
+of 781.
+
 The manifest declares two tables:
 
 | Table | Rows |
@@ -79,7 +104,8 @@ A missing ZOGY PSF-fit catalog publishes an empty source set with its
 outcome bit set, where `dev`'s loader skips the job. The manifest also
 records the zero point and where it came from, both FWHMs, the scale
 factor, the registration residuals, the catalog counts, the count of
-sources before the cap, and SFFT's outcome.
+sources before the cap, SFFT's outcome, and the published files with
+their plain and gzipped bytes, the gzip's seconds and what was removed.
 
 ## Settings
 
@@ -120,7 +146,11 @@ field 4658155, SCA 8, W146 against the 25-frame reference took 1,091 to
 1,181 s each in the container (median 1,124 s), against 1,324 to
 1,369 s on a two-frame reference; the cause of the difference was not
 probed. The largest child process peaked at 14.54 GiB whatever the
-reference, and each job wrote 72 files, about 2.8 GB. Uncapped, the
+reference, and each job wrote 72 files, about 2.8 GB, before the trim.
+On 2026-10-23, on the HLWAS data, a trimmed job published 10 objects,
+247 MB, against 2,547 MB in 72 for the same epochs before; the gzip
+took 7 to 9 s of a 227 s median container, the same median as before.
+Uncapped, the
 epochs gave 4,708 to 5,748 sources, 365,104 in all, 0.975 of `dev`'s
 own catalogs' total.
 
@@ -144,3 +174,6 @@ before operational use.
   sources with known positions.
 - sumrat, real/bogus and the extra SFFT catalog columns, and `dev`'s
   loader prefilter, left out of the thin chain.
+- Whether SFFT and the naive subtraction keep running now that only
+  their outcome bits remain of them. Turning them off is a settings
+  change with a science consequence, the bits.

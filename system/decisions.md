@@ -9,6 +9,80 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's rulings of 2026-10-22 on what follows the wide-area ramp, made
+stepwise between 12:57 and 13:23 PDT, and one of the same evening. The
+[foundation](foundation) page states the design they shaped, and the
+[loop](loop) and [difference](difference) pages the rules they set.
+
+(decision-housekeeping-first)=
+**Housekeeping first, then the disjoint reference, then injection**:
+the ramp's bytes and waits grow with every step after it, so the
+housekeeping lands before the ramp grows. Cutting it to two items, and
+injection first, were named and not taken. (Ben, 2026-10-22 PDT)
+
+(decision-breadth-before-injection)=
+**The other filters before injection**: after the housekeeping and the
+disjoint reference, the other filters run without injection, each
+image's PSF from its file's CRDS ePSF reference, and injection follows.
+This brings the first half of the breadth step forward, for experience
+running the pipeline over several filters. (Ben, 2026-10-22 16:03 PDT)
+
+(decision-reference-bound)=
+**The reference's epochs are a run setting, an `mjdobs` bound**: a run
+names which of a field's epochs may build its reference by a date, not
+a list of passes, because a date generalises to GBTDS, which has no
+passes. The pass list was recommended and not taken.
+(Ben, 2026-10-22 PDT)
+
+(decision-chain-admission-order)=
+**A reference stays per dataset, field and filter, and a field's chain
+is in the loop's admission order**: two SCAs on the same sky are the
+same field, and the SCA is in the PSF key the difference stage reads
+per epoch, so a reference per SCA would double references where
+pointings overlap and buy nothing. The loop admits in `mjdobs` order
+across every SCA of its selection; an earlier epoch that arrives after
+later ones is a rerun from that epoch, and the loop never
+re-associates. (Ben, 2026-10-22 PDT)
+
+(decision-injection-outside)=
+**Injection is outside the pipeline, as a dataset**: a one-time job
+injects sources into the SOC files and writes them under a new dataset,
+which the pipeline takes in like any other. Injection inside a stage is
+kept for later, if injection becomes per run rather than per dataset.
+(Ben, 2026-10-22 PDT)
+
+(decision-producer-last)=
+**The container-side producer stays, last**: producing packets to Kafka
+from the packet stage's own Batch job is the last code milestone, and
+`publish` stays as the verb that publishes again. Dropping it was named
+and not taken. (Ben, 2026-10-22 PDT)
+
+(decision-catalogs-dataset)=
+**The `catalogs` key gains the dataset**, as every other key has, so a
+footprint's Gaia copy is one product per dataset and its name no
+longer carries the footprint. (Ben, 2026-10-22 PDT)
+
+(decision-difference-trimmed)=
+**Difference outputs are trimmed** to the difference, its uncertainty,
+the mask and the catalog, gzipped as the intake's are; a variant is
+made again by a rerun, and there is no setting to keep more. A storage
+lifecycle rule was named and not taken. (Ben, 2026-10-22 PDT)
+
+(decision-gbtds-after-injection)=
+**GBTDS comes after injection**, not beside it; its WCS re-derivation
+is the intake's first extra step when it does. (Ben, 2026-10-22 PDT)
+
+(decision-psf-from-epsf)=
+**The PSF comes from the file's CRDS ePSF reference**: each image's
+science PSF is derived from the ePSF reference its own file names,
+which is the calibration's PSF and what flight data will carry; the
+simulation's rendering PSF is not a product. (Ben, 2026-10-22 13:08 PDT)
+
+(decision-spot-parked)=
+**Spot stays parked**: the rebuild's jobs run on demand; the cost
+figure is read and recorded, and nothing hangs on it.
+(Ben, 2026-10-22 13:23 PDT)
+
 Ben's rulings of 2026-10-21 evening on the instance type and the plan
 in force. The [foundation](foundation) page states the design they
 shaped, and the [stage contract](stage-contract) page the execution
