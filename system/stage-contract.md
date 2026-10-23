@@ -120,7 +120,11 @@ way of running a stage goes through it:
 - `rapidpipe job submit ... --job-definition <name:revision>` records
   the job and submits one Batch job to the queue in
   `RAPIDPIPE_BATCH_JOB_QUEUE`, whose command, after the image's
-  `rapidpipe` entrypoint, is `job run --job <id>`.
+  `rapidpipe` entrypoint, is `job run --job <id>`; with `--job <id>` it
+  submits an existing job's next attempt. The id Batch returns is
+  written on the job row, replacing any earlier one, and the
+  submission asks for the stage's memory from the run's
+  `[batch.memory_mib]` table.
 
 `run_job` reads the job and stops at once, touching no file, if it is
 already published. Otherwise it claims the next attempt, marks the job
@@ -128,9 +132,12 @@ already published. Otherwise it claims the next attempt, marks the job
 digest the job definition pins (none from a checkout) and beside it the
 instance type from the instance's metadata service (none when it does
 not answer), closes its
-connection, and calls the stage's `run(job)`. Under an `s3://` outputs
-root the stage writes into a local working directory, which `put`
-uploads to the attempt's prefix, manifest last, before publication.
+connection, and calls the stage's `run(job)`. An attempt's start
+clears the row's `refusal`, so a reason the loop's reconcile wrote does
+not outlive the next attempt. Under an `s3://` outputs root the stage
+writes into a local working directory, which `put` uploads to the
+attempt's prefix, manifest last, before publication, and which is
+removed once the upload returns.
 Then it calls `publish`, records the end time and exit code, and
 returns the publisher's result with `peak_rss_kib`: the peak resident
 memory of the Python process and of its largest finished child. Batch

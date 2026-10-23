@@ -15,9 +15,10 @@ The [stage contract](stage-contract) page states what a stage is under
 it, and the [decisions](decisions) page records the rulings it rests
 on. The chain has run end to end on SMDC's database and AWS Batch over
 one field's whole night, 69 epochs, and then from SOC L2 ASDF files to
-the Kafka topic over 426 epochs of a simulated wide-area survey; the
-last sections give the procedure, the checks both met and what they
-measured.
+the Kafka topic over 426 epochs of a simulated wide-area survey, and
+again after the housekeeping that made each epoch cheaper and gave the
+reference a bound; the last sections give the procedure, the checks
+they met and what they measured.
 
 ## In plain terms
 
@@ -56,10 +57,13 @@ from the run's body.
 A job is one execution of one stage under a run. The `jobs` row holds
 the stage, its scope, its state (`launched`, `running`, `published` or
 `failed`), the image digest it ran under (none for a job run from a
-checkout) and beside it the instance type, the settings hash, the attempt whose outputs were published,
-its manifest, the launched, started and ended times, the exit code, and
-the reason an automatic binding was refused, if one was. Local and
-Batch executions both get a job row. A killed execution is a job row
+checkout) and beside it the instance type, the Batch job id it was
+last submitted as (none for a local job), the settings hash, the
+attempt whose outputs were published, its manifest, the launched,
+started and ended times, the exit code, and the reason an automatic
+binding was refused, if one was, or the reason Batch gave for ending a
+container that never recorded its own end. Local and Batch executions
+both get a job row. A killed execution is a job row
 that never reached `published`.
 
 ### Published rows name their job
@@ -83,7 +87,7 @@ distinct live streams:
 | `sources` (source set) | dataset, expid, sca, fid | `sources` |
 | `objects` (object set) | dataset, survey, field | `objects`, with child `memberships` |
 | `packets` (packet set) | dataset, expid, sca, fid | `packets`, with children `forced` and `external` |
-| `catalogs` (reference catalog) | name, version | `catalogs` |
+| `catalogs` (reference catalog) | dataset, name, version | `catalogs` |
 
 A source is identified by its set and its source id, an object by its
 set and its object id, a packet by its set and its source. A set is
@@ -334,7 +338,7 @@ and `dev`'s per-object forced-photometry store.
 | `rapidpipe run show <id>`, `rapidpipe job show <id>` | print a run with its live binding and jobs, or a job with its inputs and bindings, as JSON |
 | `rapidpipe job local --run --stage --scope JSON [--inputs JSON] [--expects JSON] [--excludes JSON]` | records a job and runs it in this process, then publishes |
 | `rapidpipe job run --job <id>` | runs an existing job's next attempt, then publishes; stops at once if the job is published |
-| `rapidpipe job submit ... --job-definition <name>` | records a job and submits one Batch job whose command is `job run` |
+| `rapidpipe job submit ... --job-definition <name>` | records a job and submits one Batch job whose command is `job run`; with `--job <id>`, submits an existing job's next attempt instead |
 | `rapidpipe publish --run <id> [--settings FILE]` | produces the run's official, unstamped packet sets to the Kafka topic and stamps each (Publication to Kafka, below) |
 | `rapidpipe loop --run --filters --scas --pointings --job-definition` | carries a selection one stage forward per pass until it drains ([loop](loop)) |
 
@@ -353,7 +357,10 @@ The outputs root comes from `RAPIDPIPE_OUTPUTS_ROOT`, a `file://` or
 `file://`, or a download, once per object per process, for `s3://`.
 `put(directory, prefix)` uploads a stage's working directory to its
 attempt's prefix, `manifest.json` last, and does nothing for `file://`,
-where the stage wrote in place. A stage reads every input through
+where the stage wrote in place. Once `put` returns, the job removes its
+working directory; a stage or an upload that raises leaves it for a
+person to read. Before this, every `s3://` job run on a host left its
+directory behind, 89 of them and 22 GiB on the fleet host. A stage reads every input through
 `get`, writes under its job's local path, and records each file as the
 prefix's URL plus its relative path. The publisher reads the manifest
 and the declared files through `get` too, so it verifies checksums on
@@ -367,7 +374,27 @@ failed to publish is never rewritten.
 records the job, then submits one Batch job whose command is `job run
 --job <id>`, with the outputs root (which must be `s3://`) in the
 container's environment; the job definition's parameter tree names the
-database. The container runs one attempt and publishes it, exactly as
+database. The id Batch returns is written on the job row; a
+resubmission replaces it, so the row names its latest Batch job, and
+the loop reads Batch by it ([loop](loop), the reconcile).
+
+Each submission asks Batch for its stage's memory, from the run's
+settings table `[batch.memory_mib]`, one key per stage; a stage with no
+key gets the job definition's. The values are about twice each stage's
+measured peak, and the difference stage keeps the definition's 24 GiB:
+
+| Stage | Asked, MiB | Peak measured on the ramp, MiB |
+|---|---|---|
+| `intake` | 2,048 | 910 |
+| `reference` | 6,144 | 2,831 |
+| `difference` | 24,576 | 16,125 |
+| `associate` | 1,024 | 238 |
+| `packet` | 2,048 | 867 |
+
+With one reservation for every stage, the ramp ran every job on
+r6i.8xlarge, about ten to an instance. With these, the compute
+environment chose m6a.2xlarge and r6i.2xlarge or 4xlarge and packed 31
+jobs onto six instances; every peak stayed under its ask. The container runs one attempt and publishes it, exactly as
 `job run` does on a host. Batch retries exit 75 and nothing else
 ({ref}`ruling <decision-batch-retry>`): the job definition allows three
 attempts, the first run and two retries, and its rules retry on exit
@@ -406,10 +433,10 @@ image. Each simplification keeps the shape of the full stage.
 
 | Stage | Reads (named in `job_inputs`) | Writes (declared outputs) | Left out until breadth |
 |---|---|---|---|
-| `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `exposures` and `l2files`, with limiting magnitude, overlapping fields and sky indices computed | other filters, for want of their PSFs |
+| `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | other filters, for want of their PSFs |
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
-| `reference` | the field's `l2files` rows for one filter and SCA | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and one `psfs` row of each kind, `science` and `reference`; the cap on sources | the ZOGY difference image and the files `packet` reads beside it, SFFT and naive as `dev` runs them; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
+| `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and one `psfs` row of each kind, `science` and `reference`; the cap on sources | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
 | `associate` | the epoch's source sets for the field and its eight neighbours; the predecessor object set, or none; the exclusions | `objects.parquet` (every object of the field, id carried forward or position-hashed, founding position, sufficient sums) and `matches.parquet` (this epoch's memberships) | `rubrat`, `sumrat`; field parallelism |
 | `packet` | the epoch's source set; the object set to use, and through it its chain and exclusions; the window's difference and science images with their PSFs; the predecessor packet sets; the Gaia product; the reference and its mosaic catalog | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet` | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
@@ -450,8 +477,9 @@ three tables it declares with the `rfid` it draws, and its settings.
 The [difference](difference) page states `difference`: its scope (one
 epoch's key), its four inputs (the L2 row, a reference, and one PSF of
 each kind), the ZOGY image and source set it declares with the `pid` it
-draws, and its settings. A run has one differencer, so only the ZOGY
-image is published; the SFFT and naive files stay under the prefix.
+draws, the files it publishes and why each is kept, and its settings.
+A run has one differencer, so only the ZOGY image is published as a
+row; the SFFT and naive files are not uploaded at all.
 
 ### associate
 
@@ -523,8 +551,11 @@ value is a one-record Avro container, the set's container header with
 the packet's own block, so each message decodes on its own and carries
 its schema. There is no schema registry. The producer waits for every
 acknowledgement from all in-sync replicas, then stamps the set's job
-with the time (`jobs.kafka_published_at`). A producer error leaves the
-set unstamped and the verb exits 70. A crash between the last
+with the time (`jobs.kafka_published_at`). One call opens one database
+connection and one producer for every set it finds, sends them all,
+flushes once, and then stamps each set whose every acknowledgement came
+back. A set with a failed acknowledgement stays unstamped, the others
+are stamped, and the verb exits 70 naming it. A crash between the last
 acknowledgement and the stamp offers the set again on the next call, so
 a consumer may see a packet twice; replay is allowed and there is no
 exactly-once delivery. A set that loses its binding before it is
@@ -544,11 +575,14 @@ start, with no consumer group; keeps the messages whose key names one
 of the run's stamped sets; and requires each to decode as one record
 valid against its index row's schema, to equal the outbox bytes for its
 key, and every stamped packet to be seen at least once. Zero kept is a
-failure.
+failure. It holds one message and one set's outbox at a time, so its
+memory is one set's, whatever the topic's size.
 
 Today the producer runs where the loop runs, on a host, after the
 packet stage has published. Producing from the packet stage's own Batch
-job, as its last act, is not decided (Not decided here, below).
+job, as its last act, is to be the last code milestone
+({ref}`decision-producer-last`); `publish` stays as the verb that
+publishes again.
 
 ### Settings of the thin run
 
@@ -568,7 +602,11 @@ outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
 scope, the intake's source root is the run's own `[intake]
 source_root`, given in the settings overlay at `run create`, and the
-outputs root is the environment's.
+outputs root is the environment's. `[batch.memory_mib]` holds each
+stage's memory ask (A job on Batch, above). `[reference.selection]
+before_mjd`, the reference bound, is documented in the shipped file and
+absent there: a run sets it in its overlay, and a run without it
+coadds every epoch of a field ([loop](loop), the reference bound).
 
 ## The queries
 
@@ -618,7 +656,7 @@ minutes. The same observations on synthetic rows run in CI under
 
 The SMDC database `rapid` holds the foundation in its `public` schema,
 and the pipeline repository's `docs/foundation-smdc-step.md` is the
-procedure, one command and then its check per step. It has seven parts.
+procedure, one command and then its check per step. It has eight parts.
 
 **The schema.** `public` is dropped and recreated from `schema.sql` in
 one transaction, through the pooler, as the database owner. Everything
@@ -770,8 +808,43 @@ only, the one filter with PSFs on SMDC.
   differenced against SCA 8's reference, each naming its own SCA's
   reference PSF, and were appended to that field's chain after SCA 8's
   epochs although each was taken earlier. Nothing failed and the chain
-  check held, since it checks integrity and not order; the question is
-  open (Not decided here, below).
+  check held, since it checks integrity and not order. The ruling that
+  followed keeps one reference per dataset, field and filter and puts a
+  field's chain in the loop's admission order, which is time order when
+  the loop admits every SCA of an exposure together
+  ({ref}`decision-chain-admission-order`).
+
+**Housekeeping.** The eighth part made each epoch cheaper before the
+ramp grows, and gave the reference a bound. Every proof ran on Batch
+under a throwaway dataset with its own live run, on the same pixels as
+the wide-area run's first pointing, because the loop admits a file only
+when no intake of its dataset has published it. The wide-area run and
+the GBTDS run stayed live and untouched, and nothing was deleted.
+
+- *Bytes.* The difference stage publishes the seven files its readers
+  need, gzipped ([difference](difference)); a job removes its working
+  directory after the upload; the intake writes an `exposures` row only
+  when its job expects that key, so no unbound duplicates are left.
+- *Batch.* Every job row carries its Batch job id; the loop's reconcile
+  marked a container killed under it `failed` with Batch's reason in
+  the next pass, and a rerun with `job submit --job` published; each
+  stage asks for its own memory.
+- *The pass.* The loop lists only the selection's observations;
+  `publish` uses one connection and one flush per pass;
+  `validate_run.py` works eight jobs or sets at a time, and the
+  consumer check holds one set at a time.
+- *The reference bound.* With the bound between the third and fourth
+  passes, one pointing's reference coadded exactly the three epochs
+  before it and the three after it were differenced, associated and
+  published, chain depth three; `validate_run.py`, the reader and the
+  consumer check were clean. A second dataset with the bound before
+  every epoch took all six intakes in, reported the field held on every
+  pass after, submitted no reference and no difference, and drained
+  with exit 0.
+- *The `catalogs` key.* The column, its unique constraint and the view
+  were changed on SMDC in one transaction, and the open bindings and
+  the recorded inputs naming a catalog gained their dataset; the bound
+  products were unchanged.
 
 ## Validation
 
@@ -830,7 +903,10 @@ operations with no read-only form over a run, checked as they run. The
 script passed on both GBTDS runs, and on the wide-area run after its
 first pointing, after its second, after the SCA 8 ramp and after the
 18-SCA ramp. The reader was clean on every packet set and the consumer
-check on every packet each time.
+check on every packet each time. The script now reads every job's
+Parquet and decodes every packet set eight at a time, each worker on
+its own connection, with the same assertions: on the wide-area run it
+took 666 s against 1,512 s.
 
 ## Measurements
 
@@ -938,6 +1014,47 @@ the difference stage's 24 GiB for every stage.
   another simulation leaves; none is variability. SCAs 4 and 5 leave
   three to four times the bright residuals of the other SCAs.
 
+### Housekeeping
+
+Measured 2026-10-23 on SMDC, each change proven on Batch over the
+wide-area data's first pointing, against the wide-area run's figures for
+the same pixels.
+
+| | Before | After |
+|---|---|---|
+| A difference job's published bytes | 2,547 MB in 72 objects | 247 MB in 10 |
+| The run's prefix per epoch | 2.83 GB | 0.53 to 0.57 GB |
+| `difference` in the container, median | 227.0 s | 227.4 s, gzip 7 to 9 s of it |
+| `packet` in the container, median | 26.7 s | 45.0 s on gzipped reads in the first proof, 27.5 to 35.9 s in the later two |
+| Working directories left on the fleet host | 89, 22.2 GiB | none |
+| Unbound duplicate `exposures` rows | 102 after the 18-SCA ramp | none, one row per exposure |
+| Memory asked per job | 24 GiB, every stage | 1 to 24 GiB by stage |
+| Instances | r6i.8xlarge, about ten jobs each | 2xlarge and 4xlarge sizes, 31 jobs on 6 |
+| A container that ends unrecorded | stays `running` | `failed` with Batch's reason in the next pass, 0.1 s |
+| An idle loop pass | 29.6 to 40.6 s | 3.8 to 5.8 s |
+| Connections per publishing pass | one, plus three per set | two |
+| `validate_run.py` on the wide-area run | 1,512 s, 579 MiB | 666 s, 1,086 MiB |
+| The consumer check on the wide-area run | 2,397 s, 24.8 GiB | 2,740 s, 434 MiB |
+| `reference` in the container | 76.4 s, 6 frames | 46.0 s, 3 frames |
+
+- **The disjoint reference.** On one pointing's SCA 8, the three epochs
+  of the fourth to sixth passes left 113, 114 and 128 residuals above
+  S/N 20 against a three-frame reference made from the first three
+  passes, against 72, 75 and 100 under the wide-area run's six-frame
+  reference, which held each epoch; the same PSF and pixels, the
+  reference the only change. The three epochs gave 551 packets
+  against 447. The bright-residual fraction rose from 0.144 to 0.226.
+  Whether depth or disjointness does it is not separated (Not decided
+  here, below).
+- **Packing has a cost in seconds.** An intake took 39 s with six
+  sharing an 8-vCPU instance, against 21 s alone.
+- **The read side of gzip.** Forced photometry opens three gzipped
+  files per window image, about 2.1 s of decompression each, so a long
+  chain pays it on every epoch.
+- **The consumer check's time is the topic's.** It reads every
+  partition from the earliest offset, so its time grows with the
+  topic, whatever the run's size.
+
 **Not measured, for want of data on the host that ran it**: the matcher
 and the difference stage at the plan's density; a thirty-day window of real
 cadence; completeness against the injected sources; and the rubrat,
@@ -968,28 +1085,31 @@ computes it yet.
   agree bit for bit and one AMD execution does not. The instance type
   is now on every job row, so a comparison can be filtered; whether a
   run should hold to one family is open, and today it does not.
-- Whether a reference is per field and filter, as its key is today, or
-  per field, filter and SCA; and what a field's chain does with an
-  epoch that arrives after later ones. An SCA landing on a field
-  another SCA referenced is differenced against that stack and joins
-  its chain out of order.
-- A reference disjoint from the epochs it is subtracted from. Today a
-  field's reference coadds the same epochs that are then differenced,
-  which suits a null test and would suppress a real transient.
-- The `catalogs` key, (name, version), is the one key without the
-  dataset. A second footprint's Gaia copy takes its own name today;
-  the key gaining the dataset, as every other key has, would make it
-  one product per dataset.
-- Producing packets to Kafka from the packet stage's own Batch job, as
-  its last act, in place of a host process after the fact. It needs a
-  grant on the Batch job role and a path from the compute environment
-  to the brokers, neither tested.
-- PSFs for the other filters. Only F146's exist on SMDC, so only F146
-  has been run.
-- **Source injection is the next scientific step.** The chain has the
-  right shape and functions on a static simulated sky; whether it
-  finds what is there is the next question, asked by injecting sources
-  into the same data, before more breadth.
+- Whether the disjoint reference's extra bright residuals come from
+  its depth, three frames against six, or from its disjointness. A
+  three-frame reference that holds the epoch would separate them; the
+  simulation has six F146 epochs per pointing, too few for a six-frame
+  reference disjoint from three. The PSF mismatch at stars is under
+  both.
+- Where the reference bound goes for each filter of a footprint. The
+  midpoint between the third and fourth passes leaves three F146 epochs
+  on each side.
+- The grant and the path for producing packets to Kafka from the
+  packet stage's own Batch job ({ref}`decision-producer-last`). The
+  compute environment and the brokers share a security group that
+  admits itself; the Batch job role and its permission boundary hold no
+  Kafka action.
+- PSFs for the other filters. Only F146's exist on SMDC; each image's
+  PSF is to come from the CRDS ePSF reference its file names
+  ({ref}`decision-psf-from-epsf`), and the conversion from ePSF to the
+  PSF the difference stage reads is new code with no `dev` original.
+- Source injection, outside the pipeline as a dataset of its own
+  ({ref}`decision-injection-outside`), and its completeness measure.
+- The `psfs` identity sequence meets ids an import copied from a source
+  system: an import that draws an id already written fails at the
+  publish once, and its rerun draws past it.
+- Whether SFFT and the naive subtraction keep running now that only
+  their outcome bits remain ([difference](difference)).
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.

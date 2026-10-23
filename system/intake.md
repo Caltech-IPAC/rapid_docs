@@ -4,7 +4,8 @@
 
 The `intake` stage turns one SOC L2 file, a calibrated Roman image in
 ASDF, into the L2 product the rest of the chain reads: a gzipped FITS
-file in `dev`'s layout, one `l2files` row and one `exposures` row. It is
+file in `dev`'s layout, one `l2files` row and, for one SCA of each
+exposure, one `exposures` row. It is
 where a run's data enter the record, so a run that starts from intake
 owns every byte from the raw file to the packet. The
 [foundation](foundation) page states the records it works within, and
@@ -80,9 +81,10 @@ share it, as they share `dev`'s one `Exposures` row.
 **The shared `exposures` key.** Because the 18 SCAs share an
 `exposures` key, only one job may expect it with no open binding. The
 loop has the first intake of an exposure expect it and every other
-intake of that exposure leave it out of its expects. Every intake still
-writes the row, so 17 of each exposure's 18 rows are unbound
-candidates.
+intake of that exposure leave it out of its expects. An intake writes
+the `exposures` row only when its job expects the key, so an exposure
+has one row. Before this, every intake wrote it, and the 18-SCA ramp
+left 102 unbound duplicates.
 
 The `SWVERS` keyword is `job <id>`: the job names its run, and the run
 its code revision.
@@ -121,11 +123,8 @@ all published on their first attempt.
 - Gzip is single-threaded and is the stage's largest step on Batch; a
   parallel compressor, or no compression, since the difference stage
   unpacks the file, would roughly halve the stage.
-- Intake peaks at under a twentieth of what its job definition
-  reserves. A smaller reservation for intake would pack many more per
-  instance, and several files per job would cut the queue wait that
-  dominates it.
-- Whether an intake that does not expect the `exposures` key should
-  write the row at all.
+- Intake now asks Batch for 2 GiB, about twice its peak, and packs
+  six to an instance, where it takes about twice as long as alone.
+  Several files per job would cut the queue wait that dominates it.
 - The `l2files` row and the PSF lookup are built by both `import` and
   `intake`; one helper would hold them once.
