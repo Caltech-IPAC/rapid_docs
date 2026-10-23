@@ -19,8 +19,9 @@ classification or commands, this page governs.
 
 The loop looks at the run's source root and at the database, decides
 what can run now, submits it to Batch without waiting, and goes to
-sleep. Two minutes later it looks again. A file nobody has taken in
-gets an intake job; a field with all its images taken in gets a
+sleep. Two minutes later it looks again. A filter and SCA with no PSF
+gets a job that derives one, and its files wait for it; a file nobody
+has taken in gets an intake job; a field with all its images taken in gets a
 reference; an image with a reference gets a difference; and each
 field's association and packets advance one epoch at a time, oldest
 first. At the end of every pass, whatever packet sets became official
@@ -67,12 +68,19 @@ full. Over the HLWAS simulation that is 23,398 keys instead of 272,160.
 
 Its order:
 
-1. **intake**: one job per listed file the selection admits that no
+1. **psf**: the pass's new files are grouped by filter and SCA, and a
+   pair without both an official science and an official reference PSF
+   gets one [psf](psf) job, named by the pair's first new file, unless a
+   psf job of the run already serves it. That SCA's files are held from
+   intake until both rows are official; they still count as new, so the
+   pass is not drained while they wait. A selection needs no PSF
+   imported: its first pass derives what is missing.
+2. **intake**: one job per listed file the selection admits that no
    published intake of the dataset and no intake job of this run has
    taken, at most `--max-intake` per pass. Each names its filter's and
    SCA's science PSF. The first intake of an exposure expects the
    shared `exposures` key; the others leave it out.
-2. **reference**: one job per field and filter with at least
+3. **reference**: one job per field and filter with at least
    `[reference.selection] min_frames` official L2 rows, no official
    reference and none pending or failed, and only while no intake of
    the run is pending, so a reference coadds every epoch the drain
@@ -80,27 +88,32 @@ Its order:
    the first in order with enough frames; the job's scope records which.
    With a reference bound set, the rules change as described under
    [The reference bound](#the-reference-bound).
-3. **difference**: one job per official L2 row whose field has an
+4. **difference**: one job per official L2 row whose field has an
    official reference and whose key has no official difference and no
    difference job of the run pending or failed. With a bound, only rows
    at or after it.
-4. **associate**: per field, one job for the earliest official source
-   set, by `mjdobs`, that no associate of the run has named, with the
-   field's open object set as its predecessor. It waits while an
+5. **associate**: per field, one job for the earliest official source
+   set, by `mjdobs`, that is not yet associated, with the field's open
+   object set as its predecessor. A source set is associated when it is
+   in the field's official chain, walked back from the official object
+   set through each associate's recorded predecessor, whatever run made
+   it, or when an associate of this run naming it has not yet
+   published. So a new live run of the same dataset continues the
+   chains where the last one stopped and never associates an epoch
+   twice. It waits while an
    associate of the field is pending, while an earlier selected L2 row
    of the field lacks its source set, and while any intake of the run
    is pending, since an intake's field is known only once it publishes.
-5. **packet**: per field, one job for the earliest associated epoch
+6. **packet**: per field, one job for the earliest associated epoch
    without a packet set, once every earlier epoch's packet set is
    official, because a packet set reuses its predecessors' forced rows.
    It names the reference, the run's Gaia catalog, the science PSF, the
    object set, the epoch's source set, the field's earlier packet sets,
    and the field's difference images and L2 rows within the stage's
    forced window.
-6. **Kafka**: `publish` over the run's official, unstamped packet sets
+7. **Kafka**: `publish` over the run's official, unstamped packet sets
    ([foundation](foundation), Publication to Kafka), on one connection
-   with one flush for every set the pass made official. An idle pass
-   opens no producer.
+   and one producer, one set at a time. An idle pass opens no producer.
 
 Fields advance independently, so one pass can carry many fields at
 different depths, and a packet job for epoch *n* goes out beside the
@@ -201,6 +214,30 @@ On SMDC, 2026-10-22, over the HLWAS simulation's F146 data:
   chain took 20 minutes for about 21 seconds of associate containers,
   and the same across 52 fields at once.
 
+On SMDC, 2026-10-23, the six other filters of the same simulation, one
+dataset and one loop each, all six at once:
+
+| Selection | Epochs | Jobs | Loop start to drained |
+|---|---|---|---|
+| every pointing, SCA 8, six filters | 3,456 | 12,686, 1,448 of them intakes failed and re-planned | 3 h 21 min for all six, with three code fixes and their redeploys; one filter, interrupted once, 49 min |
+| one pointing, all 18 SCAs, six filters | 1,088 more | 3,632 | 1 h 22 min, 9 min of it psf reruns |
+
+- **A psf job** adds one queue wait before a pair's first intake: two
+  passes, about four minutes, against an imported PSF.
+- **A pass can submit thousands of jobs.** The six loops' second passes
+  submitted 3,456 intakes in a minute, and 1,448 of them failed reading
+  the database parameters from the parameter store, which throttled
+  them; each job's read now backs off for minutes, with botocore's own
+  retry setting, and none failed after. `--max-intake` is the lever on
+  the burst.
+- **Publishing at depth sets the pace.** About 30 packets a second per
+  loop, one set at a time; a pass of 54 sets of about 205 packets took
+  about six minutes, so a chain of 13 or 14 advanced one link each six
+  minutes on 54 fields at once, and about two minutes on 17.
+- **One failed job stops a loop**: it exits 2, and every
+  other SCA of that filter waits for the rerun. 72 psf jobs failing at
+  once on the CRDS server stopped all six loops for nine minutes.
+
 ## Not decided here
 
 - Where the loop runs on a schedule, and at what cadence, once real
@@ -210,9 +247,14 @@ On SMDC, 2026-10-22, over the HLWAS simulation's F146 data:
   one Batch job. At GBTDS depth this is the loop's latency.
 - An unbounded run's field with fewer than `min_frames` rows still
   waits without a `held` report; only a bounded run reports it.
-- Where the bound goes for each filter of a footprint, and whether
-  a reference disjoint from its epochs costs residuals by its depth
-  or by its disjointness ([foundation](foundation), Not decided here).
+- Where the bound goes in general. On the HLWAS simulation each
+  filter's bound is the midpoint of its own third and fourth passes at
+  the first pointing, a run setting per filter; a survey without passes
+  needs another rule. Whether a reference disjoint from its epochs
+  costs residuals by its depth or by its disjointness is open too
+  ([foundation](foundation), Not decided here).
+- Whether a failed job should stop only its own filter and SCA rather
+  than the whole loop.
 - A reconcile of a Batch job that Batch no longer describes is
   unit-tested only; it has not been seen live.
 - The mission's own delivery layout and manifest, once the interface is

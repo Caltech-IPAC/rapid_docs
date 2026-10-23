@@ -27,7 +27,8 @@ source root is read anonymously when `[intake] unsigned` is true; a
 signed read is not tried after an anonymous one fails.
 
 The job names one input by key: the `psfs` set holding the science PSF
-of the file's filter and SCA, used for the limiting magnitude. The
+of the file's filter and SCA, used for the limiting magnitude and for
+the check that it was made from the file's own ePSF reference. The
 `_wcs.asdf` sidecar SOC delivers beside each file is not read, since
 the calibrated file carries the same gWCS, fit results and metadata.
 
@@ -46,11 +47,17 @@ the calibrated file carries the same gWCS, fit results and metadata.
    widened; and the tables as binary tables. The uncompressed file is
    made in a temporary directory and only the gzipped one is kept.
 4. Gzip at `[intake] gzip_level`.
-5. Measure the limiting magnitude with the science PSF, as `import`
+5. Check that the science PSF was made from this file's own ePSF
+   reference: the basename of the file's `meta.ref_file.epsf` card must
+   be the PSF file's `EPSFREF`, which the [psf](psf) stage writes and
+   `dev`'s copied F146 files also carry. A mismatch fails the job before
+   any manifest, naming both; a PSF or a file that names no reference
+   is accepted.
+6. Measure the limiting magnitude with the science PSF, as `import`
    does.
-6. Derive the image centre, corners, tessellation field, overlapping
+7. Derive the image centre, corners, tessellation field, overlapping
    fields and HEALPix indexes, as `import` does.
-7. Write the rows and the manifest.
+8. Write the rows and the manifest.
 
 The fitted SIP reproduces the gWCS to well under the fit's own 0.1
 pixel bound: on a real file, to below 1e-5 arcsec at the corners and

@@ -23,7 +23,8 @@ injection first, were named and not taken. (Ben, 2026-10-22 PDT)
 (decision-breadth-before-injection)=
 **The other filters before injection**: after the housekeeping and the
 disjoint reference, the other filters run without injection, each
-image's PSF from its file's CRDS ePSF reference, and injection follows.
+filter a dataset of its own with its own live run, each image's PSF
+from its file's CRDS ePSF reference, and injection follows.
 This brings the first half of the breadth step forward, for experience
 running the pipeline over several filters. (Ben, 2026-10-22 16:03 PDT)
 
