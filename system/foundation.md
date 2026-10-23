@@ -581,7 +581,7 @@ memory is one set's, whatever the topic's size.
 Today the producer runs where the loop runs, on a host, after the
 packet stage has published. Producing from the packet stage's own Batch
 job, as its last act, is to be the last code milestone
-({ref}`decision-producer-last`); `publish` stays as the verb that
+({ref}`ruling <decision-producer-last>`); `publish` stays as the verb that
 publishes again.
 
 ### Settings of the thin run
@@ -812,7 +812,7 @@ only, the one filter with PSFs on SMDC.
   followed keeps one reference per dataset, field and filter and puts a
   field's chain in the loop's admission order, which is time order when
   the loop admits every SCA of an exposure together
-  ({ref}`decision-chain-admission-order`).
+  ({ref}`ruling <decision-chain-admission-order>`).
 
 **Housekeeping.** The eighth part made each epoch cheaper before the
 ramp grows, and gave the reference a bound. Every proof ran on Batch
@@ -1095,16 +1095,16 @@ computes it yet.
   midpoint between the third and fourth passes leaves three F146 epochs
   on each side.
 - The grant and the path for producing packets to Kafka from the
-  packet stage's own Batch job ({ref}`decision-producer-last`). The
+  packet stage's own Batch job ({ref}`ruling <decision-producer-last>`). The
   compute environment and the brokers share a security group that
   admits itself; the Batch job role and its permission boundary hold no
   Kafka action.
 - PSFs for the other filters. Only F146's exist on SMDC; each image's
   PSF is to come from the CRDS ePSF reference its file names
-  ({ref}`decision-psf-from-epsf`), and the conversion from ePSF to the
+  ({ref}`ruling <decision-psf-from-epsf>`), and the conversion from ePSF to the
   PSF the difference stage reads is new code with no `dev` original.
 - Source injection, outside the pipeline as a dataset of its own
-  ({ref}`decision-injection-outside`), and its completeness measure.
+  ({ref}`ruling <decision-injection-outside>`), and its completeness measure.
 - The `psfs` identity sequence meets ids an import copied from a source
   system: an import that draws an id already written fails at the
   publish once, and its rerun draws past it.

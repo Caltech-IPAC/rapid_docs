@@ -63,7 +63,7 @@ not fatal.
 
 The stage publishes, under `diff/` in the attempt's prefix, the files
 that a person or the packet stage reads, and nothing else
-({ref}`decision-difference-trimmed`). `dev` uploads every working file
+({ref}`ruling <decision-difference-trimmed>`). `dev` uploads every working file
 for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
 89% of the run's bytes. What is kept, and the reader that earns it:
 

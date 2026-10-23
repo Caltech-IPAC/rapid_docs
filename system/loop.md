@@ -141,7 +141,7 @@ date. With it set, a field's reference is built only from the field's
 epochs before the bound, and only the epochs at or after it are
 differenced, so no epoch is subtracted from a reference that holds it.
 The bound is a date rather than a list of passes because a survey such
-as GBTDS has no passes ({ref}`decision-reference-bound`). Absent, every
+as GBTDS has no passes ({ref}`ruling <decision-reference-bound>`). Absent, every
 epoch may build the reference and every epoch is differenced, as
 before.
 
@@ -166,7 +166,7 @@ A field's object sets form one chain, one `associate` per epoch, each
 naming the last as its predecessor; its packet sets form a second chain
 behind it. The chain is in the loop's admission order, and the loop
 admits in `mjdobs` order across every SCA of its selection
-({ref}`decision-chain-admission-order`). The loop holds a field's
+({ref}`ruling <decision-chain-admission-order>`). The loop holds a field's
 association while any earlier epoch of the field is still upstream.
 When two SCAs cover one field, as adjacent pointings do on a grid one
 SCA wide, both SCAs' epochs share one reference, since a reference is
