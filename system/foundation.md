@@ -7,7 +7,7 @@ official, and the narrow chain of stages built on that record, from
 stored images to alert packets. It is the design the `rebuild` branch
 of the pipeline repository implements: `database/schema.sql`, the
 package `rapidpipe.foundation`, the stages `intake`, `import`, `psf`,
-`reference`, `difference`, `associate` and `packet`, the loop, the
+`reference`, `difference` and `packet`, the loop, the quality gate, the
 Kafka publication, the reader `scripts/read_packets.py`, the run
 validation `scripts/validate_run.py`, the check script
 `scripts/check_run.sh` and the queries in `database/queries.sql`.
@@ -18,8 +18,11 @@ one field's whole night, 69 epochs, and then from SOC L2 ASDF files to
 the Kafka topic over 426 epochs of a simulated wide-area survey, and
 again after the housekeeping that made each epoch cheaper and gave the
 reference a bound, and then over the simulation's six other filters,
-each with PSFs the pipeline derives itself; the last sections give the procedure, the checks
-they met and what they measured.
+each with PSFs the pipeline derives itself, and then with association
+moved into the difference job, injected sources counted, Spot measured
+and two more simulations taken in ([datasets](datasets)); the last
+sections give the procedure, the checks they met and what they
+measured.
 
 ## In plain terms
 
@@ -52,6 +55,25 @@ who, when, why, the code revision, the full settings body inline, and
 the one survey and dataset the run is for. There is no settings table
 and no resolution of settings at run time: a stage reads its own table
 from the run's body.
+
+`run create` resolves the body from three layers, low to high. The
+shipped defaults, `rapidpipe/settings/foundation-thin.toml`, hold
+`dev`'s values and `dev`'s behaviour, with the measured value and its
+reason where a behaviour is new to the rebuild. A dataset's overlay,
+`rapidpipe/settings/datasets/<dataset>.toml` (`--overlay`), holds only
+the keys that differ for that dataset, each with a comment naming the
+measurement that earned it; it is the recorded divergence from `dev`,
+and what the next dataset copies and edits. Command-line overrides
+(`--set TABLE.key=value`) carry one run's experiment. The run stores the
+resolved body, its hash, and the name and hash of each layer, which
+`run show` prints as `layers`. A middle layer per survey or instrument
+waits until two datasets share a quirk. A setting exists only where a
+measured case needed a different value; otherwise the code does one
+thing. Datasets differ at intake in kind (a reader per input format, a
+WCS correction, the data-quality mask) and downstream only in value. A
+code divergence from `dev` where `dev` has no knob is one line on the
+[decisions](decisions) page with its measurement. The overlays and what
+earned each key are on the [datasets](datasets) page.
 
 ### Jobs
 
@@ -86,12 +108,15 @@ distinct live streams:
 | `psfs` | dataset, fid, sca, kind | `psfs` |
 | `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
 | `sources` (source set) | dataset, expid, sca, fid | `sources` |
-| `objects` (object set) | dataset, survey, field | `objects`, with child `memberships` |
+| `objects` (the object catalog, not bound) | dataset, survey, field, object id, founding job | `objects`, with `memberships` declared beside each source set |
 | `packets` (packet set) | dataset, expid, sca, fid | `packets`, with children `forced` and `external` |
 | `catalogs` (reference catalog) | dataset, name, version | `catalogs` |
 
 A source is identified by its set and its source id, an object by its
-set and its object id, a packet by its set and its source. A set is
+founding job and its object id, a packet by its set and its source.
+Objects and memberships carry no binding of their own: a membership is
+official when its source set is, and an object when one of its
+memberships is. A set is
 identified by the job that wrote it, so a job that writes a set binds
 exactly one key of that set's product.
 
@@ -105,13 +130,10 @@ column; this is the identity rule applied.
 
 ### Inputs are chosen at launch and recorded
 
-`job_inputs` holds, for each job, rows of three kinds. An `input` row
-names a set the job reads, by product, key and the job that wrote it;
-an object-set job's predecessor is its `input` row of product
-`objects`. An `expects` row names, for one output key, the open binding
-the job expects to replace, or none. An `excludes` row, for `associate`
-only, names a source set of the predecessor's chain that is no longer
-official, whose members the job drops.
+`job_inputs` holds, for each job, rows of two kinds. An `input` row
+names a set the job reads, by product, key and the job that wrote it.
+An `expects` row names, for one output key, the open binding the job
+expects to replace, or none.
 
 The launcher chooses these. For the live run it chooses the current
 official sets; a campaign chooses its own previous sets, and none for
@@ -119,6 +141,18 @@ its first epoch. A stage reads the sets its rows name and never "the
 current official" one, which is what lets a recipe that is not live,
 or a correction of one downstream product, read sets that are not
 official.
+
+The one exception is the field's object catalog
+({ref}`ruling <decision-association-in-difference>`). The difference
+job reads its field's objects of its own run as they stand when it
+runs, and the packet job reads the trigger's objects, their official
+members and the forced-photometry window the same way. Each records
+exactly what it read, one `input` row per founding job or set seen,
+written by the publisher from the manifest's `reads`. The run scope
+keeps a recipe from reading another recipe's objects; the recorded read
+gives the same rows again. The same night run in another order founds
+some objects from a different epoch, so their ids differ, and a
+comparison across recipes goes through source memberships.
 
 ### One table of official bindings
 
@@ -139,9 +173,10 @@ row.
 
 Each product table has a view `<table>_official`: its rows joined to
 their open bindings, with the `binding` and `run` columns added. There
-is no stored flag. `members_official` follows an official object set's
-predecessor chain and returns its memberships, except those whose
-source set any set in the chain excluded.
+is no stored flag. `memberships_official` holds the memberships whose
+source set is official, so a superseded source set's memberships leave
+with it, and `objects_official` holds every object with at least one
+official membership, its statistics summed over them.
 
 ### Publish last
 
@@ -219,12 +254,11 @@ only downstream products is either not made live, its results bound by
 an explicit group, or made live for everything.
 
 **Automatic binding compares the expected binding, not the input.**
-For `associate` the set it read and the binding it replaces coincide;
-for `packet` the input is an object set and the binding to replace is
-the previous packet set of that image. Two jobs that both read set A:
-the first publishes B and binds; the second publishes C and stays an
-unbound candidate. A late job from a run that is no longer live stays
-unbound for the same reason.
+For `packet` the input is a source set and the binding to replace is
+the previous packet set of that image. Two jobs that both expect to
+replace binding A: the first publishes and binds; the second publishes
+and stays an unbound candidate. A late job from a run that is no longer
+live stays unbound for the same reason.
 
 **Concurrency is the unique index and the row lock.** Two groups that
 close the same binding: the second blocks on the row, finds it closed,
@@ -240,8 +274,8 @@ holds no connection while it computes and writes no catalog row. The
 old crossmatch matched each exposure against rows it had itself written
 for the previous one, inside one transaction under an advisory lock;
 with outputs going to Parquet there is nothing for SQL to query
-mid-job, so `associate` matches in memory, and its parity with the SQL
-matcher on the same field is a test in CI.
+mid-job, so the difference job matches in memory, and its parity with
+the SQL matcher on the same field is a test in CI.
 
 **Declared outputs, not every file.** A stage's manifest names which of
 its files are catalog rows, and the publisher loads those and only
@@ -263,25 +297,38 @@ close, and the group refuses.
 contain the job id and the attempt, with their checksums. A retry
 writes new files and never overwrites a referenced one.
 
-**Association products are sets, and sets are deltas.** An object set
-is one job's output for one field. `objects.parquet` holds every object
-of the field with its founding position and its statistics as
-sufficient sums (count, and the sum and sum of squares of position and
-flux), so the next epoch updates statistics from the predecessor's
-objects and this epoch's sources without reading history.
-`matches.parquet` holds only this epoch's new memberships. A full
-membership snapshot per epoch would grow with the square of the epoch
-count, and a GBTDS field has tens of thousands of epochs. Object ids
-are position hashes of the founding source, so the same founding source
-gives the same id under any recipe, and a join on object id works
-across recipes for most objects.
+**The object catalog is append-only per run and field, and association
+runs in the difference job**
+({ref}`ruling <decision-association-in-difference>`). Observations do
+not arrive in order, and an alert is the best information at the time.
+The per-field chain it replaced, one `associate` job per epoch, each
+waiting for its predecessor's set, assumed arrival in order and paid a
+queue wait and a loop pass for three seconds of work; F158's
+fourteen-deep chains took hours while the fan-out stages took minutes.
+Now the difference job holds the epoch's sources in memory, reads the
+field's objects as they stand, matches, founds an object for each
+unmatched source, and publishes `objects.parquet` (founded here) and
+`memberships.parquet` (each membership with its source's offsets from
+the object's founding position and its flux) beside its sources. An
+object's statistics are the sums of its official memberships' shares,
+through `objects_official`: sufficient sums are additive, so the order
+of arrival does not matter. Object ids are position hashes of the
+founding source and never change after publication.
 
-**The object set is the pruned set.** `dev`'s prune deleted members
-whose difference image was no longer best. Here an `associate` job
-learns at launch which of the predecessor's source sets are no longer
-official, records them as exclusions, and drops their members from its
-sums; `members_official` omits them. Nothing is deleted, and exclusions
-are rare because a superseded source set is rare.
+**Two epochs in flight at once are reconciled at publish.** Both can
+see no object at a new source and both found one. The publisher,
+serialised per run and field by a transaction-scoped lock, matches the
+job's founded objects against those founded since its recorded read,
+and attaches the duplicate's memberships to the existing object,
+rebased to its origin, instead of inserting a second. `dev`'s route,
+tolerate duplicates and merge later, changes object ids after alerts
+have carried them, and is not taken.
+
+**A superseded source set's memberships leave with it.** `dev`'s prune
+deleted members whose difference image was no longer best. Here
+official-ness of a membership is its source set's, so a re-differenced
+epoch's old memberships drop out of `memberships_official` and its new
+ones come in. Nothing is deleted.
 
 **A packet set is per difference image.** The alert unit is one
 difference image, so a packet set's key is its image key, never the
@@ -298,10 +345,12 @@ carries nothing from epoch 2.
 
 **Forced photometry is a packet-set output with named inputs.** `dev`
 caches forced rows in a per-object store that every job rewrites and no
-recorded input can describe. Here a packet job names its window's
-images and its predecessor packet sets' `forced.parquet` as inputs,
-measures only the (object, image) pairs those do not already hold, and
-publishes its own `forced.parquet` with `dev`'s row id.
+recorded input can describe. Here a packet job reads its window's
+images and the official `forced` rows that exist when it runs,
+records that read, measures only the (object, image) pairs those do not
+already hold, and publishes its own `forced.parquet` with `dev`'s row
+id. Two packet sets in flight at once may each measure a pair neither
+could read; the later of them copies one of the two.
 
 **Reference catalogs are products.** Gaia, NED, NED-LVS and the
 solar-system predictions are copies whose version no packet recorded.
@@ -333,15 +382,16 @@ and `dev`'s per-object forced-photometry store.
 
 | Verb | Does |
 |---|---|
-| `rapidpipe run create --who --why --revision --settings FILE --survey --dataset` | records a run and prints its id |
+| `rapidpipe run create --who --why --revision [--settings FILE] [--overlay FILE] [--set TABLE.key=VALUE ...] --survey --dataset` | resolves the three layers, records a run with its body and layers, and prints its id |
 | `rapidpipe official change --group FILE --who --why` | applies a change group from a JSON list of `close` and `open` items; refuses naming the binding |
 | `rapidpipe official undo <group> --who --why` | applies a group's inverse under the same rule |
 | `rapidpipe run show <id>`, `rapidpipe job show <id>` | print a run with its live binding and jobs, or a job with its inputs and bindings, as JSON |
-| `rapidpipe job local --run --stage --scope JSON [--inputs JSON] [--expects JSON] [--excludes JSON]` | records a job and runs it in this process, then publishes |
+| `rapidpipe job local --run --stage --scope JSON [--inputs JSON] [--expects JSON]` | records a job and runs it in this process, then publishes |
 | `rapidpipe job run --job <id>` | runs an existing job's next attempt, then publishes; stops at once if the job is published |
 | `rapidpipe job submit ... --job-definition <name>` | records a job and submits one Batch job whose command is `job run`; with `--job <id>`, submits an existing job's next attempt instead |
-| `rapidpipe publish --run <id> [--settings FILE]` | produces the run's official, unstamped packet sets to the Kafka topic and stamps each (Publication to Kafka, below) |
-| `rapidpipe loop --run --filters --scas --pointings --job-definition` | carries a selection one stage forward per pass until it drains ([loop](loop)) |
+| `rapidpipe job wait --job N [N ...] [--timeout S]` | blocks until every named job is published or failed, reconciling with Batch each check; exits 75 at the timeout |
+| `rapidpipe publish --run <id> [--settings FILE]` | the recovery sweep: produces the run's official packet sets that their own jobs did not send and the gate does not hold, and stamps each (Publication to Kafka, below) |
+| `rapidpipe loop --run --filters --scas --pointings [--passes] --job-definition [--job-queue]` | carries a selection one stage forward per pass until it drains ([loop](loop)) |
 
 A refusal exits 1 with the binding named. The exception is a refusal
 because the job's run is not live: the job is published and its rows
@@ -390,7 +440,6 @@ measured peak, and the difference stage keeps the definition's 24 GiB:
 | `psf` | 2,048 | 333, at breadth |
 | `reference` | 6,144 | 2,831 |
 | `difference` | 24,576 | 16,125 |
-| `associate` | 1,024 | 238 |
 | `packet` | 2,048 | 867 |
 
 With one reservation for every stage, the ramp ran every job on
@@ -400,10 +449,13 @@ jobs onto six instances; every peak stayed under its ask. The container runs one
 `job run` does on a host. Batch retries exit 75 and nothing else
 ({ref}`ruling <decision-batch-retry>`): the job definition allows three
 attempts, the first run and two retries, and its rules retry on exit
-75, the stage contract's temporary dependency failure, and end the job
-on any other exit code or on a failure with no exit code, such as a
-reclaimed instance. Exits 64, 65 and 70 are faults a retry would only
-repeat. A retry after a late commit is safe because `job run` stops on
+75, the stage contract's temporary dependency failure, and on a
+container that failed to start (Batch's reason `Task failed to start`,
+sixteen of them at breadth), and end the job on any other exit code or
+on a failure with no exit code, such as a reclaimed instance. Exits 64,
+65 and 70 are faults a retry would only repeat. The loop adds one
+rerun of its own: a container Batch ended without `job run` recording
+it is resubmitted once, and its rerun's death fails the loop. A retry after a late commit is safe because `job run` stops on
 a published job and otherwise takes the next attempt. Batch places a
 retry within seconds, with no backoff, so the three attempts ride out a
 database outage only as long as the connection's own retries inside
@@ -430,6 +482,35 @@ stage reads only files in the inputs bucket, the run's public source
 root and the CRDS server, and writes only under the scratch bucket's
 root.
 
+### Spot, a probe
+
+Spot is a probe, never production
+({ref}`ruling <decision-spot-probe>`). A run whose `[batch.spot]` table
+names a Spot queue (`queue`, `backlog`, `hedge_factor`; the table is
+absent by default, so every job runs on demand) is run under four
+rules:
+
+1. a stage's submission goes to the Spot queue while more than
+   `backlog` of that stage's jobs remain to submit in the pass, and
+   otherwise to the prompt queue the loop's `--job-queue` names, so a
+   stage's last wave runs on demand;
+2. a Spot submission has one attempt: it overrides the job
+   definition's retry strategy;
+3. a Spot job that ends unpublished, for any reason, is the job's one
+   rerun, on the prompt queue, so nothing is retried on Spot;
+4. a Spot job still running past `hedge_factor` times its stage's
+   median `container_seconds` is terminated and rerun on the prompt
+   queue.
+
+`jobs.attempts` records every submission (queue, times, instance type,
+zone, Batch's reason), each loop pass reports `queues` and `attempts`,
+and `job_metrics` gains `container_seconds`, `batch_submissions`,
+`reclaims`, `hedges` and `lost_seconds`. Capturing EventBridge's
+two-minute interruption warning needs a CloudWatch Logs resource policy
+not yet granted, so a reclaim is seen today only as a job that ended
+unpublished. The first data points are under Measurements, below; the
+infrastructure repository's job-shape page holds the series.
+
 ## The thin chain
 
 One narrow path through every stage, the smallest working version of
@@ -442,14 +523,12 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one SOC L2 file's metadata and the CRDS ePSF reference it names | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and one `psfs` row of each kind, `science` and `reference`; the cap on sources | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter |
-| `associate` | the epoch's source sets for the field and its eight neighbours; the predecessor object set, or none; the exclusions | `objects.parquet` (every object of the field, id carried forward or position-hashed, founding position, sufficient sums) and `matches.parquet` (this epoch's memberships) | `rubrat`, `sumrat`; field parallelism |
-| `packet` | the epoch's source set; the object set to use, and through it its chain and exclusions; the window's difference and science images with their PSFs; the predecessor packet sets; the Gaia product; the reference and its mosaic catalog | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet` | NED, NED-LVS and solar-system matches |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the field's objects of its run, read at execution and recorded | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s; `objects` founded here and this epoch's `memberships` | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter; `rubrat` |
+| `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
 Every stage reads its inputs the same way whoever made them, so
-`associate` and `packet` read a Batch-made epoch exactly as an imported
-one, and `difference` never cares whether its reference was imported
+`packet` reads a Batch-made epoch exactly as an imported one, and `difference` never cares whether its reference was imported
 or coadded.
 
 ### import
@@ -496,45 +575,46 @@ draws, the files it publishes and why each is kept, and its settings.
 A run has one differencer, so only the ZOGY image is published as a
 row; the SFFT and naive files are not uploaded at all.
 
-### associate
+### Association
 
-`associate` replaces `crossmatch`, `statistics`, `prune` and
-`maintain`. It accepts sources whose `flags` and signal-to-noise meet
-the run's `[associate]` settings, then matches them in memory with the
-semantics of the SQL matcher it replaces: every object within the match
-radius matches, not only the nearest, so a source may join several
-objects; an unmatched source founds an object whose id is the
-`radec_index` of its position, and coincident founders share one
-object. Exposures are taken in ascending MJD, and objects founded by
-one exposure are seen by the next, not by their own. A second pass over
-the eight neighbouring fields' sources adds memberships only.
+The [difference](difference) page states the association the
+difference job runs: the read of the field's objects, `dev`'s two
+crossmatch passes in memory (every object within the match radius
+matches, not only the nearest, so a source may join several objects;
+an unmatched source founds an object whose id is the `radec_index` of
+its position; the neighbouring fields' sources join objects only), and
+the reconcile at publish. The `associate` stage it replaced, and with
+it `crossmatch`, `statistics`, `prune` and `maintain`, is retired.
 
 The sums are of offsets from the founding position, not of raw
 degrees: at RA 268 an object spreads by about 1e-5 degrees, and a
 variance from raw-degree sums would be lost to cancellation. The mean
 is `ra0 + sumra / n`, and the standard deviation in RA carries one
-cosine, of the mean declination. An excluded source set's members are
-subtracted once; an object left with no members stays with
-`nsources = 0`.
+cosine, of the mean declination. A membership attached by the
+reconcile is rebased to the surviving object's origin.
 
 ### packet
 
 `packet` is a port of `dev`'s alerts package at schema 00.06, one job
-per difference image. Every `flags = 0` source the named object set
-holds triggers a packet; a source in several objects takes the lowest
-object id, as `dev` does, and `dev`'s cap per chip is not carried. Each
-packet carries:
+per official source set, in any order. Every source the run's
+`[associate]` table accepts that is a member of an object triggers a
+packet; a source in several objects takes the lowest object id, as
+`dev` does, and `dev`'s cap per chip is not carried. Each packet
+carries the best information at the time it is made
+({ref}`ruling <decision-association-in-difference>`), what the job
+read as it ran and recorded:
 
 - `diaSource` from the source row;
-- `prvDiaSources`, the object's members through the chain, less
-  exclusions, with `mjdobs` before the trigger and within the history
-  window;
-- `diaObject` from the set's position and sums, `nDiaSources` counting
-  members up to and including the trigger;
+- `prvDiaSources`, the object's official members at the read, with
+  `mjdobs` before the trigger and within the history window, so a late
+  epoch appears in packets issued after it arrives and never in those
+  already sent;
+- `diaObject` from the object's position and summed memberships,
+  `nDiaSources` counting members up to and including the trigger;
 - `prvDiaForcedSources`, `dev`'s PSF photometry at the object's founding
-  position on every window image that holds it, difference and science
-  image merged into one row per object and image, rows a predecessor
-  set holds copied rather than measured;
+  position on every window image that holds it at the read, difference
+  and science image merged into one row per object and image, rows an
+  official set already holds copied rather than measured;
 - `gaiaMatches` with proper motion propagated to the trigger, and
   `refStarMatches` and `refGalaxyMatches` from the reference's mosaic
   catalog;
@@ -557,62 +637,80 @@ stated size with the stated fill; that every forced value equals the
 precedes its trigger; and that every index row decodes to its record
 and names the job's recorded inputs.
 
+(foundation-quality-gate)=
+### The quality gate
+
+The gate decides whether an official packet set goes to the topic.
+`rapidpipe.foundation.gate.decide` is one query over `job_metrics`: it
+holds the set when its difference job's `n_sources_snr_gt20` is above
+`snr_gt20_factor` times the run's median, or `|core_fraction|` is above
+`core_fraction_max_abs`, or `|ring_fraction|` above
+`ring_fraction_max_abs`, once the run has `min_epochs` published
+differences; otherwise it sends. The run's `[gate]` table holds 3.0,
+0.025, 0.015 and 5, the healthy ranges the fixes measured across seven
+filters: the worst epoch's count was 2.6 times its run's median, the
+worst core 0.022. A held set is neither sent nor stamped, its reason
+names the metric and the value, and each loop pass reports the run's
+held sets as `held_sets`. Nothing is deleted, and there is no verb
+that releases a held set. Every official set of the
+fixes' seven runs, 55 of them, was sent at these values; the footprint
+runs held one in 162 (ring fraction +0.016), and the 18 SCAs of one
+pointing held seven, all on `core_fraction` +0.026 to +0.028, SCAs 16
+and 17 entire.
+
 ### Publication to Kafka
 
-`rapidpipe publish --run <id>` takes every packet set of the run that is
-official and not yet stamped, and produces one message per packet to the
-topic. The key is the packet set's job and the packet's source id; the
-value is a one-record Avro container, the set's container header with
-the packet's own block, so each message decodes on its own and carries
-its schema. There is no schema registry. The producer waits for every
-acknowledgement from all in-sync replicas, then stamps the set's job
-with the time (`jobs.kafka_published_at`). One call opens one database
-connection and one producer, then takes its sets one at a time: it
-sends a set's messages, flushes within 120 s, and stamps the set when
-every acknowledgement came back. A set with a failed acknowledgement
-stays unstamped, the others are stamped, and the verb exits 70 naming
-it. A flush that does not finish in time leaves its set and every later
-one unstamped and stops the call, which exits non-zero, and the next
-call sends them again; closing the producer is bounded the same way.
-This replaced one flush per call: with five loops publishing at once,
-batches waited in the client past its delivery timeout, and the
-client's expiry path then killed its own sender thread and left the
-flush waiting with no end. A crash between the last
-acknowledgement and the stamp offers the set again on the next call, so
-a consumer may see a packet twice; replay is allowed and there is no
-exactly-once delivery. A set that loses its binding before it is
-stamped is not offered.
+The packet job sends its own set as its last act, once its publisher
+has loaded and bound it. `rapidpipe.foundation.publish_kafka.deliver`
+is the one send boundary: the gate answers first, and a held set goes
+nowhere. Otherwise one message per packet goes to the topic, keyed by
+the run's dataset, so a dataset's packets share a partition and keep
+their order, with the set and the source id in the `rapid-set` and
+`rapid-sid` headers. The value is a one-record Avro container, the
+set's container header with the packet's own block, so each message
+decodes on its own and carries its schema. There is no schema
+registry. The producer waits for every acknowledgement from all in-sync
+replicas, flushes once, and stamps the set's job with the time, the
+partition and the first and last offsets
+(`jobs.kafka_published_at`, `kafka_partition`, `kafka_first_offset`,
+`kafka_last_offset`). The producer is not idempotent: idempotence
+asks the cluster for a permission the job role does not hold, and
+nothing here is exactly-once.
+
+`rapidpipe publish --run <id>`, and the loop's publish in each pass,
+is the recovery sweep and the verb that publishes again: it takes every
+official, unstamped set whose job ended more than 300 s ago, through
+the same boundary. A set inside that window is its container's to send,
+is reported as `sets_waiting`, and holds the loop's drain. One call
+opens one database connection and one producer and takes its sets one
+at a time, each flushed within 120 s; a set with a failed
+acknowledgement stays unstamped and the verb exits 70 naming it, and a
+flush that does not finish in time leaves its set and every later one
+unstamped and stops the call. A crash between the last acknowledgement
+and the stamp offers the set again, so a consumer may see a packet
+twice; replay is allowed. A job killed between its database publish and
+its send, proven on a live run, is sent by the next pass. A set that
+loses its binding before it is stamped is not offered.
 
 The cluster's bootstrap servers, the topic and the largest request the
 producer may send are named in the settings file's `[kafka]` table as
-the deployment's parameter names, never their values, and the
-connection authenticates with the caller's own cloud credentials. The
-transport is not part of a run's recipe: `publish` reads the table from
-the shipped settings file or the one `--settings` names, not from the
-run's body.
+the deployment's parameter names, never their values. On Batch their
+values, and the database's, are in the container's environment, so a
+job reads no parameter store; the connection authenticates with the
+caller's own cloud credentials. The transport is not part of a run's
+recipe.
 
 `scripts/consume_packets.py --run <id>` is the consumer check. It reads
-each partition from the first offset at or after the earliest end time
-of the run's stamped packet jobs, since a set is published only after
-its job has ended, to the end offset at its start, with no consumer
-group; keeps the messages whose key names one of the run's stamped
-sets; and requires each to decode as one record valid against its index
-row's schema, to equal the outbox bytes for its key, and every stamped
-packet to be seen at least once. Zero kept is a failure, so a run with
-no stamped set fails. The client's own record checksum is switched off:
-every kept message is compared byte for byte with the outbox anyway,
-and the client computes that checksum in pure Python, which held the
-read to about 50 messages a second against 805 without it. The check
-holds one message and one set's outbox at a time, so its memory is one
-set's, whatever the topic's size. It holds only within the topic's
-retention, seven days: a run whose messages have aged out fails it as
-never read.
-
-Today the producer runs where the loop runs, on a host, after the
-packet stage has published. Producing from the packet stage's own Batch
-job, as its last act, is to be the last code milestone
-({ref}`ruling <decision-producer-last>`); `publish` stays as the verb that
-publishes again.
+only the offset ranges the run's stamped sets recorded, overlapping
+ranges merged, with no consumer group; keeps a set's messages by key
+and headers; requires every stamped packet to be seen; and decodes and
+byte-compares against the outbox one set per field, the field's latest.
+Zero kept is a failure, so a run with no stamped set fails. The
+client's own record checksum is switched off, since it is pure Python
+and held the read to about 50 messages a second. A run's check takes
+about 4 s at one pointing and 388 s over 33,650 packets, whatever the
+topic's size. It holds only within the topic's retention, seven days:
+a run whose messages have aged out fails it as never read.
 
 ### Settings of the thin run
 
@@ -634,7 +732,10 @@ scope, the intake's source root is the run's own `[intake]
 source_root`, given in the settings overlay at `run create`, and the
 outputs root is the environment's. `[psf]` names the CRDS server and
 the stamp's size ([psf](psf)). `[batch.memory_mib]` holds each
-stage's memory ask (A job on Batch, above). `[reference.selection]
+stage's memory ask (A job on Batch, above), `[batch.spot]` the Spot
+probe's three values when a run names them, and `[gate]` the quality
+gate's bounds. `[associate]` holds the association's values, which the
+difference job reads. `[reference.selection]
 before_mjd`, the reference bound, is documented in the shipped file and
 absent there: a run sets it in its overlay, and a run without it
 coadds every epoch of a field ([loop](loop), the reference bound).
@@ -645,8 +746,8 @@ The official views answer eight queries without reading files:
 
 - the current image and source set for a dataset, exposure, SCA and
   filter;
-- the current object set of a field and its members;
-- an object's detection and forced history within a named set;
+- a field's official objects and their members;
+- an object's detection and forced history as a packet read it;
 - packet history by observation, by source and by versioned object;
 - a candidate set against the official one, with unmatched detections
   shown;
@@ -664,30 +765,29 @@ objects in a cone, a chip's unflagged sources, the usable reference,
 the L2 time-window work list, L2 images without a difference image,
 frame counts, a difference image by its product id, and L2 images with
 a usable reference. All of them are `database/queries.sql`, one named
-statement each. A query within a named set reads base tables through
-that set's recorded chain; every other query reads the official views.
+statement each. A query as a job read it reads base tables through
+that job's recorded inputs; every other query reads the official views.
 
 ## The procedure proof
 
-`tests/db/proof/thin_proof.py` runs the thirteen observations of the
-procedure proof on the thin field's real data, through the verbs and
-`job local` only, from an empty database. They cover the object binding
-moved by the publisher alone; two jobs racing for one binding; a recipe
-that is not live beside the live one; a cutover group and its undo; a
-job launched before a cutover and published after it; a correction run
-of one epoch's packets; a job killed before and after its commit; two
-recipes from two commits at once, joined on scientific key and on
-object id; two change groups on one binding; publication racing a
-cutover; an undo refused because a binding moved; and a replacement
-source set excluded downstream. The first passing run took about two
-minutes. The same observations on synthetic rows run in CI under
-`tests/db/proof/`.
+`tests/db/proof/test_steps.py` asserts the procedure proof's
+observations on synthetic rows in CI, one test per step, read back
+through the official views: a cutover as one group; its undo restoring
+the first recipe; a publication interrupted before and after its
+commit; two change groups on one binding at once; publication racing a
+cutover; and an undo refused because a later group moved a binding.
+Steps 1, 2 and 13 are the association's: two epochs of
+one field differenced at once both publish and bind their own sources,
+the second's founded objects attach to the first's, and a superseded
+source set's memberships drop from the view. The steps that need the
+real stages (3, 5, 7 and 9) are proven on SMDC's live runs instead. The real-data
+script of the chain, `thin_proof.py`, is retired with `associate`.
 
 ## On SMDC
 
 The SMDC database `rapid` holds the foundation in its `public` schema,
 and the pipeline repository's `docs/foundation-smdc-step.md` is the
-procedure, one command and then its check per step. It has nine parts.
+procedure, one command and then its check per step. It has eleven parts.
 
 **The schema.** `public` is dropped and recreated from `schema.sql` in
 one transaction, through the pooler, as the database owner. Everything
@@ -921,6 +1021,51 @@ all 54 pointings and then on the 18 SCAs of the first pointing.
   script, after the consumer check stopped reading the topic from its
   beginning (Validation, below).
 
+**The fixes.** The tenth part removed the null test's two measured
+artefact sources on the wide-area simulation's first pointing in all
+seven filters (Measurements, The fixes, below).
+
+**The second iteration.** The eleventh part, one unattended night,
+changed the chain's shape and took it to two more simulations. Every
+proof ran under a dataset of its own with its own live run, and nothing
+was deleted.
+
+- *Datasets.* The GBTDS simulation went through intake with its WCS
+  re-derived, and one pointing through the chain under its own overlay;
+  the OpenUniverse TDS set was read and one image taken in by a second
+  intake reader. Their quirks and dispositions are on the
+  [datasets](datasets) page.
+- *The bright end flagged.* The bright-star footprint flag and the
+  metrics the re-count asked for went into the difference job
+  ([difference](difference)); a stamp twice the size changed nothing
+  that matters.
+- *The loop's operations.* The HLWAS WCS translation at intake with a
+  Gaia-offset metric on every file, `--passes`, `job wait`, one
+  automatic rerun and a submission cap per pass, the check scoped to a
+  loop's SCAs, the quality gate, the ePSF from a copy and no parameter
+  store read in a job ([loop](loop), The quality gate, above).
+- *The producer.* The packet job sends its own set, offsets on the
+  stamp; a job killed between its publish and its send was sent by the
+  next pass (Publication to Kafka, above).
+- *The guards.* A schema test that every bound product carries the
+  dataset in its key and its view, and an import test that no import
+  supplies an identity column but the three source-system ids kept.
+- *Association.* Moved into the difference job and reconciled at
+  publish; the chain's rows kept as `objects_chain` and
+  `memberships_chain`. Two epochs of one field in flight at once, a
+  replayed reconcile equal to the sequential result, a late epoch and a
+  superseded set were each proven on run 69.
+- *Spot.* The four rules proven on one pointing, then a twin of the
+  injected footprint on Spot beside its on-demand run (Measurements,
+  below).
+- *Injection.* 200 constant sources per image, AB 21 to 27, injected
+  into SCA 8's 162 epochs after the reference bound and the 18 SCAs of
+  the first pointing, as datasets of their own
+  ({ref}`ruling <decision-injection-outside>`); completeness and purity
+  per magnitude are under Measurements, below. The footprint earned two
+  fixes: the reference ePSF's centring where the secant step stalls,
+  and the forced check under packet sets in flight at once.
+
 ## Validation
 
 A night is one coherent account when it meets ten checks. Each is a
@@ -936,10 +1081,12 @@ products; 7 to 10 on the operations.
 2. **Parquet and tables agree.** Each declared output's row count is
    the table's count for that job, and the manifest's checksums match
    the bytes in the prefix.
-3. **The chain.** `members_official` equals the union of
-   `matches.parquet` over the object set's predecessor chain, less
-   exclusions, row for row; every object's sums reproduce its members'
-   mean and standard deviation; every object of a set is in the next.
+3. **The catalog.** Every official membership is within the match
+   radius of its object; every accepted source of an image's field is a
+   member of some object; no two founders share one object; every
+   official object's sums equal its official members'. (Until
+   2026-10-24, the chain: `members_official` equal to the union of the
+   predecessor chain's matches, less exclusions.)
 4. **Packets.** Against the packet job's own recorded inputs, never the
    current official sets: every history detection precedes the
    trigger, `nDiaSources` counts the memberships up to the trigger, the
@@ -954,10 +1101,9 @@ products; 7 to 10 on the operations.
 7. **One group makes a night official**: every view the group names
    moves to the new jobs, nothing it does not name moves, and every
    table's row count is unchanged except `official`'s.
-8. **A replacement conserves membership**: the official members are
-   the predecessor's, less every membership of the old source set,
-   plus the replacement's matches, row for row, and only the touched
-   objects change.
+8. **A replacement conserves membership**: the official memberships
+   lose every membership of the old source set and gain the
+   replacement's, row for row, and only the touched objects change.
 9. **Undo restores** the open bindings row for row, deleting nothing.
 10. **Two concurrent groups on one binding**: one commits, the other
     refuses naming the binding, and nothing is half-applied.
@@ -989,7 +1135,9 @@ a time, and the consumer check, streams their output, and prints one
 line, `Check run <id>: CLEAN|FAIL validate <passed>/<checks> <s> reader
 <clean>/<sets> <s> consumer <seen>/<expected> <s>`, exiting non-zero
 when any of the three fails. Every run of the breadth part was checked
-with it, and every one was clean.
+with it, and every one was clean, as was every run of the second
+iteration: the injected footprint's on-demand run validated in 475 s
+and read 33,650 packets back in 388 s.
 
 ## Measurements
 
@@ -1258,18 +1406,132 @@ for F146, the image study's run, read from the database by lineage.
 - **Every run's checks** were clean: validation, the reader and the
   consumer, over 4,336 packets.
 
+### The second iteration
+
+Measured 2026-10-24 on SMDC (brief `night-2026-10-24`), on the
+wide-area simulation's F146 data unless named; the runbook's part 11
+holds the jobs, commands and raw tables.
+
+**The null test, with the bright end flagged.** On pass 4 of the first
+pointing, after the HLWAS WCS translation:
+
+| | SCA 8 | SCA 5 | SCA 4 |
+|---|---|---|---|
+| Candidates / above S/N 20 | 802 / 29 | 884 / 69 | 640 / 36 |
+| In a bright-star footprint, share of those above S/N 20 | 0.79 | 0.74 | 0.75 |
+| Packets / above S/N 20 / flagged | 79 / 8 / 49 | 124 / 16 / 75 | 98 / 11 / 65 |
+| Science stars' width over the ePSF's | 1.024 | 1.015 | 1.033 |
+| Core / ring of star flux | +0.0001 / +0.0009 | +0.0114 / −0.0015 | +0.0058 / +0.0024 |
+
+- **SCAs 4 and 5's excess is not a science-PSF width mismatch**: the
+  science stars are 1.5 to 3.3% wider than the ePSF on all three, and
+  SCA 5, with the most bright-star residuals, has the smallest
+  mismatch.
+- **The stamp size is not the residual's cause**: a 121-pixel reference
+  PSF stamp against the 61-pixel one moved the ePSF flux held from
+  0.971 to 0.979 and changed the counts by one.
+- **F213's flux scale.** The zero-point table agrees with each filter's
+  own file metadata to within 0.035 mag and is not corrected; the stored
+  reference scale factor is 0.958 in F184 and 0.939 in F213 against
+  0.99 to 1.01 in the others, which fits F213's positive core and ring.
+
+**Association in the difference job.** On one pointing's SCA 8, the
+last difference to the last packet took 31 s, against 5.2 min through
+the chain of run 46; the read of a field's 200 objects took 0.9 ms
+against 422 ms through the chain's view. Two epochs differenced at once
+founded no duplicate, and a replayed reconcile from an empty read
+attached its 105 memberships exactly as the sequential run had.
+
+**Completeness and purity, injected.** 200 constant sources per image,
+AB 21 to 27 uniform, in SCA 8's 162 epochs over the footprint after
+the reference bound; matched within 0.3″ through the corrected WCS.
+Every 0.5 mag bin is in the runbook; every other bin here:
+
+| AB | Injected | Detected | Alerted | Alerted, of those detected in their image's own field | Purity, packets at this measured magnitude |
+|---|---|---|---|---|---|
+| 21.0 | 2,595 | 0.958 | 0.398 | 0.951 | 0.93 |
+| 22.0 | 2,808 | 0.975 | 0.431 | 0.969 | 0.91 |
+| 23.0 | 2,670 | 0.966 | 0.381 | 0.974 | 0.75 |
+| 24.0 | 2,910 | 0.968 | 0.415 | 0.981 | 0.59 |
+| 25.0 | 2,853 | 0.944 | 0.395 | 0.958 | 0.35 |
+| 26.0 | 2,721 | 0.754 | 0.298 | 0.960 | 0.20 |
+| 26.5 | 2,640 | 0.233 | 0.109 | 0.976 | 0.13 |
+
+- **Detection is 0.94 to 0.98 to AB 25**, 0.75 at 26 and 0.23 at 26.5,
+  with positions within 0.011″ and fluxes at 0.91 to 0.95 of the
+  injected to that depth.
+- **The alerted fraction, 0.40, is the association's field rule**, not
+  the difference stage: a source outside its image's own field only
+  joins an object already within the radius, and where none exists it
+  never triggers. Of the unflagged detections inside their image's own
+  field, 12,069 of 12,070 were alerted.
+- **The purity floor.** Purity, packets on injected sources over all
+  packets at that magnitude, is 0.91 to 0.93 at AB 21 to 22 and falls to
+  0.20 at 26, where the artefacts and real faint residuals dominate.
+  Per epoch the packets on anything but an injected source are a median
+  95 (33 to 182): 52 on bright-footprint-flagged sources and 38 on
+  others. The bright end of the flagged share is the null test's floor,
+  about 20 per epoch above S/N 20 on SCA 8.
+- **History.** Of 11,576 earlier alerted epochs the alerted injected
+  sources' later packets should carry, 11,048 are present, 524 arrived
+  after the packet's read, as the alert contract allows, and 4 are
+  missing, where two epochs in flight founded one source's objects
+  apart.
+- **The 18 SCAs of the first pointing**: detection below AB 25 from
+  0.67 (SCA 9) and 0.73 (SCA 7) to 0.99 (SCAs 8 and 17), with SCAs 4 and 5
+  at 0.93 and 0.89; per-epoch false positives a median 153 against SCA
+  8's 95; the gate held seven of the 51 sets.
+
+**Spot, the first data points**
+({ref}`ruling <decision-spot-probe>`). On one pointing (14 jobs, 7 on
+Spot) there was no reclaim and no hedge, and Spot cost wall time: its
+differences started 168 to 292 s after submission against 11 s on a
+warm on-demand host. At footprint scale, the injected SCA 8 footprint
+ran twice on the same bytes and truth, once on demand with 512 vCPU
+held warm and once as a Spot twin:
+
+| | On demand, warm | Spot twin |
+|---|---|---|
+| First submission to last job end | 28.1 min | 30.2 min |
+| Batch submissions | 709 on demand | 589 Spot, 129 on demand |
+| Reclaims / hedges | 0 / 0 | 0 / 0 |
+| Median start wait, intake / difference | 65 s / 15 s | 160 s / 223 s |
+| Job-hours | 17.4 | 13.4 Spot + 3.8 on demand |
+| Priced by lane, Spot at Spot rates | $2.03 | $1.30 |
+| Completeness | | the same to three detections |
+
+The prices are each job's memory share of its host at published rates,
+unverified against the bill; the warm capacity, up to about 59
+instance-hours for the hour it was held, is not in them. Both runs lost
+the same 13 minutes to the reference ePSF's centring failure, fixed in
+the middle of the drain, so the spans compare like for like.
+
+**GBTDS's one pointing**, with the science PSF on both images because
+the bulge's reference stars cannot be measured, leaves 346 to 418
+sources above S/N 20 per epoch, each bright one a core-and-ring
+residual at a star, against about 19 on HLWAS; its difference job takes
+820 s, 3.5 times HLWAS's ([datasets](datasets)).
+
 ## Not decided here
 
-- The cost of following an object set's predecessor chain when a field
-  has tens of thousands of sets. A synthetic chain of ten thousand sets
-  walked in 9.9 ms and the night's 69 in 1.8 ms; if it bites later, a
-  periodic set holding the full membership compacts the chain, a job
-  like any other.
+- The association's field rule. A source outside its difference
+  image's own field and its neighbours is never associated, and one in
+  a neighbouring field only joins an existing object, so a field no
+  image is centred on founds none: on the injected footprint this
+  costs three fifths of the detected sources their alert. It was so
+  under the chain too, and it is the next science question.
+- Whether an object's statistics are materialised per field. The view
+  read a field's 200 objects in 0.9 ms; at GBTDS depth it is unmeasured.
+- A source that a job in flight founded nearby is not added to an
+  object the other job read, as a sequential run would have. On the
+  footprint, 4 of 11,576 expected history entries were missing where
+  two epochs in flight founded one source's objects apart.
 - Forced photometry's cost at scale. It is about 3.6 s per window
-  image, dominated by opening the images, and it orders the packet
-  jobs into one chain. Measuring a night's new objects per image across
-  jobs, or naming predecessor sets for reuse without waiting on them,
-  would change both.
+  image, dominated by opening the images. A set's `forced` rows are its
+  packets times the window images on the trigger's SCA, so a field's
+  total grows as the square of its epochs inside one window; F158 at
+  14 epochs held about 14 rows per packet and its packet job about
+  300 s.
 - The cost of a large change group, about three round trips per item
   through the pooler: 1.23 ms per key at 145 keys. A set-based close
   and open would remove most of it.
@@ -1291,32 +1553,35 @@ for F146, the image study's run, read from the database by lineage.
   each filter's bound is the midpoint of its own third and fourth
   passes, which leaves three reference epochs before it in every filter;
   a survey without passes needs another rule.
-- The grant and the path for producing packets to Kafka from the
-  packet stage's own Batch job ({ref}`ruling <decision-producer-last>`). The
-  compute environment and the brokers share a security group that
-  admits itself; the Batch job role and its permission boundary hold no
-  Kafka action.
+- Exactly-once delivery. The producer is not idempotent, because the
+  job role holds no idempotent-write permission; granting it, or not,
+  is open.
+- The Spot interruption warning's capture, which waits on a logs
+  resource policy, and what a reclaim costs, since none has been seen.
 - Cross-band association. Each filter is a dataset of its own, so a
   source seen in two filters is two objects. Whether an object is per
   band or across bands is open, and with it forced photometry in the
   other bands at a source's position.
-- What the null test leaves after The fixes: residuals at bright
-  stars, now the whole bright end (about 20 per epoch above S/N 20 on
-  SCA 8, two to three times that on SCAs 4 and 5), with a flux-scale
-  residual in F213; their cause is not established. The quality gate,
-  a query over `job_metrics` that holds an epoch off its run's median,
-  is not built.
+- The cause of the bright-star residual (about 20 per epoch above S/N
+  20 on SCA 8, two to three times that on SCAs 4 and 5), now flagged
+  and not fixed; neither the science PSF's width nor the stamp size is
+  it. F213's flux-scale residual fits its references' scale factor of
+  0.94.
 - The 107.5 s exposures of the last two passes are differenced against
   a 294.1 s reference. Whether a short exposure gets a reference of its
   own exposure time, or is differenced at all, is open.
-- Source injection, outside the pipeline as a dataset of its own
-  ({ref}`ruling <decision-injection-outside>`), and its completeness measure.
+- Completeness on real hosts and light curves, the OpenUniverse TDS
+  set's, after HLWAS injection; the chain past its intake needs the
+  three pieces the [datasets](datasets) page lists.
+- GBTDS's core-and-ring residual with the science PSF on both images,
+  346 to 418 per epoch above S/N 20.
 - Whether SFFT and the naive subtraction keep running now that only
   their outcome bits remain ([difference](difference)).
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.
-- Dense-field memory for `associate` and packet counts per chip.
+- Packet counts per chip in a dense field: GBTDS's 9,000 candidates
+  per epoch kept 500 sources and 169 to 173 packets.
 - The meaning of `nDiaSources` in the 00.06 schema's own documentation,
   which is `dev`'s; changing it is a schema change for the team.
 - `packet.edge_pixels` is in the thin run's settings and read by no

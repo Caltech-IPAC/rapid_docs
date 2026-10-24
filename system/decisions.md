@@ -9,6 +9,31 @@ page where attribution matters.
 
 ## Rulings
 
+Ben's rulings of 2026-10-24 04:00 to 04:40 UTC on the second
+iteration (brief `night-2026-10-24`). The [foundation](foundation) and
+[difference](difference) pages state the rules they set.
+
+(decision-bright-star-flag)=
+**The bright-star residual is flagged, not fixed**: what the null test
+leaves above S/N 20 after the fixes, bright stars, gets an informational
+flag bit and a fraction in the metrics; nothing is dropped. SCAs 4 and
+5's excess gets one metric, the science stars' width against the ePSF,
+and F213's flux scale a metric and one check of the zero-point table.
+Measured: the radius law flags 21 of 23, 15 of 19 and 11 of 15 of
+run 46's sources above S/N 20 on F146 SCA 8; the science stars are 1.5
+to 3.3% wider than the ePSF on SCAs 4, 5 and 8 alike; the table agrees
+with the files to 0.035 mag. (Ben, 2026-10-24 UTC)
+
+(decision-spot-probe)=
+**Spot is a probe, not production**: a run that names a Spot queue
+sends a stage's backlog there with one attempt per submission, and
+every next attempt, and any straggler past a hedge factor, runs on
+demand; nothing is retried on Spot. It supersedes
+{ref}`Spot stays parked <decision-spot-parked>` for runs that opt in.
+Measured: the injected footprint's Spot twin finished 2.1 min after its
+on-demand run, with no reclaim, at $1.30 against $2.03 priced by lane.
+(Ben, 2026-10-24 UTC)
+
 Ben's rulings of 2026-10-22 on what follows the wide-area ramp, made
 stepwise between 12:57 and 13:23 PDT, and one of the same evening. The
 [foundation](foundation) page states the design they shaped, and the
@@ -44,6 +69,9 @@ pointings overlap and buy nothing. The loop admits in `mjdobs` order
 across every SCA of its selection; an earlier epoch that arrives after
 later ones is a rerun from that epoch, and the loop never
 re-associates. (Ben, 2026-10-22 PDT)
+The chain half is superseded by
+{ref}`association in the difference job <decision-association-in-difference>`
+(2026-10-24); the reference half stands.
 
 (decision-injection-outside)=
 **Injection is outside the pipeline, as a dataset**: a one-time job
@@ -117,6 +145,8 @@ night-2026-10-24 task 7)
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
 figure is read and recorded, and nothing hangs on it.
 (Ben, 2026-10-22 13:23 PDT)
+Superseded for runs that opt in by
+{ref}`Spot as a probe <decision-spot-probe>` (2026-10-24).
 
 Ben's rulings of 2026-10-21 evening on the instance type and the plan
 in force. The [foundation](foundation) page states the design they

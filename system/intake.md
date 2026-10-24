@@ -104,12 +104,23 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 |---|---|---|
 | `source_root` | the run's overlay only | |
 | `unsigned` | false | |
+| `reader` | `"soc-l2"` | the only format `dev` reads; `"openuniverse"` reads OpenUniverse 2024's `simple_model` ASDF through the same conversion |
 | `sip_degree` | 5 | `SIPDISTORTIONDEGREE`'s default |
 | `sip_max_pix_error` | 0.1 | the `to_fits_sip` argument |
 | `gzip_level` | 1 | `L2GZIPLEVEL`'s default |
 | `program_id` | -1 | the `SOCSIMS` program id |
 | `[intake.nominal_zptmag]` | `dev`'s fallback zeropoints | used only when the file has no photometry metadata |
 | `limmag_nsigma`, `limmag_clip_sigma` | 5.0, 3.0 | as `[import]` has them |
+| `dq_mask_bits` | 0 | nothing masked, `dev`'s behaviour; a dataset's overlay names the bits whose pixels become NaN |
+| `crpix_shift` | `[0.0, 0.0]` | the file's WCS unchanged; a dataset's measured translation, in pixels, added to `CRPIX1` and `CRPIX2` |
+| `rederive_wcs` | false | the file's gWCS; true re-derives it from the file's `wcsinfo` and the distortion reference it names, before the SIP fit |
+
+Each dataset's values, and the measurement behind each, are on the
+[datasets](datasets) page. When the job names its dataset's Gaia
+`catalogs` input, as the loop does once one is official, its metrics
+record `gaia_dx_px`, `gaia_dy_px` and `n_gaia_stars`: the median offset
+of the isolated Gaia stars on the frame, measured minus predicted
+through the published WCS, a check of the WCS on every file.
 
 ## What it measured
 
