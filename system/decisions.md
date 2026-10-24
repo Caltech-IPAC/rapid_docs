@@ -981,3 +981,16 @@ The cause is located, not the kernel: the stage zeroes the science image's DQ-ma
 (decision-rimtimsim-epsf)=
 **RimTimSim's science PSF is reduced from CRDS's ePSF for its detector and filter**: new, not dev's. `dev`'s RimTimSim runs read the WebbPSF library file per SCA and filter (`WFI_SCA02_F213_PSF_DET_DIST.fits`, registered by `db_register_sciimg_psfs.py`) from its own bucket; the rebuild's psf stage reduces CRDS ePSF references, and the lite files name none, so the dataset's overlay names the references CRDS's `roman_0077` answers for WFI02 (`roman_wfi_epsf_0280` F213, `0266` F087) in `[psf.epsf]`. Measured: the F087 stars are 1.08 times the stamp's sigma and the subtraction's core fraction is −0.005 to +0.024; the F213 stars are 1.04 times it and the core −0.050 to −0.075 (runs 100 and 99, five epochs each). (rimtimsim-reader, rapid PR 429, 2026-10-24)
 
+(decision-hlwas-sfft-rearm)=
+**The HLWAS overlay does not set `diff_flavor = "sfft"`: under its SFFT block, SFFT with dev's prefilter misses one condition of dev-prefilter's rule against ZOGY, detecting 530 of 600 injected sources against ZOGY's 542.** dev-prefilter's arm C was re-run once on the same bytes at `rapid-rebuild:77` (`a761ae23`), now under the overlay's OpenUniverse block (HLWAS injected `001_0001` SCA 8 F146 passes 4 to 6 against run 81's references, runs 114 and 113 null against run 95's). Arm A's rows (runs 103, 104 at `:76`, the same ZOGY code) were read again, not re-run. The rule, verbatim from dev-prefilter's brief: SFFT ships only if it detects at least as many of the 600 in total and at AB 24 to 25, and has no more false positives per epoch and null packets per epoch than A, on both the mean and the highest epoch. This brief added that every difference sit inside the gate's core ±0.025 and ring ±0.015.
+
+- **It fails on one condition only**: detected 530 against 542. It loses 13 at AB 26 and 26.5 (46 → 41, 20 → 12) and gains one at AB 25.5, net 12.
+- **It meets or beats A on the others**:
+  - AB 24 to 25: 93 of 96 against 93.
+  - False positives per epoch, mean (highest): 102 (118) against 214 (233), bright-flagged 0.21 against 0.62.
+  - Null packets: 86 against 182.
+  - Core: −0.0002 to +0.0004. Ring: −0.0092 to −0.0069. All inside both bounds, and every set sends past `min_epochs`.
+- **Against arm C under the socsims block** (runs 107 and 106): detected 530 against 275, false positives 102 against 388, null packets 86 against 478.
+- **The cap no longer fills**: 449 to 486 candidates per injected difference, 271 on the null.
+
+The global default stays `zogy`, and OpenUniverse and GBTDS are unmeasured under their own blocks. (sfft-rearm task 1, 2026-10-24)
