@@ -95,7 +95,6 @@ whole sequence as FITS, 2.06 million files.
 | The file's zero point is photons to counts, not AB | the overlay: the AB zero points for counts per second per filter |
 | `err` equals `data` on 90% of pixels | recorded; nothing reads it |
 | The gWCS cannot be inverted by today's gwcs | recorded; only the forward transform is used, matched by the SIP fit to 1.5e-9″ |
-| No ePSF reference is named | recorded; the proof imported a PSF stamp from the simulation's own model |
 | No ePSF reference is named | the psf stage draws the science PSF with galsim.roman, the simulation's own model, for the file's filter and SCA (`[intake] reader` dispatches it); its centroid sits (−0.16, −0.13) px from the stamp's centre in H158 |
 | The file names a pointing, not a visit, exposure and pass | the loop lists `<filter>/` in the legacy spelling for the pipeline's filter name; a pointing is the observing sequence's row, the `expid`; no passes |
 | Transients live through the first visits: 348 of 761 lit transient rows in the sample have light in a reference frame | the reference stays the first visits under `before_mjd`; the count judges only transients that start after its last frame with no light in it, and reports the rest apart |
@@ -109,7 +108,10 @@ one field 27 in-season images share: a reference from the first six
 visits and ten epochs across the season and the late visits, every job
 published on its first attempt. Counted against the truth per image, the
 evaluated transients are detected at 1.0 to AB 24, 0.8 at 24.5 and 0.5
-at 25, then the source cap ends the count; every alerted one is in its
-image's own field. It is a different test from HLWAS injection, which
+at 25, then the source cap ends the count. The run predates
+association by the source's field, so every alerted one is in its
+image's own field and 16 of the 35 detections, outside it, were not
+alerted; the field rule makes such a detection alertable, and the
+chain has not been rerun under it. It is a different test from HLWAS injection, which
 detects 0.94 to 0.98 to AB 25 on sources placed at will. The runbook's
 part 12 step 3 holds the numbers.

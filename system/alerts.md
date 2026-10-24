@@ -21,6 +21,18 @@ already sent; an epoch replaced later leaves the history of alerts made
 after the replacement, not of those already sent. Observations do not
 arrive in order, and nothing waits for them to.
 
+Every accepted detection is alertable, wherever it falls on its image
+({ref}`ruling <decision-association-by-source-field>`). A source is
+associated in the field it falls in, against that field's objects and
+its neighbours', and founds an object there when nothing matches, so
+every source the run's `[associate]` table accepts is a member of an
+object and triggers a packet. Under `dev`'s rule a source outside its
+image's own field could only join an existing object, and on the
+injected SCA 8 footprint 0.40 of the injected sources were alerted
+against 0.96 detected; under the field rule 0.97 of the detected are
+alerted, at the same purity per magnitude. The forced-photometry window
+is the images covering the object, whichever field each is centred on.
+
 ## The retired stage
 
 The `alerts` stage builds an Avro container for one finalized difference

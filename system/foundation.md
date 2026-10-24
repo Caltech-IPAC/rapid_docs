@@ -142,10 +142,11 @@ current official" one, which is what lets a recipe that is not live,
 or a correction of one downstream product, read sets that are not
 official.
 
-The one exception is the field's object catalog
+The one exception is the object catalog
 ({ref}`ruling <decision-association-in-difference>`). The difference
-job reads its field's objects of its own run as they stand when it
-runs, and the packet job reads the trigger's objects, their official
+job reads the objects of its own run in each field its sources fall in
+and those fields' neighbours, as they stand when it runs
+({ref}`ruling <decision-association-by-source-field>`), and the packet job reads the trigger's objects, their official
 members and the forced-photometry window the same way. Each records
 exactly what it read, one `input` row per founding job or set seen,
 written by the publisher from the manifest's `reads`. The run scope
@@ -305,20 +306,34 @@ The per-field chain it replaced, one `associate` job per epoch, each
 waiting for its predecessor's set, assumed arrival in order and paid a
 queue wait and a loop pass for three seconds of work; F158's
 fourteen-deep chains took hours while the fan-out stages took minutes.
-Now the difference job holds the epoch's sources in memory, reads the
-field's objects as they stand, matches, founds an object for each
-unmatched source, and publishes `objects.parquet` (founded here) and
-`memberships.parquet` (each membership with its source's offsets from
-the object's founding position and its flux) beside its sources. An
-object's statistics are the sums of its official memberships' shares,
-through `objects_official`: sufficient sums are additive, so the order
-of arrival does not matter. Object ids are position hashes of the
-founding source and never change after publication.
+Now the difference job holds the epoch's sources in memory, reads each
+touched field's objects as they stand, matches, founds an object for
+each unmatched source, and publishes `objects.parquet` (founded here)
+and `memberships.parquet` (each membership with its source's offsets
+from the object's founding position and its flux) beside its sources.
+An object's statistics are the sums of its official memberships'
+shares, through `objects_official`: sufficient sums are additive, so
+the order of arrival does not matter. Object ids are position hashes of
+the founding source and never change after publication.
+
+**A source belongs to its own field, whichever image detected it**
+({ref}`ruling <decision-association-by-source-field>`). Every accepted
+source is matched against the objects of the tessellation field it
+falls in and that field's neighbours, and founds in its own field when
+nothing matches. Under `dev`'s second pass a source outside its image's
+own field could only join an object already there, so a field no image
+is centred on founded nothing: on the injected SCA 8 footprint that
+rule alerted 0.40 of the injected sources while 0.96 were detected.
+Reading the neighbours keeps one star whose detections scatter either
+side of a boundary from splitting into two objects.
 
 **Two epochs in flight at once are reconciled at publish.** Both can
 see no object at a new source and both found one. The publisher,
-serialised per run and field by a transaction-scoped lock, matches the
-job's founded objects against those founded since its recorded read,
+serialised by transaction-scoped locks on every (run, field) that
+gained an object or a membership and on each such field's neighbours,
+taken in ascending field order so two jobs founding either side of a
+boundary share a lock and never deadlock, matches the job's founded
+objects against those founded since its recorded read in those fields,
 and attaches the duplicate's memberships to the existing object,
 rebased to its origin, instead of inserting a second. `dev`'s route,
 tolerate duplicates and merge later, changes object ids after alerts
@@ -523,7 +538,7 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one SOC L2 file's metadata and the CRDS ePSF reference it names | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the field's objects of its run, read at execution and recorded | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s; `objects` founded here and this epoch's `memberships` | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter; `rubrat` |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s; `objects` founded here and this epoch's `memberships` | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter; `rubrat` |
 | `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -560,7 +575,9 @@ The [psf](psf) page states `psf`: its scope (one file of the filter and
 SCA it serves), the ePSF reference fetched by the name the file
 carries, the fixed reduction to a 61-pixel stamp, the two `psfs` rows
 it declares, and the `EPSFREF` keyword the intake checks against each
-file's own reference. The loop submits one for each filter and SCA that
+file's own reference. An OpenUniverse file names no ePSF reference, so
+for `[intake] reader = "openuniverse"` the stage draws the stamp with
+galsim.roman, the simulation's own model ([datasets](datasets)). The loop submits one for each filter and SCA that
 lacks its PSFs, so a dataset needs no PSF imported.
 
 ### reference and difference
@@ -578,12 +595,15 @@ row; the SFFT and naive files are not uploaded at all.
 ### Association
 
 The [difference](difference) page states the association the
-difference job runs: the read of the field's objects, `dev`'s two
-crossmatch passes in memory (every object within the match radius
-matches, not only the nearest, so a source may join several objects;
-an unmatched source founds an object whose id is the `radec_index` of
-its position; the neighbouring fields' sources join objects only), and
-the reconcile at publish. The `associate` stage it replaced, and with
+difference job runs: the read of the objects in each field its
+sources fall in and those fields' neighbours, `dev`'s first crossmatch
+pass in memory over every accepted source (every object within the
+match radius matches, not only the nearest, so a source may join
+several objects; an unmatched source founds an object in its own
+field, whose id is the `radec_index` of its position), and the
+reconcile at publish. `dev`'s second pass, where a neighbouring field's
+sources join objects only, is not taken
+({ref}`ruling <decision-association-by-source-field>`). The `associate` stage it replaced, and with
 it `crossmatch`, `statistics`, `prune` and `maintain`, is retired.
 
 The sums are of offsets from the founding position, not of raw
@@ -598,7 +618,9 @@ reconcile is rebased to the surviving object's origin.
 `packet` is a port of `dev`'s alerts package at schema 00.06, one job
 per official source set, in any order. Every source the run's
 `[associate]` table accepts that is a member of an object triggers a
-packet; a source in several objects takes the lowest object id, as
+packet, and under association by the source's field every accepted
+source is a member, so every accepted detection is alertable wherever
+it falls on its image; a source in several objects takes the lowest object id, as
 `dev` does, and `dev`'s cap per chip is not carried. Each packet
 carries the best information at the time it is made
 ({ref}`ruling <decision-association-in-difference>`), what the job
@@ -612,7 +634,8 @@ read as it ran and recorded:
 - `diaObject` from the object's position and summed memberships,
   `nDiaSources` counting members up to and including the trigger;
 - `prvDiaForcedSources`, `dev`'s PSF photometry at the object's founding
-  position on every window image that holds it at the read, difference
+  position on every window image that holds it at the read, whichever
+  field the image is centred on, difference
   and science image merged into one row per object and image, rows an
   official set already holds copied rather than measured;
 - `gaiaMatches` with proper motion propagated to the trigger, and
@@ -1034,7 +1057,8 @@ was deleted.
 - *Datasets.* The GBTDS simulation went through intake with its WCS
   re-derived, and one pointing through the chain under its own overlay;
   the OpenUniverse TDS set was read and one image taken in by a second
-  intake reader. Their quirks and dispositions are on the
+  intake reader, and on 2026-10-24 one filter and SCA of it ran through
+  the chain. Their quirks and dispositions are on the
   [datasets](datasets) page.
 - *The bright end flagged.* The bright-star footprint flag and the
   metrics the re-count asked for went into the difference job
@@ -1083,8 +1107,10 @@ products; 7 to 10 on the operations.
    the table's count for that job, and the manifest's checksums match
    the bytes in the prefix.
 3. **The catalog.** Every official membership is within the match
-   radius of its object; every accepted source of an image's field is a
-   member of some object; no two founders share one object; every
+   radius of its object; every accepted source, wherever on its image it
+   falls, is a member of an object in its own field or a neighbour, and
+   every membership's object lies in its source's field or a neighbour;
+   no two founders share one object, across field boundaries too; every
    official object's sums equal its official members'. (Until
    2026-10-24, the chain: `members_official` equal to the union of the
    predecessor chain's matches, less exclusions.)
@@ -1513,20 +1539,50 @@ sources above S/N 20 per epoch, each bright one a core-and-ring
 residual at a star, against about 19 on HLWAS; its difference job takes
 820 s, 3.5 times HLWAS's ([datasets](datasets)).
 
+### Association by the source's field
+
+The injected SCA 8 footprint ran again under the field rule
+({ref}`ruling <decision-association-by-source-field>`): the same 162
+epochs, bytes and truth as the second iteration's on-demand run, on a
+cold queue.
+
+| SCA 8 footprint, 162 epochs | `dev`'s second pass | The source's field |
+|---|---|---|
+| Detected injected | 28,625 | 28,623 |
+| Alerted, of those detected | 0.42 | 0.97 |
+| Alerted at AB 21 / 23 / 25 / 26 | 0.40 / 0.38 / 0.40 / 0.30 | 0.92 / 0.94 / 0.92 / 0.72 |
+| Purity at AB 21 / 23 / 25 / 26 | 0.93 / 0.75 / 0.35 / 0.20 | 0.93 / 0.75 / 0.34 / 0.20 |
+| False positives per epoch, median | 95 | 224 |
+| Objects | 20,575 in 70 fields | 37,800 in 290 fields, 21,573 in fields no image is centred on |
+| First submission to last job end | 28.1 min, warm | 30.9 min, cold |
+| Packet job, median | 37 s, 170 packets a set | 60 s, 393 packets a set |
+
+- **Alerted approaches detected**: 27,750 of the 28,623 detected
+  injected sources were alerted, at the same purity per magnitude. The
+  alert volume is 2.3 times the second pass's, and the false positives
+  per epoch rise with it, 130 of the 224 on bright-footprint-flagged
+  sources.
+- **The forced window holds**: no covering image published before a
+  set started is missing from any of the 162 windows, and 249 of the
+  571 window images read are centred on another field than the
+  trigger's.
+- **Splits at the edge**: 13 packets carry a source split over two
+  objects, founders in flight whose positions fall just outside each
+  other's radius, 0.05% of the expected history.
+
 ## Not decided here
 
-- The association's field rule. A source outside its difference
-  image's own field and its neighbours is never associated, and one in
-  a neighbouring field only joins an existing object, so a field no
-  image is centred on founds none: on the injected footprint this
-  costs three fifths of the detected sources their alert. It was so
-  under the chain too, and it is the next science question.
+- The false positives per epoch, a median 224 on the injected
+  footprint once every accepted detection is alertable, 130 of them on
+  bright-footprint-flagged sources. Purity per magnitude is unchanged
+  by the field rule; the volume is the next science question.
 - Whether an object's statistics are materialised per field. The view
   read a field's 200 objects in 0.9 ms; at GBTDS depth it is unmeasured.
 - A source that a job in flight founded nearby is not added to an
   object the other job read, as a sequential run would have. On the
   footprint, 4 of 11,576 expected history entries were missing where
-  two epochs in flight founded one source's objects apart.
+  two epochs in flight founded one source's objects apart, and under
+  the field rule 13 packets carried a source split that way.
 - Forced photometry's cost at scale. It is about 3.6 s per window
   image, dominated by opening the images. A set's `forced` rows are its
   packets times the window images on the trigger's SCA, so a field's
@@ -1571,9 +1627,11 @@ residual at a star, against about 19 on HLWAS; its difference job takes
 - The 107.5 s exposures of the last two passes are differenced against
   a 294.1 s reference. Whether a short exposure gets a reference of its
   own exposure time, or is differenced at all, is open.
-- Completeness on real hosts and light curves, the OpenUniverse TDS
-  set's, after HLWAS injection; the chain past its intake needs the
-  three pieces the [datasets](datasets) page lists.
+- Completeness on real hosts and light curves past AB 25. The
+  OpenUniverse TDS chain runs end to end and its transients are
+  detected at 1.0 to AB 24 and 0.5 at 25, but every difference fills
+  `dev`'s cap of 500 sources, so the cap ends the count
+  ([datasets](datasets)).
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
 - Whether SFFT and the naive subtraction keep running now that only
