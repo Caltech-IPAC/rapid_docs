@@ -25,16 +25,8 @@ repository's history. The rebuild starts from this page.
 | [`difference.md`](difference) | DRAFT | The `difference` stage on `run(job)`: its scope and four inputs with the two PSF kinds, the ZOGY, SFFT and naive steps in `dev`'s order, the declared `diffimages` row and source set with the drawn `pid`, the association with its objects and memberships, the bright-star footprint flag and the quality numbers, one differencer published, the gzipped files it keeps and why, its settings and determinism, and what it measured against `dev` |
 | [`intake.md`](intake) | DRAFT | The `intake` stage on `run(job)`: one SOC L2 ASDF file under the run's source root, the conversion ported from `dev`, the check that its science PSF was made from the file's own ePSF reference, the declared `l2files` row and the `exposures` row of the one SCA that expects it, with the packed `expid`, its settings (the reader, the DQ mask, the WCS translation and re-derivation) and the Gaia-offset metric, and what the ramp measured |
 | [`psf.md`](psf) | DRAFT | The `psf` stage on `run(job)`: the CRDS ePSF reference a file names, fetched by that name; the fixed reduction to a pipeline PSF; the science and reference kinds it declares and the `EPSFREF` the intake checks; its settings; the F146 comparison with `dev`'s copied PSF and the job's measurements; the position, the reference PSF rule and a reference part in the key, not yet decided |
-| [`load.md`](load) | DRAFT | The `load` stage as ported from `dev`: its inputs, the child tables, what lands in `sources`, the source-set result set, its settings and exit codes; the `psf` registration block |
-| [`maintain.md`](maintain) | DRAFT | The `maintain` stage: the once-per-date CLUSTER and ANALYZE of a `sources` child table moved out of `load`, its `detector-date` unit, its manifest and exit codes |
-| [`crossmatch.md`](crossmatch) | DRAFT | The `crossmatch` stage as ported from `dev`: one field's two passes, the catalog a pass reads (base plus delta), the per-field tables and their set-scoped keys, what lands in `astroobjects` and `merges`, the association set, its settings and exit codes |
-| [`statistics.md`](statistics) | DRAFT | The `statistics` stage as ported from `dev`: per-object position and flux statistics over an association set's base-plus-delta membership, what lands in `astroobjectsmeta`, the statistics-set result set, its settings and exit codes |
-| [`finalize.md`](finalize) | DRAFT | The `finalize` stage as ported from `dev`'s post-processing pipeline: the chain order, the manifest it republishes as new instances, the header stamp, its settings and exit codes |
-| [`alerts.md`](alerts) | DRAFT | The retired `alerts` stage as ported from `dev`'s alert production: the input-set manifest, what it reads from the source, association and statistics sets, the container and the alert outbox, its registration, settings and exit codes; its Kafka section points at the foundation's publication |
-| [`prune.md`](prune) | DRAFT | The `prune` stage: the not-best merge exclusion ported from `dev`'s `pruneNotBestMerges`, its `pruned-set` result set and `prunedmerges` rows, the run model's own-run exclusion clause, its settings and exit codes |
 | [`photometry.md`](photometry) | DRAFT | Forced photometry: the alert-driven measurement inside the `packet` stage, and `dev`'s standalone `forcedPhotometryForField.py`, not ported |
-| [`export.md`](export) | DRAFT | The `export` stage as ported from `dev`'s `generateSourceHATSCatalog.py`: the named source sets it reads, the CSV dump and the `hats-import` build, the `catalog-export` bundle and registration, its settings and exit codes; the light-curve catalog is not ported |
-| [`tool.md`](tool) | DRAFT | The command-line tool `rapidpipe`, every subcommand and its flags, the operations mapped from the specification's Tools sentence onto subcommands, the input-set composer, the tool's own exit codes, personal submission from a workstation, and where it runs |
+| [`tool.md`](tool) | DRAFT | The command-line tool `rapidpipe`: every command it has on `rebuild` with its flags, what it does not have and what to use instead, its exit codes, and the environment it reads |
 | [`loop.md`](loop) | DRAFT | The loop, `rapidpipe loop`: the selection as arguments with the passes, one pass's order from the psf submission and hold through intake to the Kafka recovery sweep with the listing by the selection, no field chains, the submission cap and the Spot queue, the Batch reconcile, pending with one automatic rerun, failed and drained, the reference bound and held fields, the per-field chains' history, its exit codes and what it measured, six filters at once among it; it replaces the run model's processing-date loop |
 | [`operations.md`](operations) | DRAFT | Operations proposals the team has not yet ruled on: what they assume about the mission, three shapes of the run model and the recommended named stream of batch runs, replacement scope and the chain switch, batch cadence against the latency requirement, a proposed production check policy, reference eligibility and selection, staged inputs of a production run, capacity lanes |
 | [`observability.md`](observability) | DRAFT | The `rapidpipe` log line and where it goes, the record of an attempt with and without CloudWatch, monitoring with `rapidpipe` alone, queue, execution and orchestration time per Batch job, profiling a stage, and today's job-duration baseline against a 30-minute target |
@@ -52,18 +44,43 @@ reference
 difference
 intake
 psf
-load
-maintain
-crossmatch
-statistics
-finalize
-alerts
-prune
 photometry
-export
 tool
 loop
 operations
 observability
 migration
+```
+
+## Retired and older-contract pages
+
+These pages are not stages the loop runs. The first seven describe modules
+retired from `rebuild` with the run model, kept as the record of their port;
+`finalize` is still in the package on the older stage contract
+([stage contract](stage-contract), "Stages on the older contract"), with
+`admit`, and the loop runs neither.
+
+| Document | Status | Scope |
+|---|---|---|
+| [`load.md`](load) | DRAFT | The `load` stage as ported from `dev`: its inputs, the child tables, what lands in `sources`, the source-set result set, its settings and exit codes; the `psf` registration block |
+| [`maintain.md`](maintain) | DRAFT | The `maintain` stage: the once-per-date CLUSTER and ANALYZE of a `sources` child table moved out of `load`, its `detector-date` unit, its manifest and exit codes |
+| [`crossmatch.md`](crossmatch) | DRAFT | The `crossmatch` stage as ported from `dev`: one field's two passes, the catalog a pass reads (base plus delta), the per-field tables and their set-scoped keys, what lands in `astroobjects` and `merges`, the association set, its settings and exit codes |
+| [`statistics.md`](statistics) | DRAFT | The `statistics` stage as ported from `dev`: per-object position and flux statistics over an association set's base-plus-delta membership, what lands in `astroobjectsmeta`, the statistics-set result set, its settings and exit codes |
+| [`alerts.md`](alerts) | DRAFT | The retired `alerts` stage as ported from `dev`'s alert production: the input-set manifest, what it reads from the source, association and statistics sets, the container and the alert outbox, its registration, settings and exit codes; its Kafka section points at the foundation's publication |
+| [`prune.md`](prune) | DRAFT | The `prune` stage: the not-best merge exclusion ported from `dev`'s `pruneNotBestMerges`, its `pruned-set` result set and `prunedmerges` rows, the run model's own-run exclusion clause, its settings and exit codes |
+| [`export.md`](export) | DRAFT | The `export` stage as ported from `dev`'s `generateSourceHATSCatalog.py`: the named source sets it reads, the CSV dump and the `hats-import` build, the `catalog-export` bundle and registration, its settings and exit codes; the light-curve catalog is not ported |
+| [`finalize.md`](finalize) | DRAFT | The `finalize` stage as ported from `dev`'s post-processing pipeline: the chain order, the manifest it republishes as new instances, the header stamp, its settings and exit codes |
+
+```{toctree}
+:hidden:
+:caption: Retired
+
+load
+maintain
+crossmatch
+statistics
+alerts
+prune
+export
+finalize
 ```

@@ -1662,7 +1662,8 @@ cold queue.
 - Completeness on real hosts and light curves past AB 25. The
   OpenUniverse TDS chain runs end to end and its transients are
   detected at 1.0 to AB 24 and 0.5 at 25, but every difference fills
-  `dev`'s cap of 500 sources, so the cap ends the count
+  the rebuild's cap of 500 sources (`[difference] max_sources`), so the
+  cap ends the count
   ([datasets](datasets)).
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
