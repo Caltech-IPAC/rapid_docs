@@ -41,7 +41,11 @@ pointings, either `all` or a list of `VVV_EEEE`, a visit and an
 exposure, and the survey's passes, applied to the listed files and the
 L2 rows alike. A GBTDS pointing is the visit modulo six, so it does not
 bound that survey's epochs; a sample there is a source root of chosen
-files ([datasets](datasets)). A pointing is
+files ([datasets](datasets)). Under an OpenUniverse run
+(`[intake] reader = "openuniverse"`) a pointing is the observing
+sequence's row, which is the intake's `expid`; the loop lists each
+selected filter's prefix in the simulation's legacy spelling
+(`--filters F158` lists `H158/`), and `--passes` is refused. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
 passes of one filter. The selection is the operator's instruction for
@@ -112,7 +116,10 @@ Its order:
    connection and one producer, one set at a time. A set inside the
    window is reported as `sets_waiting` and keeps the pass from
    draining; a held set is reported in `held_sets` with its metric and
-   value. An idle pass opens no producer.
+   value. `sets_late` counts the run's official sets stamped more than
+   300 s after their job ended, sent by a sweep rather than by their own
+   job, so a failing container send shows in every pass line after the
+   window. An idle pass opens no producer.
 
 A pass submits at most the run's `[batch] max_submissions_per_pass`
 (1,000), in stage order, and reports the rest as `deferred`: the
@@ -135,7 +142,10 @@ held pending; if the rerun's container dies too, the job is failed. A
 failed job is reported and never resubmitted: its key counts as taken
 until a person reruns it, with `job run --job <id>` on
 the host or `job submit --job <id>` on Batch, and the loop then carries
-on from it.
+on from it. `job submit --job` marks a failed row `launched` as it
+records the new Batch id, so a loop restarted at once counts it
+pending. A failed job holds only the work that depends on it: the loop
+keeps passing until the rest of the selection drains around it.
 
 **The reconcile.** Every job row records the Batch job id it was last
 submitted as. At the start of each pass the loop describes the run's
@@ -153,7 +163,9 @@ alone. The whole reconcile took 0.1 s a pass.
 
 **Drained.** A pass is drained when it found no new file, has nothing
 pending and submitted nothing. The verb then exits 0. It exits 0 after
-one pass with `--once`, 2 after a pass that reports a failed job, and
+one pass with `--once`, 2 once the selection has drained around a
+failed job (or after a `--once` pass that saw one), naming each failed
+job's stage and scope in the last pass's `failed` and on stderr, and
 64 when the run's dataset has no single Gaia catalog. Each pass prints
 one JSON line: submitted and pending per stage, failed, held, new,
 admitted, listed, packets and sets produced, the reconcile's counts,
@@ -191,8 +203,9 @@ draining, and the verb exits 0: the gap is recorded, with no timeout.
 Until 2026-10-24 a field's object sets formed one chain, one `associate`
 per epoch in `mjdobs` order, and its packet sets a second chain behind
 it; an earlier epoch that arrived late was a rerun from that epoch. The
-association now runs in the difference job against the field's objects
-as they stand, so data arriving out of order needs nothing: a late
+association now runs in the difference job against the objects of each
+touched field as they stand
+({ref}`by the source's field <decision-association-by-source-field>`), so data arriving out of order needs nothing: a late
 epoch's memberships appear in the packets issued after it arrives and
 never in those already sent
 ({ref}`ruling <decision-association-in-difference>`). Two SCAs on one
