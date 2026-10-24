@@ -104,7 +104,7 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 |---|---|---|
 | `source_root` | the run's overlay only | |
 | `unsigned` | false | |
-| `reader` | `"soc-l2"` | the only format `dev` reads; `"openuniverse"` reads OpenUniverse 2024's `simple_model` ASDF through the same conversion |
+| `reader` | `"soc-l2"` | the only format `dev` reads; `"openuniverse"` reads OpenUniverse 2024's `simple_model` ASDF through the same conversion; `"rimtimsim"` reads RimTimSim's `<stem>.fits.gz`, `dev`'s converted lite files, into the same layout with `dev`'s converter's headers, the image in DN with the file's WCS and zero point, no uncertainty or DQ HDU ([datasets](datasets)) |
 | `sip_degree` | 5 | `SIPDISTORTIONDEGREE`'s default |
 | `sip_max_pix_error` | 0.1 | the `to_fits_sip` argument |
 | `gzip_level` | 1 | `L2GZIPLEVEL`'s default |

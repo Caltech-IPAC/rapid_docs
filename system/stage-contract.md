@@ -152,9 +152,13 @@ definition.
 |---|---|
 | 0 | The job was published, or was already published; or it was published and its automatic binding was refused only because its run is not live, the refusal on its row and on standard error |
 | 1 | The job was published, but its automatic binding was refused for another reason, such as an expected binding no longer open; its rows are an unbound candidate |
-| 64 | Usage: bad arguments, no outputs root, or a stage with no `run(job)` |
-| 70 | The stage or the publication raised; the job is marked `failed` |
-| 75 | The database could not be reached after the connection's own retries: a temporary dependency failure |
+| 64 | Usage: bad arguments, no outputs root, a stage with no `run(job)`, a run or input that does not exist, or a database configuration that cannot be read |
+| 70 | The stage or the publication raised, a tool's nonzero exit included (`ToolFailed`); the job is marked `failed` |
+| 75 | A temporary dependency failure: the database unavailable or failing mid-query after the connection's own retries, or a storage or AWS call (the parameter store's included) throttled, timed out, unreachable or answered with HTTP 503 |
+
+A failed job's row records the code the process exits with, and its
+`refusal` is `<Class>: <message>`, at most 500 characters; the
+traceback is in the job's log.
 
 On Batch, exit 75 and nothing else is retried: the job definition
 allows three attempts, and any other exit code, or a failure with no

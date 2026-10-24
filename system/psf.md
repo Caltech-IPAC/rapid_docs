@@ -30,7 +30,10 @@ It reads two things from outside the record:
   context it was calibrated under, and `meta.ref_file.epsf`, the ePSF
   reference it names (`crds://roman_wfi_epsf_0276.asdf` for F146 on SCA
   8 of the HLWAS simulation, under context `roman_0046.pmap`);
-- that reference, fetched **by the name the file carries** from the
+- that reference, fetched **by the name the file carries** (a RimTimSim
+  file names none, so for `[intake] reader = "rimtimsim"` the name is the
+  dataset overlay's `[psf.epsf]` entry for the filter, and the file is
+  not read) from the
   CRDS server in `[psf] crds_server`, at
   `<server>/unchecked_get/references/roman/<name>`. There is no rmap
   match, no context lookup and no `crds` package: the file has already

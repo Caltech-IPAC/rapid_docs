@@ -455,7 +455,7 @@ measured peak, and the difference stage keeps the definition's 24 GiB:
 |---|---|---|
 | `intake` | 2,048 | 910 |
 | `psf` | 2,048 | 333, at breadth |
-| `reference` | 6,144 | 2,831 |
+| `reference` | 6,144 | 2,831 (4,490 at the 9100 px mosaic) |
 | `difference` | 24,576 | 16,125 |
 | `packet` | 2,048 | 867 |
 
@@ -542,11 +542,11 @@ image. Each simplification keeps the shape of the full stage.
 
 | Stage | Reads (named in `job_inputs`) | Writes (declared outputs) | Left out until breadth |
 |---|---|---|---|
-| `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
+| `intake` | one L2 file under the run's source root, by the dataset's reader (SOC L2 or OpenUniverse ASDF, RimTimSim lite FITS); the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
-| `psf` | one SOC L2 file's metadata and the CRDS ePSF reference it names | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
+| `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s; `objects` founded here and this epoch's `memberships` | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter; `rubrat` |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `zogy`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; `objects` founded here and this epoch's `memberships` | real/bogus; `rubrat` |
 | `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -585,7 +585,10 @@ carries, the fixed reduction to a 61-pixel stamp, the two `psfs` rows
 it declares, and the `EPSFREF` keyword the intake checks against each
 file's own reference. An OpenUniverse file names no ePSF reference, so
 for `[intake] reader = "openuniverse"` the stage draws the stamp with
-galsim.roman, the simulation's own model ([datasets](datasets)). The loop submits one for each filter and SCA that
+galsim.roman, the simulation's own model ([datasets](datasets)). A
+RimTimSim file names none either, so for `[intake] reader = "rimtimsim"`
+the stage reduces the CRDS reference the dataset's `[psf.epsf]` names
+for the filter. The loop submits one for each filter and SCA that
 lacks its PSFs, so a dataset needs no PSF imported.
 
 ### reference and difference
@@ -595,10 +598,12 @@ filter and SCA), the `l2files` rows it coadds in `dev`'s order, the
 three tables it declares with the `rfid` it draws, and its settings.
 The [difference](difference) page states `difference`: its scope (one
 epoch's key), its four inputs (the L2 row, a reference, and one PSF of
-each kind), the ZOGY image and source set it declares with the `pid` it
+each kind), the image and source set of the differencer
+`[difference] diff_flavor` names (shipped `zogy`) with the `pid` it
 draws, the files it publishes and why each is kept, and its settings.
-A run has one differencer, so only the ZOGY image is published as a
-row; the SFFT and naive files are not uploaded at all.
+A run has one published differencer, so only its image is a row; the
+other's PSF-fit catalogs are uploaded as diagnostics, and its images and
+the naive files are not uploaded at all.
 
 ### Association
 
@@ -651,6 +656,13 @@ read as it ran and recorded:
   catalog;
 - `cutoutDifference`, `cutoutScience` and `cutoutReference`, each 129
   pixels square, pixels off the chip filled with 0.0.
+
+A required input that cannot be read fails the job with its name on
+the row: the trigger epoch's difference, science or template image for
+the stamps, the reference's mosaic catalog (unreadable, empty or short
+of a column the matches read), or the reference's `refimcatalogs` row.
+Window images are required the same way, since they are fetched and
+measured. No set ships with null cutouts or null reference matches.
 
 `ssMatches`, `nedMatches` and `lvsMatches` are null: in the schema's
 contract null means the match did not run, and these are deferred. The
@@ -1165,6 +1177,9 @@ or is the last of its chain, and the forced check requires that a
 packet set's row for an (object, image) pair a recorded predecessor set
 also holds is that predecessor's measurement. Checks 7 to 10 are
 operations with no read-only form over a run, checked as they run. The
+counts check also fails a run with a failed job or with no jobs, and
+the tables check a run with no published job, so a run that failed on
+purpose, such as run 83's forced tool failure, reads not clean. The
 script passed on both GBTDS runs, and on the wide-area run after its
 first pointing, after its second, after the SCA 8 ramp and after the
 18-SCA ramp. The reader was clean on every packet set and the consumer
@@ -1404,8 +1419,8 @@ as "short":
 and the difference stage at the plan's density; a thirty-day window of real
 cadence; completeness against the injected sources; and the rubrat,
 NED and NED-LVS matches, whose model and catalog copies are in a bucket
-this account cannot read. sumrat needs no new data, but no stage
-computes it yet.
+this account cannot read. sumrat needed no new data; the difference
+stage computes it since rapid PR 422.
 
 ### The fixes
 
@@ -1651,8 +1666,9 @@ cold queue.
   ([datasets](datasets)).
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
-- Whether SFFT and the naive subtraction keep running now that only
-  their outcome bits remain ([difference](difference)).
+- Whether the published differencer returns to SFFT, now that `dev`'s
+  pixel columns and prefilter are ported, and whether the naive
+  subtraction keeps running for its outcome bits ([difference](difference)).
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.
