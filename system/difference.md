@@ -34,7 +34,8 @@ The reference image's PSF is not an input: it is derived data, measured
 by the job ({ref}`ruling <decision-reference-psf-measured>`). Right after
 the resampled reference's background is subtracted, the job finds its
 stars (DAOStarFinder at 8σ on the pixels finite and covered at the
-coverage threshold; peak 20 to 3,500 DN/s, no neighbour within 14 pixels,
+coverage threshold; peak at least 400 times the clipped noise and at
+most 3,500 DN/s, no neighbour within 14 pixels,
 the whole 31-pixel stamp usable, and a second-moment width between the
 science PSF's and 0.4 pixel more, since resampling only widens a star
 while defect pixels are narrower and galaxies wider), builds an
@@ -51,10 +52,29 @@ sub-pixel resampling kernel leaves the wings unchanged. Fewer than ten stars sto
 exit 65 and `refpsf: N stars, 10 needed` on the job row; there is no
 fallback. The stamp is published as `refimage_psf.fits.gz`, and the
 manifest's `metrics` hold `refpsf_sigma_px`, `refpsf_stars`,
-`sci_psf_sigma_px` and `psf_centroid_offset_px` (the reference stamp's
-centroid minus the science stamp's). On run 17's pass 4 reference the
-measurement takes 4.6 s and gives 1.080 pixels from 38 stars, against
-the science ePSF's 0.947.
+`sci_psf_sigma_px` and `psf_centroid_offset_x_px` and `_y_px` (the
+reference stamp's centroid minus the science stamp's). On run 17's pass 4
+reference the measurement takes 4.6 s and gives 1.080 pixels from 38
+stars, against the science ePSF's 0.947. The peak floor was first 20
+DN/s, set on F146, where it is 886 times the noise; in F184 and F213 it
+left 8 and 6 stars of 2,100 and 683 detections and failed every
+difference, so it is stated in units of the noise (fixes task 5, 400σ:
+45 and 19 stars on the resampled references).
+
+**Quality numbers.** Beside those, the manifest's `metrics` carry the
+measurements that would have shown the null test's detections to be
+artefacts on its first run, each from arrays the job already holds and
+absent, never zero, when it cannot be made: the registration offset
+(median centroid of science minus resampled reference at the reference
+PSF's stars, before the subpixel shift), the reference stars' width and
+its ratio to the science PSF's, the core (within 2.5 pixels) and ring
+(2.5 to 6) fractions of the difference over star flux at the 30 brightest
+isolated stars, the noise correlation, the usable fraction (finite and
+covered pixels), the candidates before the cap and the sources after it,
+those above S/N 20, and the share on a reference-catalog source within 3
+pixels. The database's `job_metrics` view exposes every job's metrics by
+run, stage and scope, and `scripts/inspect_run.py` renders them per run,
+with a gallery of the residual stars, before the run's checks.
 
 ## What it runs
 
