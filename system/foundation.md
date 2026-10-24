@@ -673,9 +673,10 @@ registry. The producer waits for every acknowledgement from all in-sync
 replicas, flushes once, and stamps the set's job with the time, the
 partition and the first and last offsets
 (`jobs.kafka_published_at`, `kafka_partition`, `kafka_first_offset`,
-`kafka_last_offset`). The producer is not idempotent: idempotence
-asks the cluster for a permission the job role does not hold, and
-nothing here is exactly-once.
+`kafka_last_offset`). The producer is idempotent, so the broker drops
+a retried batch's duplicate within one send; a set sent again (a rerun,
+the sweep) is a replay consumers tolerate, and nothing here is
+exactly-once.
 
 `rapidpipe publish --run <id>`, and the loop's publish in each pass,
 is the recovery sweep and the verb that publishes again: it takes every
@@ -1553,9 +1554,9 @@ residual at a star, against about 19 on HLWAS; its difference job takes
   each filter's bound is the midpoint of its own third and fourth
   passes, which leaves three reference epochs before it in every filter;
   a survey without passes needs another rule.
-- Exactly-once delivery. The producer is not idempotent, because the
-  job role holds no idempotent-write permission; granting it, or not,
-  is open.
+- Exactly-once delivery. The producer is idempotent since the job
+  role's idempotent-write grant (2026-10-24), which covers one send; a
+  set sent twice reaches the topic twice.
 - The Spot interruption warning's capture, which waits on a logs
   resource policy, and what a reclaim costs, since none has been seen.
 - Cross-band association. Each filter is a dataset of its own, so a
