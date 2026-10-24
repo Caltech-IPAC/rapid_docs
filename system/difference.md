@@ -17,7 +17,7 @@ page states the records it works within, and the
 ## Scope and inputs
 
 The scope is `{"expid", "sca", "fid"}`, the epoch's key without the
-dataset, which is the run's. The job names exactly four `input` rows,
+dataset, which is the run's. The job names exactly three `input` rows,
 read in one short transaction and fetched through `prefix.get`:
 
 | Product | Which |
@@ -25,12 +25,30 @@ read in one short transaction and fetched through `prefix.get`:
 | `l2files` | the epoch's own row |
 | `refimages` | one reference of the scope's filter, imported or made by the [reference](reference) stage; its coverage and uncertainty maps sit beside the mosaic, and its mosaic catalog (`refimcatalogs`, `cattype` 1) gives the reference FWHM |
 | `psfs`, kind `science` | the science image's PSF for the scope's filter and SCA |
-| `psfs`, kind `reference` | the reference image's PSF for the same filter and SCA |
 
-The two PSFs are told apart by the `kind` in their key, read from the
-row, so the stage never reads a PSF file's header to decide which is
-which. Any other product, a second input of one kind, or an input whose
-key is not the scope's fails the job before a manifest is written.
+Any other product, a second input of one kind, a `psfs` row of another
+kind, or an input whose key is not the scope's fails the job before a
+manifest is written.
+
+The reference image's PSF is not an input: it is derived data, measured
+by the job ({ref}`ruling <decision-reference-psf-measured>`). Right after
+the resampled reference's background is subtracted, the job finds its
+stars (DAOStarFinder at 8σ on the pixels finite and covered at the
+coverage threshold; peak 20 to 3,500 DN/s, no neighbour within 14 pixels,
+the whole 31-pixel stamp usable, and a second-moment width between the
+science PSF's and 0.4 pixel more, since resampling only widens a star
+while defect pixels are narrower and galaxies wider), builds an
+effective PSF from the brightest 100 (`EPSFBuilder`, oversampling 4),
+evaluates it at the pixel centres of a 61-pixel stamp re-centred to
+0.01 pixel and normalised, and gives that to ZOGY, SFFT and the naive
+catalogs as the reference PSF. Fewer than ten stars stops the job with
+exit 65 and `refpsf: N stars, 10 needed` on the job row; there is no
+fallback. The stamp is published as `refimage_psf.fits.gz`, and the
+manifest's `metrics` hold `refpsf_sigma_px`, `refpsf_stars`,
+`sci_psf_sigma_px` and `psf_centroid_offset_px` (the reference stamp's
+centroid minus the science stamp's). On run 17's pass 4 reference the
+measurement takes 4.6 s and gives 1.080 pixels from 38 stars, against
+the science ePSF's 0.947.
 
 ## What it runs
 
@@ -74,11 +92,14 @@ for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
 | `awaicgen_output_mosaic_cov_map_resampled.fits.gz` | the mask: the resampled reference coverage map the difference is masked with |
 | `zogy_diffimage_masked_psfcat.parquet` | the catalog: ZOGY's positive PSF-fit catalog, uncapped, of which `sources` is the capped set |
 | `diffpsf.fits.gz` | the difference's PSF, for forced photometry on the difference |
+| `refimage_psf.fits.gz` | the reference PSF the job measured and gave ZOGY |
 | `bkg_subbed_science_image.fits.gz` | forced photometry on the science image, and the science cutout |
 | `awaicgen_output_mosaic_image_resampled_gainmatched.fits.gz` | the template cutout |
 
 The first four are the ruling's: the difference, its uncertainty, the
-mask and the catalog. The other three are what `packet` reads. Every
+mask and the catalog. Three of the others are what `packet` reads, and
+the reference PSF is the job's own measurement, kept for whoever checks
+the subtraction (15 KB). Every
 FITS file is gzipped at level 1 as the intake's are, the `diffimages`
 row names the `.fits.gz`, and its checksum is the MD5 of the gzipped
 file. Everything else, the SFFT and naive products, the negatives,

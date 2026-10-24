@@ -4,8 +4,10 @@
 
 `psf` derives the PSF the difference stage reads for one filter and SCA
 of a dataset, from the CRDS ePSF reference the dataset's own L2 file
-names, and declares it twice, once as the science PSF and once as the
-reference PSF. Each image's PSF comes from that reference because it is
+names, and declares it as the science PSF. The reference image's PSF is
+not this stage's: the difference job measures it from the resampled
+reference it makes ({ref}`ruling <decision-reference-psf-measured>`).
+Each image's PSF comes from that reference because it is
 the calibration's PSF and what flight data will carry
 ({ref}`ruling <decision-psf-from-epsf>`); a simulation's rendering PSF
 is not a product. The reduction from the ePSF to a pipeline PSF is new
@@ -73,14 +75,13 @@ the stamp's centre, and the stage does not re-centre it.
 
 ## Declared outputs
 
-Two FITS files under the attempt's prefix, the same stamp in both:
+One FITS file under the attempt's prefix:
 
 | File | `PSFKIND` | `psfs` key |
 |---|---|---|
 | `sciimage_psf_<filter>_sca<NN>.fits` | `sciimage_psf` | (dataset, fid, sca, `science`) |
-| `refimage_psf_<filter>_sca<NN>.fits` | `refimage_psf` | (dataset, fid, sca, `reference`) |
 
-and `psfs.parquet` with the two rows, keyed as an imported PSF is
+and `psfs.parquet` with its row, keyed as an imported PSF is
 keyed, so the difference stage reads a derived PSF exactly as it reads
 a copied one. The `psfid` is drawn from the table's identity, and the
 `import` stage now draws its own the same way rather than writing a
@@ -161,13 +162,12 @@ reference per filter and SCA.
   detector centre. The reference holds a 3 x 3 grid of positions, so a
   PSF per quadrant, or one evaluated per source, is possible; which the
   difference stage should read is the plan's question.
-- **The reference PSF rule.** The reference PSF is the science PSF,
-  the same ePSF, because a reference coadds frames of the same filter
-  and SCA. The resampled coadd's stars are wider than that: second-moment
-  width 1.10 pixels against the science image's 0.96 on F146 SCA 8,
-  which leaves the core-and-ring residual at every star. A reference
-  PSF measured from the coadd's own stars, or built from its frames'
-  positions and dithers, is not built.
+- **The reference PSF.** Until 2026-10-24 this stage also wrote the
+  science stamp as the `reference` kind. The resampled coadd's stars are
+  wider than that (second-moment width 1.10 pixels against the science
+  image's 0.96 on F146 SCA 8), which left the core-and-ring residual at
+  every star, so the difference job now measures the reference PSF
+  itself ([difference](difference)).
 - **A reference-file part in the `psfs` key.** The key is (dataset,
   fid, sca, kind), with no reference name, because the simulation names
   one ePSF per filter and SCA. A dataset whose files name two
