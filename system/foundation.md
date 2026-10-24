@@ -1096,7 +1096,9 @@ the difference stage's 24 GiB for every stage.
   above S/N 20, none of them variability. They sit at and around stars,
   the residual a PSF mismatch leaves, and on unmasked pixel defects.
   SCAs 4 and 5 leave three to four times the artefact residuals of the
-  other SCAs.
+  other SCAs. These counts are artefact counts: an image study found
+  them to be the PSF mismatch and unmasked defects, and The fixes,
+  below, measures them removed.
 
 ### Housekeeping
 
@@ -1129,7 +1131,8 @@ the same pixels.
   reference, which held each epoch; the same PSF and pixels, the
   reference the only change. The three epochs gave 551 packets
   against 447. The artefact fraction above S/N 20 rose from 0.144 to
-  0.226.
+  0.226. Every count here is of artefacts, not detections (The fixes,
+  below).
   Whether depth or disjointness does it is not separated (Not decided
   here, below).
 - **Packing has a cost in seconds.** An intake took 39 s with six
@@ -1212,6 +1215,49 @@ NED and NED-LVS matches, whose model and catalog copies are in a bucket
 this account cannot read. sumrat needs no new data, but no stage
 computes it yet.
 
+### The fixes
+
+Measured 2026-10-24 on SMDC (brief `fixes-2026-10-23`), on the wide-area
+simulation's first pointing, SCA 8, in all seven filters, each filter a
+dataset of its own with a new live run: the L2 data-quality flags masked
+at intake (commissioning's rule without SATURATED), the reference PSF
+measured in the difference job from the resampled reference's stars, the
+SWarp kernel left at `dev`'s BILINEAR by a paired comparison, and every
+job's quality numbers in its manifest, exposed by the `job_metrics` view
+and rendered per run by `scripts/inspect_run.py` before the checks. The
+before is the same pixels' official products from the breadth runs and,
+for F146, the image study's run, read from the database by lineage.
+
+| Filter | Epochs | Above S/N 20 per epoch, before → after | Packets per epoch | Packets above S/N 20 | Core / ring of star flux after |
+|---|---|---|---|---|---|
+| F087 | 2 | 112 → 18 | 192 → 64 | 46 → 4 | -0.003 / +0.007 |
+| F106 | 13 | 100 → 22 | 200 → 56 | 41 → 4 | +0.004 / +0.005 |
+| F129 | 13 | 101 → 42 | 213 → 108 | 46 → 12 | +0.007 / +0.002 |
+| F146 | 3 | 79 → 19 | 213 → 71 | 28 → 3 | +0.006 / -0.002, from +0.030 / -0.027 |
+| F158 | 14 | 156 → 18 | 216 → 57 | 75 → 6 | +0.011 / -0.005 |
+| F184 | 2 | 373 → 19 | 255 → 42 | 188 → 3 | +0.001 / +0.014 |
+| F213 | 2 | 48 → 20 | 110 → 46 | 16 → 3 | +0.034 / +0.023 |
+
+- **What is gone**: the defects (most of F184's bright end) and the
+  core-and-ring residual the PSF mismatch left at every star. The share
+  of sources on a reference source fell from 69% to 43% in F146.
+- **What remains** above S/N 20 is bright stars, none of it a defect:
+  on F146's SCA 8, 11 to 21 of 15 to 23 per epoch sit on a reference
+  source of aperture S/N above 100, with the PSF's diffraction-spike
+  pattern in the residual; F213 leaves a positive core and ring, a
+  flux-scale residual. Turning off `dev`'s science extreme-pixel repair
+  changed nothing, and the cause is open. SCAs 4 and 5 leave two to three
+  times SCA 8's.
+- **Two defects found by the re-count, fixed**: the reference PSF's star
+  peak floor was F146's count rate and failed every F184 and F213
+  difference (6 to 9 stars of 10 needed); it is now in units of the
+  noise. The reference job's star width read the galaxies, since
+  SExtractor's star classifier does not separate them on these mosaics;
+  it now takes the narrowest population of widths (F087 0.91 to F213
+  1.34 pixels).
+- **Every run's checks** were clean: validation, the reader and the
+  consumer, over 4,336 packets.
+
 ## Not decided here
 
 - The cost of following an object set's predecessor chain when a field
@@ -1254,11 +1300,12 @@ computes it yet.
   source seen in two filters is two objects. Whether an object is per
   band or across bands is open, and with it forced photometry in the
   other bands at a source's position.
-- The null test's artefacts: the PSF mismatch between the science PSF
-  and the resampled reference ([psf](psf), Not decided here) and pixel
-  defects the intake does not mask. Masking an L2 file's data-quality
-  flags at intake, and rejecting outliers in the reference coadd, are
-  not built.
+- What the null test leaves after The fixes: residuals at bright
+  stars, now the whole bright end (about 20 per epoch above S/N 20 on
+  SCA 8, two to three times that on SCAs 4 and 5), with a flux-scale
+  residual in F213; their cause is not established. The quality gate,
+  a query over `job_metrics` that holds an epoch off its run's median,
+  is not built.
 - The 107.5 s exposures of the last two passes are differenced against
   a 294.1 s reference. Whether a short exposure gets a reference of its
   own exposure time, or is differenced at all, is open.
