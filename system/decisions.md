@@ -203,6 +203,23 @@ candidates, Intel against AMD). A divergence from `dev`, with no knob.
 (Session decision under the standing rule, Ben's envelope of 2026-10-24
 19:22 UTC; err-tools task 1, rapid PR 407)
 
+(decision-pixel-columns-fail)=
+**`dev`'s pixel columns fail the job when their background fails**:
+`sumrat`, `nneg` and `nbad` are measured on every SFFT PSF-fit source
+after a 64 px local background is subtracted, as `dev` measures them
+(c32e28f6), and are carried on `sources`. `dev` catches a failed
+background and measures on the unsubtracted image; here the failure
+fails the job, as every fault in the stage does. `dev`'s ini gives the
+reason the background matters: on its socsims SFFT images, at a
+pedestal of -2 to -6 DN/s, sumrat > 0.4 keeps 0.60 of injected sources
+at S/N 5 to 10 on the image itself and 0.95 after the background.
+Measured on HLWAS injected `001_0001` SCA 8, three epochs (rapid PR
+422, run 96): sumrat > 0.4 keeps 0.997 of the 391 injected candidates,
+0.68 of the 6,464 noise candidates and 0.90 of the 2,257 bright-flagged
+ones; the columns cost 4.3 to 5.2 s a difference. A divergence from
+`dev`, with no knob. (Session decision under the standing rule, Ben's
+envelope of 2026-10-24 19:22 UTC; dev-columns task 1)
+
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
 figure is read and recorded, and nothing hangs on it.
