@@ -673,14 +673,23 @@ and names the job's recorded inputs.
 
 The gate decides whether an official packet set goes to the topic.
 `rapidpipe.foundation.gate.decide` is one query over `job_metrics`: it
-holds the set when its difference job's `n_sources_snr_gt20` is above
+holds the set when its difference job's `usable_fraction` is below
+`usable_fraction_min` (lost sky), or its registration offset
+`hypot(registration_dx_px, registration_dy_px)` is above
+`registration_max_px`, or its `n_sources_snr_gt20` is above
 `snr_gt20_factor` times the run's median, or `|core_fraction|` is above
 `core_fraction_max_abs`, or `|ring_fraction|` above
 `ring_fraction_max_abs`, once the run has `min_epochs` published
-differences; otherwise it sends. The run's `[gate]` table holds 3.0,
-0.025, 0.015 and 5, the healthy ranges the fixes measured across seven
-filters: the worst epoch's count was 2.6 times its run's median, the
-worst core 0.022. A held set is neither sent nor stamped, its reason
+differences; otherwise it sends. A metric the job could not compute
+holds nothing. The run's `[gate]` table holds 3.0, 0.025, 0.015 and 5,
+the healthy ranges the fixes measured across seven filters: the worst
+epoch's count was 2.6 times its run's median, the worst core 0.022;
+and 0.9 and 0.25 px (rapid PR 426), read on every recorded difference
+job: usable fraction healthy from 0.9385 (an SCA's reference coverage
+and mask, constant across its epochs) to 1.0, offset at most 0.123 px.
+The one recorded coverage failure, run 72's SCA 9 (its reference from
+another SCA's frames, 0.704), is held on the replay of every recorded
+set, and nothing healthy is. A held set is neither sent nor stamped, its reason
 names the metric and the value, and each loop pass reports the run's
 held sets as `held_sets`. Nothing is deleted, and there is no verb
 that releases a held set. Every official set of the
