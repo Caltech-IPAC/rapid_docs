@@ -175,6 +175,25 @@ the object, whichever field each is centred on. A divergence from
 `dev`, with no knob. (Session decision under the standing rule, Ben's
 yolo of 2026-10-24 14:02 UTC; day-2026-10-24 task 1)
 
+(decision-tool-exit-checked)=
+**An external tool's nonzero exit fails the job**: SExtractor, SWarp,
+ZOGY, bkgest, awaicgen and SFFT raise a named failure (`ToolFailed`:
+the tool, its exit code and its last 20 output lines, stderr included)
+and the job row's `refusal` carries it, as it now carries any failed
+job's exception type and message. `dev`'s `execute_command` returns the
+code and its pipeline never reads it but SFFT's, so a failed tool
+surfaced as a missing file later, or not at all when it left a partial
+one. SFFT was the one exemption until
+{ref}`SFFT became the published differencer <decision-sfft-published>`;
+no stage is exempt now. Measured on HLWAS `001_0001` SCA 8 F146, epoch
+4040101: with the difference stage's SExtractor pointed at `cat`, run 83's
+difference job failed at its first SExtractor call with exit 70 and
+`ToolFailed: cat exited with code 1` and `cat`'s two lines on its row,
+not rerun; its twin run 84 published as run 82 did (773 against 774
+candidates, Intel against AMD). A divergence from `dev`, with no knob.
+(Session decision under the standing rule, Ben's envelope of 2026-10-24
+19:22 UTC; err-tools task 1, rapid PR 407)
+
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
 figure is read and recorded, and nothing hangs on it.
