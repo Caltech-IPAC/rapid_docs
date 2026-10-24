@@ -114,7 +114,7 @@ night uses a dataset name of its own.
 
    It prints one JSON line a pass. Its first pass submits the PSF job,
    and later passes the intakes, the reference, the difference and the
-   packet. The sample drained in 9 to 12 minutes.
+   packet. The sample drained in 9 to 15 minutes (runs 86, 87, 90 and 97, 2026-10-24).
 
 6. **Check the run.**
 
