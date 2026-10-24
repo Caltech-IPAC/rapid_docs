@@ -47,12 +47,12 @@ night uses a dataset name of its own.
 1. **The environment and the names.**
 
    ```sh
-   export PYTHONPATH=$PWD PY=<the rapid environment's python3>
+   export PYTHONPATH=$PWD PY=<python3 of the rapid conda environment>
    rp() { $PY -m rapidpipe.cli.main "$@"; }
    D=<a dataset name of your own>                    # e.g. r00342-<initials>-<date>
    SOURCE_ROOT=s3://stpubdata/roman/nexus/soc_simulations/r00342/l2/
-   BOUND=61591.4056                                  # F146's: between its third and fourth passes
-   GAIA_DIR=<the directory holding the dataset's Gaia DR3 Parquet file>
+   BOUND=61591.4056                                  # the F146 bound, between its third and fourth passes
+   GAIA_DIR=<the directory holding the Gaia DR3 Parquet file of the dataset>
    GAIA_FILE=gaia-dr3-hlwas-r00342-box.parquet
    REV=<the 40-character sha of the image the job definition runs>
    JOBDEF=rapid-rebuild:<n>                          # the revision the deploy hook printed for that image
