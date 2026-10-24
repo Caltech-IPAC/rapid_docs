@@ -203,6 +203,23 @@ candidates, Intel against AMD). A divergence from `dev`, with no knob.
 (Session decision under the standing rule, Ben's envelope of 2026-10-24
 19:22 UTC; err-tools task 1, rapid PR 407)
 
+(decision-pixel-columns-fail)=
+**`dev`'s pixel columns fail the job when their background fails**:
+`sumrat`, `nneg` and `nbad` are measured on every SFFT PSF-fit source
+after a 64 px local background is subtracted, as `dev` measures them
+(c32e28f6), and are carried on `sources`. `dev` catches a failed
+background and measures on the unsubtracted image; here the failure
+fails the job, as every fault in the stage does. `dev`'s ini gives the
+reason the background matters: on its socsims SFFT images, at a
+pedestal of -2 to -6 DN/s, sumrat > 0.4 keeps 0.60 of injected sources
+at S/N 5 to 10 on the image itself and 0.95 after the background.
+Measured on HLWAS injected `001_0001` SCA 8, three epochs (rapid PR
+422, run 96): sumrat > 0.4 keeps 0.997 of the 391 injected candidates,
+0.68 of the 6,464 noise candidates and 0.90 of the 2,257 bright-flagged
+ones; the columns cost 4.3 to 5.2 s a difference. A divergence from
+`dev`, with no knob. (Session decision under the standing rule, Ben's
+envelope of 2026-10-24 19:22 UTC; dev-columns task 1)
+
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
 figure is read and recorded, and nothing hangs on it.
@@ -942,3 +959,9 @@ to confirm with SMDC. (Ben, 2026-10-06)
 **Commissioning facts stay open**: asking SMDC now for the sweep hour,
 the deadline clock origin and the scan lag is declined. They stay
 commissioning facts. (Ben, 2026-10-06)
+
+(decision-published-differencer)=
+**The published differencer is a setting, `[difference] diff_flavor`, shipped as `zogy`** (supersedes {ref}`the SFFT entry above <decision-sfft-published>`): dev's `diff_flavor = sfft` (b725007d, 2026-04-20) was taken as the default on 2026-10-24 19:22 UTC (rapid PR 408) and measured the same afternoon on the same bytes (run 88 against run 81, HLWAS injected passes 4 to 6; run 89 against run 80, OpenUniverse): under the raw SFFT catalog false positives per epoch 228 → 385, injected detection at AB 25 0.99 → 0.00, core fraction +0.003 → +0.252, OpenUniverse detected 35 → 24 of 410. SFFT leaves about a quarter of each bright star's flux in its core on HLWAS, so the 500-source cap fills with star residuals; dev measured SFFT on GBTDS socsims only and never publishes the raw catalog (sumrat, nneg, nbad and the prefilter pass 37 to 41 per cent). The default returns to `zogy` with the measurement in the toml comment; SFFT keeps running in every difference job, its PSF-fit catalogs stay under the prefix as diagnostics, and the queue items dev-columns, dev-prefilter and sfft-core are the route back to `sfft` if they earn it. (Ben, 2026-10-24 21:19 UTC: "proceed as you judge best" on the recommendation to revert until the remedy proves SFFT)
+
+(decision-gate-coverage-registration)=
+**The quality gate also holds on lost sky and misregistration**: new, not dev's (dev has no gate). A packet set is held when its difference's `usable_fraction` is below 0.9 or its registration offset `hypot(registration_dx_px, registration_dy_px)` is above 0.25 px, the bounds read on every published difference job SMDC holds (runs 46 to 95): usable fraction healthy from 0.9385 (run 72 SCA 16) to 1.0, constant per SCA, with run 72 SCA 9 (reference from another SCA's frames) at 0.704; offset healthy at most 0.123 px (run 49 F129, 25 stars), the tail growing as stars fall, so the bound is twice that, set for a WCS offset like HLWAS's 1 px. Replayed through `decide` over 4,623 recorded sets: run 72's three SCA 9 sets held, no healthy set held. Lost sky and a misregistration are checked first, since they inflate the count and the residuals checked after them. (gate-metrics, rapid PR 426, 2026-10-24)

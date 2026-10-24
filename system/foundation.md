@@ -470,7 +470,13 @@ attempts, the first run and two retries, and its rules retry on exit
 container that failed to start (Batch's reason `Task failed to start`,
 sixteen of them at breadth), and end the job on any other exit code or
 on a failure with no exit code, such as a reclaimed instance. Exits 64,
-65 and 70 are faults a retry would only repeat. The loop adds one
+65 and 70 are faults a retry would only repeat. A transient failure
+exits 75 wherever it is raised: the database unavailable or failing
+mid-query, a storage or AWS call throttled (the parameter store's
+included), timed out or unreachable, or answered with HTTP 503. The
+failed job's row records the same code the process exits with, and its
+`refusal` names the exception's class and message (at most 500
+characters); the traceback is in the job's log. The loop adds one
 rerun of its own: a container Batch ended without `job run` recording
 it is resubmitted once, and its rerun's death fails the loop. A retry after a late commit is safe because `job run` stops on
 a published job and otherwise takes the next attempt. Batch places a
@@ -539,7 +545,7 @@ image. Each simplification keeps the shape of the full stage.
 | `intake` | one SOC L2 `_cal.asdf` file under the run's source root; the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one SOC L2 file's metadata and the CRDS ePSF reference it names | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
-| `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | `dev`'s later reference changes (infobits, status, the 9100-pixel mosaic); the Photutils catalog |
+| `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the gzipped ZOGY difference image, its uncertainty, the mask, the uncapped catalog and the files `packet` reads beside it, SFFT and naive run only for their outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s; `objects` founded here and this epoch's `memberships` | sumrat, real/bogus and the extra SFFT catalog columns; `dev`'s loader prefilter; `rubrat` |
 | `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
@@ -667,14 +673,23 @@ and names the job's recorded inputs.
 
 The gate decides whether an official packet set goes to the topic.
 `rapidpipe.foundation.gate.decide` is one query over `job_metrics`: it
-holds the set when its difference job's `n_sources_snr_gt20` is above
+holds the set when its difference job's `usable_fraction` is below
+`usable_fraction_min` (lost sky), or its registration offset
+`hypot(registration_dx_px, registration_dy_px)` is above
+`registration_max_px`, or its `n_sources_snr_gt20` is above
 `snr_gt20_factor` times the run's median, or `|core_fraction|` is above
 `core_fraction_max_abs`, or `|ring_fraction|` above
 `ring_fraction_max_abs`, once the run has `min_epochs` published
-differences; otherwise it sends. The run's `[gate]` table holds 3.0,
-0.025, 0.015 and 5, the healthy ranges the fixes measured across seven
-filters: the worst epoch's count was 2.6 times its run's median, the
-worst core 0.022. A held set is neither sent nor stamped, its reason
+differences; otherwise it sends. A metric the job could not compute
+holds nothing. The run's `[gate]` table holds 3.0, 0.025, 0.015 and 5,
+the healthy ranges the fixes measured across seven filters: the worst
+epoch's count was 2.6 times its run's median, the worst core 0.022;
+and 0.9 and 0.25 px (rapid PR 426), read on every recorded difference
+job: usable fraction healthy from 0.9385 (an SCA's reference coverage
+and mask, constant across its epochs) to 1.0, offset at most 0.123 px.
+The one recorded coverage failure, run 72's SCA 9 (its reference from
+another SCA's frames, 0.704), is held on the replay of every recorded
+set, and nothing healthy is. A held set is neither sent nor stamped, its reason
 names the metric and the value, and each loop pass reports the run's
 held sets as `held_sets`. Nothing is deleted, and there is no verb
 that releases a held set. Every official set of the

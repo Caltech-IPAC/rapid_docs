@@ -253,7 +253,11 @@ the host or `job submit --job <id>` on Batch, and the loop then carries
 on from it. `job submit --job` marks a failed row `launched` as it
 records the new Batch id, so a loop restarted at once counts it
 pending. A failed job holds only the work that depends on it: the loop
-keeps passing until the rest of the selection drains around it.
+keeps passing until the rest of the selection drains around it. A
+job whose Batch request itself raises (throttled, a queue that does not
+exist) is marked `failed` with that error in its `refusal`, never left
+`launched` with nothing on Batch, and the error ends the verb (75 when
+it is transient).
 
 **The reconcile.** Every job row records the Batch job id it was last
 submitted as. At the start of each pass the loop describes the run's
@@ -274,7 +278,11 @@ pending and submitted nothing. The verb then exits 0. It exits 0 after
 one pass with `--once`, 1 once the selection has drained around a
 failed or refused job (or after a `--once` pass that saw one), naming each failed
 job's stage and scope in the last pass's `failed` and on stderr, and
-64 when its first pass finds no file of the selection or the run's dataset has no single Gaia catalog. Each pass prints
+64 when the run's dataset has no single Gaia catalog or when its first
+pass admits no file: a selection that matches nothing under the source
+root (a mistyped root, filter or pass) is named on stderr with the
+root, filters, SCAs, pointings and passes, not read as a drain. A later
+pass that admits nothing new is the drain. Each pass prints
 one JSON line: submitted and pending per stage, failed, held, new,
 admitted, listed, packets and sets produced, the reconcile's counts,
 drained, its time and the selection. The next pass starts `--interval`

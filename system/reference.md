@@ -41,18 +41,35 @@ Each step is a module of `rapidpipe.science.reference`:
    uncertainty and the clipped image statistics, as `dev` computes them
    for `refimmeta`.
 4. **SExtractor** runs on the mosaic with the uncertainty map as weight,
-   and gives the catalog's FWHM statistics.
-5. **The header stamp** on the mosaic and its uncertainty map: `dev`'s
+   and gives the catalog's FWHM statistics: the mode over point sources
+   and the `fwhm_percentile` percentile of the same sample.
+5. **The grade**: `dev`'s reference InfoBits and status (`dev` cb53d2c7,
+   fdc7fa79), the bits defined in `cdf/infobitsref.txt` and their
+   thresholds in `[reference.infobits]`. A bit is set when its condition
+   holds; a metric that could not be computed sets none. Status is 0
+   when a fatal bit (2, 5, 7, 8, 16) is set, else 1. The bits of the
+   Photutils catalog and the PSF (5, 6, 7, 16) are never set, because
+   this build makes neither: a catalog not attempted is not one that
+   failed.
+6. **The header stamp** on the mosaic and its uncertainty map: `dev`'s
    `BUNIT`, `FIELD`, `FILTER`, `COV5PERC`, `NFRAMES`, `JDSTART`,
-   `JDEND`, `MAGZP`, `TOTEXPTM` and one `INFIL`*nnn* per frame, then
-   `RPRUN`, `RPJOB`, `RPATTMPT` and `RPSTAGE` naming the run, job,
-   attempt and stage.
+   `JDEND`, `MAGZP`, `TOTEXPTM`, `INFOBITS` (its comment listing the set
+   bits), `STATUS`, the `BIT`*nn* definitions in use and one
+   `INFIL`*nnn* per frame, then `RPRUN`, `RPJOB`, `RPATTMPT` and
+   `RPSTAGE` naming the run, job, attempt and stage.
 
 `MAGZP` is the filter's zero point (26.863 for W146), which the
 [difference](difference) stage's gain matching reads from the file. The
 job fails when awaicgen or SExtractor leaves no output, or when the
 catalog has no source with a usable FWHM, where `dev` checks no exit
 code.
+
+A status-0 reference is published and differenced against. `dev`'s
+science pipeline differences against the reference it has just built,
+whatever its status, and never reuses a status-0 reference
+(`get_best_reference_image` selects `status > 0`); the loop builds a
+field's reference once, so here the status is a recorded verdict, not a
+gate.
 
 ## Declared outputs
 
@@ -62,7 +79,7 @@ SExtractor catalog. The manifest declares three tables:
 
 | Table | Rows |
 |---|---|
-| `refimages` | one, keyed (dataset, field, fid); `nframes`, `cov5percent`, `status` 1, `infobits` 0, and the stamped mosaic's MD5 |
+| `refimages` | one, keyed (dataset, field, fid); `nframes`, `cov5percent`, the grade's `status` and `infobits`, and the stamped mosaic's MD5 |
 | `refimimages` | one per coadded L2 row, (`rfid`, `rid`) |
 | `refimcatalogs` | one, the mosaic catalog, `cattype` 1, which `packet` reads for reference-star matches |
 
@@ -81,17 +98,17 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 |---|---|
 | `[reference.selection]` | `min_frames` 2, `max_frames` 25 |
 | `[reference.instrument]` | `sca_gain` 2.0, `sca_readout_noise` 9.4 |
-| `[reference.mosaic]` | `naxis1`, `naxis2` 7000, `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
+| `[reference.mosaic]` | `naxis1`, `naxis2` 9100 (`dev` 1518042b), `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
 | `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback |
 | `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim |
 | `[reference.paths]` | the repository and tool configuration paths of the pipeline image, the tools on `PATH`, and `work_subdirectory` `ref` |
 | `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |
+| `[reference.infobits]` | `dev`'s `REFIMAGE_INFOBITS` thresholds `t00` to `t10` (provisional, "loose enough that a normal reference image raises no bit"), `fwhm_percentile` 90, `maglim_snr` 5, `fatalinfobits` 2, 5, 7, 8, 16 |
 | `[reference.statistics]` | `clip_correction_seed` -1, `dev`'s unseeded draw for the clipped-statistics correction |
 
-Three keys hold `dev`'s values from before its latest reference changes
-(the 9100-pixel mosaic and two SExtractor values), left for the stage's
-own refresh from `dev`.
+The mosaic, the two SExtractor values and the grade carry `dev`'s
+latest reference changes (2026-10-24).
 
 ## Measured
 
@@ -113,8 +130,8 @@ the zero-point ratio has median 3.2e-5 against `dev`'s own scatter of
 - `[reference.statistics] clip_correction_seed` is still -1, so the
   catalog's source count varies run to run by a few sources as the
   difference stage's did before its seed was pinned.
-- The Photutils reference catalog, and where its PSF would come from:
-  `dev`'s script that makes one is not called from `dev`'s reference
-  pipeline either.
+- The Photutils reference catalog, and where its PSF would come from.
+  `dev`'s reference pipeline makes one from a per-filter reference PSF
+  file; without it the grade's bits 5, 6, 7 and 16 stay unset.
 - The imported reference has no `refimimages` rows, since the source
   system's rows do not name its members.
