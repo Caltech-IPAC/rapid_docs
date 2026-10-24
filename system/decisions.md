@@ -140,6 +140,28 @@ and 8, three epochs) held nine associate jobs of 1.2 s each across 19.3
 minutes; the read of the old chain view on one of its fields took 422
 ms. (Ben, the plan's amendment of 2026-10-24 00:55 UTC;
 night-2026-10-24 task 7)
+"Its field's objects" became each touched field's objects with
+{ref}`association by the source's field <decision-association-by-source-field>`
+(2026-10-24).
+
+(decision-association-by-source-field)=
+**Association is by the source's field**: every accepted source of a
+difference image is matched against the objects of its own field and
+its neighbouring fields, and founds an object in its own field when
+nothing matches, whichever image detected it; the publisher locks every
+field that gained an object or a membership and each one's neighbours,
+in ascending order, so two jobs founding either side of a boundary
+serialise and reconcile. `dev`'s pass 2, where a source outside its
+image's own field only joins an object already there (inside the
+field's inclusion cone), is named and not taken: a field no image is
+centred on founds nothing, so on run 72 (`r00342-inj1`, the injected
+SCA 8 footprint, 162 epochs) 0.96 of the injected sources were
+detected and 0.40 alerted, and 15,485 of the 15,655 detected injected
+sources outside their image's field lay in a field no image of the run
+is centred on. The packet's forced window follows: the images covering
+the object, whichever field each is centred on. A divergence from
+`dev`, with no knob. (Session decision under the standing rule, Ben's
+yolo of 2026-10-24 14:02 UTC; day-2026-10-24 task 1)
 
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
