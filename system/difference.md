@@ -40,8 +40,14 @@ science PSF's and 0.4 pixel more, since resampling only widens a star
 while defect pixels are narrower and galaxies wider), builds an
 effective PSF from the brightest 100 (`EPSFBuilder`, oversampling 4),
 evaluates it at the pixel centres of a 61-pixel stamp re-centred to
-0.01 pixel and normalised, and gives that to ZOGY, SFFT and the naive
-catalogs as the reference PSF. Fewer than ten stars stops the job with
+0.01 pixel, takes the science PSF's wings beyond 10 pixels (the measured
+core within 6, a cosine taper between), normalises it, and gives that to
+ZOGY, SFFT and the naive catalogs as the reference PSF. The wings are the
+science PSF's because the ePSF is built on 31-pixel stamps and holds
+nothing beyond 15 pixels, where the science PSF still holds 3.3% of its
+flux: given the truncated stamp, ZOGY left a ring 10 to 20 pixels out at
+every bright star (run 42, pass 4: 190 of 449 sources above S/N 20), and a
+sub-pixel resampling kernel leaves the wings unchanged. Fewer than ten stars stops the job with
 exit 65 and `refpsf: N stars, 10 needed` on the job row; there is no
 fallback. The stamp is published as `refimage_psf.fits.gz`, and the
 manifest's `metrics` hold `refpsf_sigma_px`, `refpsf_stars`,
