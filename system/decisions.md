@@ -92,6 +92,27 @@ fallback. `dev` has no knob here (a static, offline-compiled reference
 PSF per detector), so this is a divergence from `dev`.
 (Ben, 2026-10-23 23:22 UTC, fixes-2026-10-23)
 
+(decision-association-in-difference)=
+**Association runs in the difference job, reconciled at publish**: the
+difference job matches its sources against its field's objects of its
+run as they stand when it reads them, founds an object for each
+unmatched source, and publishes sources, memberships and founded objects
+together; the per-field chain of associate jobs, its admission order and
+its exclusions are retired, and an object's statistics are the sums of
+its official memberships, read through a view. Two epochs of a field in
+flight at once can both found an object at one new source, so the
+publisher, serialised per run and field, attaches a job's founded
+objects to any founded since its read, the memberships rebased to the
+surviving origin; object ids never change after publication. `dev`'s
+route, crossmatch after difference against the catalog as it stands,
+is the one taken; its duplicate-tolerant merge pass (`xmerges`), which
+changes object ids after alerts have carried them, is named and not
+taken. Measured: run 46's chained passes (`r00342-fx-f146`, SCAs 4, 5
+and 8, three epochs) held nine associate jobs of 1.2 s each across 19.3
+minutes; the read of the old chain view on one of its fields took 422
+ms. (Ben, the plan's amendment of 2026-10-24 00:55 UTC;
+night-2026-10-24 task 7)
+
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
 figure is read and recorded, and nothing hangs on it.

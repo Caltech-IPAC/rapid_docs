@@ -92,32 +92,23 @@ Its order:
    official reference and whose key has no official difference and no
    difference job of the run pending or failed. With a bound, only rows
    at or after it.
-5. **associate**: per field, one job for the earliest official source
-   set, by `mjdobs`, that is not yet associated, with the field's open
-   object set as its predecessor. A source set is associated when it is
-   in the field's official chain, walked back from the official object
-   set through each associate's recorded predecessor, whatever run made
-   it, or when an associate of this run naming it has not yet
-   published. So a new live run of the same dataset continues the
-   chains where the last one stopped and never associates an epoch
-   twice. It waits while an
-   associate of the field is pending, while an earlier selected L2 row
-   of the field lacks its source set, and while any intake of the run
-   is pending, since an intake's field is known only once it publishes.
-6. **packet**: per field, one job for the earliest associated epoch
-   without a packet set, once every earlier epoch's packet set is
-   official, because a packet set reuses its predecessors' forced rows.
-   It names the reference, the run's Gaia catalog, the science PSF, the
-   object set, the epoch's source set, the field's earlier packet sets,
-   and the field's difference images and L2 rows within the stage's
-   forced window.
-7. **Kafka**: `publish` over the run's official, unstamped packet sets
+   The difference job associates its own sources with the field's
+   objects as they stand ([difference](difference), Association).
+5. **packet**: one job per official source set of the selection with
+   no official packet set and no packet job of the run pending or
+   failed, in any order. It names the reference, the run's Gaia
+   catalog, the science PSF and the source set; the objects, their
+   members, the forced window's images and the official packet sets'
+   forced rows it reads as they stand when it runs, and records.
+6. **Kafka**: `publish` over the run's official, unstamped packet sets
    ([foundation](foundation), Publication to Kafka), on one connection
    and one producer, one set at a time. An idle pass opens no producer.
 
-Fields advance independently, so one pass can carry many fields at
-different depths, and a packet job for epoch *n* goes out beside the
-associate for epoch *n + 1*.
+There are no field chains and no admission order
+({ref}`ruling <decision-association-in-difference>`): every epoch with a
+reference is differenced at once, and every official source set gets its
+packet job at once, so the loop's only waits are the reference's frames
+and the queue.
 
 **Pending and failed.** A job is pending while it is `launched` or
 `running`. A failed job is reported and never resubmitted: its key
@@ -173,22 +164,17 @@ reference. The pass reports it under `held`, with the field and the
 reason, on every pass. A held field does not keep the loop from
 draining, and the verb exits 0: the gap is recorded, with no timeout.
 
-## The per-field chain
+## No chain (2026-10-24)
 
-A field's object sets form one chain, one `associate` per epoch, each
-naming the last as its predecessor; its packet sets form a second chain
-behind it. The chain is in the loop's admission order, and the loop
-admits in `mjdobs` order across every SCA of its selection
-({ref}`ruling <decision-chain-admission-order>`). The loop holds a field's
-association while any earlier epoch of the field is still upstream.
-When two SCAs cover one field, as adjacent pointings do on a grid one
-SCA wide, both SCAs' epochs share one reference, since a reference is
-per dataset, field and filter, and the SCA is in the PSF key the
-difference stage reads per epoch. A loop over every SCA admits each
-exposure's SCAs together, so their epochs join the chain in time order;
-the HLWAS ramp, which drained SCA 8 before the other SCAs, chained one
-such field out of order. An earlier epoch that arrives after later ones
-is a rerun from that epoch; the loop never re-associates.
+Until 2026-10-24 a field's object sets formed one chain, one `associate`
+per epoch in `mjdobs` order, and its packet sets a second chain behind
+it; an earlier epoch that arrived late was a rerun from that epoch. The
+association now runs in the difference job against the field's objects
+as they stand, so data arriving out of order needs nothing: a late
+epoch's memberships appear in the packets issued after it arrives and
+never in those already sent
+({ref}`ruling <decision-association-in-difference>`). Two SCAs on one
+field still share one reference.
 
 ## What it measured
 

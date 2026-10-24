@@ -7,6 +7,22 @@ the run model. The [foundation](foundation) page states what replaced it;
 this page stays as the record of the port until the replacement's own page
 supersedes it.
 
+## The contract: best information at the time (2026-10-24)
+
+An alert carries the best information at the time it is made, latency
+over completeness ({ref}`ruling <decision-association-in-difference>`).
+The `packet` stage that replaced this one reads the object catalog as it
+stands when it runs: the trigger's object and its members whose source
+sets are official, and the difference images of the forced-photometry
+window that exist then, recording exactly what it read. A packet's
+history is the detections known at its read and before its trigger. A
+late epoch appears in alerts issued after it arrives, never in those
+already sent; an epoch replaced later leaves the history of alerts made
+after the replacement, not of those already sent. Observations do not
+arrive in order, and nothing waits for them to.
+
+## The retired stage
+
 The `alerts` stage builds an Avro container for one finalized difference
 image and records each alert in an outbox. It lands on the pipeline
 repository's `rebuild` branch
