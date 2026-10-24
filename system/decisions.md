@@ -9,6 +9,18 @@ page where attribution matters.
 
 ## Rulings
 
+(decision-sfft-published)=
+**SFFT is the published differencer**: the difference job publishes the
+SFFT image and SFFT's positive PSF-fit catalog as `diffimages` and
+`sources`, and the packet's cutouts and forced photometry read the SFFT
+image, its PSF and uncertainty. This is `dev`'s choice since b725007d
+(2026-04-20; `diff_flavor = sfft`). ZOGY still runs; its catalogs are
+diagnostics. With SFFT off, or on a nonzero SFFT exit, the job fails
+rather than falling back to ZOGY. The switch precedes the measurement:
+rapid PR 408 switches, and the paired measurement against the ZOGY runs
+80 and 81, by brief `differencer`'s second task, adds its numbers here.
+(Ben, 2026-10-24 19:22 UTC)
+
 Ben's rulings of 2026-10-24 04:00 to 04:40 UTC on the second
 iteration (brief `night-2026-10-24`). The [foundation](foundation) and
 [difference](difference) pages state the rules they set.
