@@ -137,12 +137,14 @@ FITS, reads as before. Trimming and compressing change no pixel: the
 packets of four epochs published both ways had byte-equal cutouts, 781
 of 781.
 
-The manifest declares two tables:
+The manifest declares four tables:
 
 | Table | Rows |
 |---|---|
 | `diffimages` | one, the ZOGY image, keyed (dataset, expid, sca, fid); `rid`, `rfid`, `field`, `jd`, the centre and four corners, `infobitssci` (`dev`'s catalog-outcome mask, one bit per differencer and sign with no PSF-fit catalog), `infobitsref`, `status` 1, the file's MD5 |
 | `sources` | the ZOGY positive PSF-fit catalog, mapped onto the `sources` columns exactly as the import maps `dev`'s, the brightest `max_sources` by flux over its error (0 keeps every source) |
+| `objects` | the objects this job founded: one per accepted source of the image's field that matched no object of the field as the job read it, its id the position hash of that source |
+| `memberships` | this epoch's matches, onto objects it read and onto those it founded: each with the source's offsets from the object's founding position and its flux, the membership's share of the object's sufficient sums |
 
 The stage draws `pid` from the `diffimages` identity sequence while it
 reads its inputs, so the source rows carry it. A run has one
@@ -153,6 +155,37 @@ records the zero point and where it came from, both FWHMs, the scale
 factor, the registration residuals, the catalog counts, the count of
 sources before the cap, SFFT's outcome, and the published files with
 their plain and gzipped bytes, the gzip's seconds and what was removed.
+
+## Association
+
+The difference job associates its own sources
+({ref}`ruling <decision-association-in-difference>`). After the
+catalog, it reads its field's objects of its run in one short
+transaction, the objects every published difference job of the run has
+founded there, and records that read exactly: one `objects` input per
+founding job it saw, in the manifest's `reads`, which the publisher
+writes to `job_inputs`. This is the one input read at execution rather
+than named at launch. It then runs `dev`'s two crossmatch passes in
+memory: the sources the run's `[associate]` table accepts (fit flags
+zero once the informational bright-footprint bit is cleared, S/N at
+least `min_snr`) in the image's field match every object within
+`match_radius`, a source that matches none founds an object, and the
+sources in the neighbouring fields join objects only, inside the field's
+inclusion cone when it has eight neighbours.
+
+At publish, under a transaction-scoped lock on the run and field, the
+publisher reads the objects founded since the job's read, by jobs not in
+its recorded read. A founded object within the radius of one of them is
+not inserted; its memberships go to that object, each one whose source
+is within the radius of it, rebased to its origin. The manifest records
+the outcome as `reconcile`. Two epochs of one field in flight at once
+therefore publish one object per star, whichever finishes first giving
+it its id. A membership onto an object the job read is kept as matched;
+a source that a job in flight founded nearby is not added to it, as a
+sequential run would have, an edge case the reconcile does not cover.
+
+The metrics add `n_objects_read`, `n_objects_founded` and
+`n_memberships`.
 
 ## Settings
 
