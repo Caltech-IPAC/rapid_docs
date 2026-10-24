@@ -104,10 +104,10 @@ night uses a dataset name of its own.
    It prints the job's result: `"published": true`, `"live": true`,
    `"refusal": null`.
 
-5. **The loop**, under a timeout, from this host:
+5. **The loop**, under a timeout (which runs the module, since it cannot run the `rp` function), from this host:
 
    ```sh
-   timeout 5400 rp loop --run $RUN --filters F146 --scas 8 --pointings 001_0001 --passes 1,2,3,4 \
+   timeout 5400 $PY -m rapidpipe.cli.main loop --run $RUN --filters F146 --scas 8 --pointings 001_0001 --passes 1,2,3,4 \
      --job-definition $JOBDEF --interval 60
    echo "loop exit $?"
    ```
