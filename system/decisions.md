@@ -977,3 +977,17 @@ commissioning facts. (Ben, 2026-10-06)
 - The OpenUniverse block gives core −0.000 and ring −0.009, beside ZOGY's −0.001 and +0.002. Its S/N > 20 candidates are 184 positive and 12 negative, against the socsims block's 771 and 300. It matches 179 of the epoch's 200 injected sources against 130 (ZOGY 183). It fits 1.6% of the pixels, its reference catalog selects 62 sources, and its decorrelation sigmas come from pixels 96% segmentation background.
 
 The cause is located, not the kernel: the stage zeroes the science image's DQ-masked NaNs before SFFT. On this frame that is 5,096 px in coverage, 0.03% of the frame but 31% of Σ(reference²), the brightest stars' cores. Under the socsims block they enter the unmasked kernel fit and pull its photometric ratio down. SFFT's own `run_sfft_rapid` on the same inputs with only those pixels masked gives core −0.014 and ring −0.013. Excluding them from SFFT's fit is recorded, not built. (sfft-core task 1, rapid PR 435, 2026-10-24)
+
+(decision-hlwas-sfft-rearm)=
+**The HLWAS overlay does not set `diff_flavor = "sfft"`: under its SFFT block, SFFT with dev's prefilter misses one condition of dev-prefilter's rule against ZOGY, detecting 530 of 600 injected sources against ZOGY's 542.** dev-prefilter's arm C was re-run once on the same bytes at `rapid-rebuild:77` (`a761ae23`), now under the overlay's OpenUniverse block (HLWAS injected `001_0001` SCA 8 F146 passes 4 to 6 against run 81's references, runs 114 and 113 null against run 95's). Arm A's rows (runs 103, 104 at `:76`, the same ZOGY code) were read again, not re-run. The rule, verbatim from dev-prefilter's brief: SFFT ships only if it detects at least as many of the 600 in total and at AB 24 to 25, and has no more false positives per epoch and null packets per epoch than A, on both the mean and the highest epoch. This brief added that every difference sit inside the gate's core ±0.025 and ring ±0.015.
+
+- **It fails on one condition only**: detected 530 against 542. The 12 lost are all at AB 26 and 26.5 (46 → 41, 20 → 12); AB 25.5 gains one.
+- **It meets or beats A on the others**:
+  - AB 24 to 25: 93 of 96 against 93.
+  - False positives per epoch, mean (highest): 102 (118) against 214 (233), bright-flagged 0.21 against 0.62.
+  - Null packets: 86 against 182.
+  - Core: −0.0002 to +0.0004. Ring: −0.0092 to −0.0069. All inside both bounds, and every set sends past `min_epochs`.
+- **Against arm C under the socsims block** (runs 107 and 106): detected 530 against 275, false positives 102 against 388, null packets 86 against 478.
+- **The cap no longer fills**: 449 to 486 candidates per injected difference, 271 on the null.
+
+The global default stays `zogy`, and OpenUniverse and GBTDS are unmeasured under their own blocks. (sfft-rearm task 1, 2026-10-24)
