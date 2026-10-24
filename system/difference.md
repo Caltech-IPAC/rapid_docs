@@ -348,6 +348,16 @@ row. `sumrat > 0.4` keeps 0.90 of the bright-flagged SFFT candidates on
 the HLWAS sample, so the column alone does not remove them (run 96: 0.997
 of 391 injected, 0.68 of 6,464 noise).
 
+With `dev`'s prefilter on the same injected bytes (rapid PR 432, runs
+103, 105 and 107 on `rapid-rebuild:76`), SFFT detects 275 of 600 against
+raw SFFT's 256 and ZOGY's 542, none in the AB 25 bin (ZOGY 57 of 57),
+with 388 false positives per epoch against 385 and 214. The cut keeps
+about 0.7 of SFFT's candidates, but the bright-star residuals it keeps
+refill the cap. On the null epoch (runs 104, 102, 106) the packets are
+182, 471 and 478. The core and ring fractions are image metrics, the
+same with the cut and without it, so the gate's bounds, read on ZOGY,
+stand for the shipped flavour.
+
 ## Not decided here
 
 - Source-level parity with `dev`. The two references are 25 different
@@ -359,9 +369,10 @@ of 391 injected, 0.68 of 6,464 noise).
 - `dev`'s real/bogus score and its prefilter cut, left out of the thin
   chain: no score is computed.
 - Whether the published differencer returns to `sfft`. `dev`'s pixel
-  columns and its prefilter are ported; whether they bring SFFT's
-  catalog to ZOGY's on HLWAS is not yet measured on a merged run, and
-  the gate's core and ring bounds were read on ZOGY.
+  columns and its prefilter do not bring SFFT's catalog to ZOGY's on
+  HLWAS (Measured), so the route is SFFT's own configuration. Under
+  SFFT `n_sources_snr_gt20` sits at the cap on every epoch, so the
+  gate's count check cannot see an SFFT epoch off-scale.
 - Whether the naive subtraction keeps running now that only its
   outcome bits remain of it. Turning it off is a settings change with a
   science consequence, the bits.
