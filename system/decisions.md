@@ -20,6 +20,15 @@ rather than falling back to ZOGY. The switch precedes the measurement:
 rapid PR 408 switches, and the paired measurement against the ZOGY runs
 80 and 81, by brief `differencer`'s second task, adds its numbers here.
 (Ben, 2026-10-24 19:22 UTC)
+Measured on the same bytes (rapid PR 418; runs 88 and 89 against 81
+and 80): on HLWAS injected `001_0001` SCA 8, three epochs, SFFT detects
+256 of 600 against ZOGY's 542 and none fainter than AB 24.5; false
+positives per epoch are 385 against 228; its core fraction is +0.25 against +0.003,
+so bright-star cores fill the 500-source cap. On OpenUniverse TDS,
+ten epochs, it detects 24 of 410 evaluated transients against 35, with
+stars subtracted cleanly (core +0.005) and the cap filled by sources
+matched to no truth row. Difference seconds are unchanged.
+
 
 Ben's rulings of 2026-10-24 04:00 to 04:40 UTC on the second
 iteration (brief `night-2026-10-24`). The [foundation](foundation) and
