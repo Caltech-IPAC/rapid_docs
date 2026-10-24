@@ -40,8 +40,9 @@ the whole 31-pixel stamp usable, and a second-moment width between the
 science PSF's and 0.4 pixel more, since resampling only widens a star
 while defect pixels are narrower and galaxies wider), builds an
 effective PSF from the brightest 100 (`EPSFBuilder`, oversampling 4),
-evaluates it at the pixel centres of a 61-pixel stamp re-centred to
-0.01 pixel, takes the science PSF's wings beyond 10 pixels (the measured
+evaluates it at the pixel centres of a stamp the science PSF's size,
+re-centred to 0.01 pixel (a secant step, and a grid search where the
+step stalls, since the evaluated centroid's two axes are coupled), takes the science PSF's wings beyond 10 pixels (the measured
 core within 6, a cosine taper between), normalises it, and gives that to
 ZOGY, SFFT and the naive catalogs as the reference PSF. The wings are the
 science PSF's because the ePSF is built on 31-pixel stamps and holds
@@ -74,7 +75,30 @@ covered pixels), the candidates before the cap and the sources after it,
 those above S/N 20, and the share on a reference-catalog source within 3
 pixels. The database's `job_metrics` view exposes every job's metrics by
 run, stage and scope, and `scripts/inspect_run.py` renders them per run,
-with a gallery of the residual stars, before the run's checks.
+with a gallery of the residual stars, each cutout divided by its star's
+reference flux, before the run's checks. The metrics also hold the
+science stars' own width (`sci_star_sigma_px`) and its ratio to the
+science PSF's, the reference's scale factor (`scalefacref`), the
+sources near bright stars and in their rings above S/N 20, and every
+job's peak resident memory (`peak_rss_kib`, the process and its largest
+child). The {ref}`quality gate <foundation-quality-gate>` reads them.
+
+**The bright-star footprint flag.** What the null test leaves above S/N
+20 after the fixes is bright stars, and that residual is flagged, not
+fixed ({ref}`ruling <decision-bright-star-flag>`). The job sets bit
+`1 << 14` (16384) of `sources.flags` on every kept source inside the
+footprint of a bright reference source, a mosaic-catalog source with
+aperture S/N above 100, whose footprint is a disc of radius
+`max(4, 9.5 × 10^(0.2 (15 − m)))` pixels at its magnitude `m` on the
+reference's zero point. Nothing is dropped. The bit is informational:
+association and the packet stage clear it before their flag tests, so a
+flagged source is associated and triggers, and its packet carries the
+bit in `psfFitFlags` with no schema change. The metrics count the
+flagged sources and their share of those above S/N 20
+(`bright_footprint_fraction`), and the packet job counts its flagged
+packets. The radius law, derived on run 46's published sources, flags
+21 of 23, 15 of 19 and 11 of 15 of the sources above S/N 20 on F146 SCA
+8, the fixes' own bright-star counts on those epochs.
 
 ## What it runs
 
@@ -207,6 +231,7 @@ port or departs from `dev`:
 | `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev` |
 | `[difference.naive_diffimage] naive_diffimage_flag` | true | the naive subtraction runs, a diagnostic |
 | `[difference.fake_sources] inject_fake_sources_flag` | false | fake-source injection is not ported; true is refused |
+| `reference_psf` | `"measured"` | the reference PSF ZOGY is given: `"measured"`, from the resampled reference's stars, or `"science"`, the science PSF for both images, for a field whose reference stars cannot be measured (the GBTDS bulge, [datasets](datasets)) |
 | `[difference.statistics] clip_correction_seed` | 0 | seeds the clipped-statistics correction's random draw; negative is `dev`'s unseeded draw |
 
 With the seed pinned, the same inputs give the same pixels and rows,

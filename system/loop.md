@@ -32,11 +32,16 @@ nothing to submit, the selection is drained and the loop exits.
 
 ```
 rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    --job-definition <name:revision> [--max-intake 100] [--interval 120] [--once]
+    [--passes 1,2,3] --job-definition <name:revision> [--job-queue <queue>] \
+    [--max-intake 100] [--interval 120] [--once]
 ```
 
-The selection is three arguments: filters, SCAs, and pointings, either
-`all` or a list of `VVV_EEEE`, a visit and an exposure. A pointing is
+The selection is three arguments and an optional fourth: filters, SCAs,
+pointings, either `all` or a list of `VVV_EEEE`, a visit and an
+exposure, and the survey's passes, applied to the listed files and the
+L2 rows alike. A GBTDS pointing is the visit modulo six, so it does not
+bound that survey's epochs; a sample there is a source root of chosen
+files ([datasets](datasets)). A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
 passes of one filter. The selection is the operator's instruction for
@@ -100,9 +105,22 @@ Its order:
    catalog, the science PSF and the source set; the objects, their
    members, the forced window's images and the official packet sets'
    forced rows it reads as they stand when it runs, and records.
-6. **Kafka**: `publish` over the run's official, unstamped packet sets
-   ([foundation](foundation), Publication to Kafka), on one connection
-   and one producer, one set at a time. An idle pass opens no producer.
+6. **Kafka**: the recovery sweep. A packet job sends its own set as its
+   last act; the pass's `publish` takes only the official, unstamped
+   sets whose jobs ended more than 300 s ago and the quality gate does
+   not hold ([foundation](foundation), Publication to Kafka), on one
+   connection and one producer, one set at a time. A set inside the
+   window is reported as `sets_waiting` and keeps the pass from
+   draining; a held set is reported in `held_sets` with its metric and
+   value. An idle pass opens no producer.
+
+A pass submits at most the run's `[batch] max_submissions_per_pass`
+(1,000), in stage order, and reports the rest as `deferred`: the
+breadth night's 3,456 intakes submitted at once throttled the parameter
+store and 1,448 failed. With `--job-queue` the submissions go to that
+queue; a run whose `[batch.spot]` names a Spot queue sends each stage's
+backlog there under the four rules of
+[Spot, a probe](foundation) and reports `queues` and `attempts`.
 
 There are no field chains and no admission order
 ({ref}`ruling <decision-association-in-difference>`): every epoch with a
@@ -111,8 +129,11 @@ packet job at once, so the loop's only waits are the reference's frames
 and the queue.
 
 **Pending and failed.** A job is pending while it is `launched` or
-`running`. A failed job is reported and never resubmitted: its key
-counts as taken until a person reruns it, with `job run --job <id>` on
+`running`. A job whose container Batch ended without `job run`
+recording it is resubmitted once, its Batch name ending `-rerun`, and
+held pending; if the rerun's container dies too, the job is failed. A
+failed job is reported and never resubmitted: its key counts as taken
+until a person reruns it, with `job run --job <id>` on
 the host or `job submit --job <id>` on Batch, and the loop then carries
 on from it.
 
@@ -122,7 +143,8 @@ unpublished Batch jobs, a hundred ids a call, and reads the answer two
 ways. A Batch job that has ended while its row still says `launched` or
 `running` is a container that ended without `job run` recording it: the
 row is marked `failed`, with Batch's exit code and its status reason in
-the row's `refusal`, and the pass reports it like any failed job. A row
+the row's `refusal`, and it gets its one rerun (Pending and failed,
+above). A row
 marked `failed` whose Batch job is still queued or running is Batch's
 own retry of exit 75 in flight, and the pass holds it pending rather
 than exiting. Once Batch has ended a job, the job's own record is the
