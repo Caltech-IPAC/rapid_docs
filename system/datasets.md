@@ -19,6 +19,7 @@ comment per key naming the measurement that earned it; the
 | SOC simulation r00342, the High Latitude Wide Area Survey | `hlwas-r00342.toml` | HLWAS | 2026-10-22 |
 | SOC simulation r00340, the Galactic Bulge Time Domain Survey | `gbtds-r00340.toml` | GBTDS | 2026-10-24 |
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
+| RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | GBTDS | 2026-10-24 |
 | RimTimSim, the 2026-06-22 delivery | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
 | Flight, program 1049 | none | | held, not yet read |
 
@@ -150,3 +151,33 @@ visit 1, about 208 MB each, copied once into the inputs bucket under
 `flight-1049/` with a manifest. They are SOC L2 ASDF files and open as
 such; WFI02 was taken because every WFI01 row of the program names a
 placeholder guide star. No run has read them yet.
+
+## RimTimSim, the 2026-06-22 delivery
+
+TRExS's Roman time-domain image simulator: one Galactic-bulge field
+(`dev`'s 4682737, one tessellation field), SCA 2 only, F087 (132
+exposures) and F213 (131) from 2027-02-14 to 2027-04-24, 54.72 s each,
+dithers within 0.7″ and one roll angle. The rebuild reads `dev`'s
+converted `lite` files, `rimtimsim_WFI_<filter>_SCA02_<exposure>_lite.fits.gz`
+(the source prefix is the run's `intake.source_root`), the exposure
+number GBTDS's. The only truth delivered is the 2025-05-13 delivery's
+metadata: an input catalog of 4.97 million stars, injected-parameter
+tables and time series per filter.
+
+| Quirk | Disposition |
+|---|---|
+| A FITS file, not ASDF: the image in DN at gain 1, no ERR or DQ, NaN present | a reader of its own: `[intake] reader = "rimtimsim"`, `dev`'s header builders onto the SOC layout |
+| The file names no ePSF reference | the overlay's `[psf.epsf]`: CRDS's answer under `roman_0077` for WFI02 per filter ({ref}`decisions <decision-rimtimsim-epsf>`) |
+| `dev` transposes the science PSF for this simulation | measured on one epoch: core −0.0694 → −0.0688, ring −0.0339 → −0.0385; not taken |
+| `dev`'s artefact repair threshold (10,000 DN/s) is below the stars' cores | the overlay: off, with `dev`'s rimtimsims gain, read noise and saturation |
+| The WCS | right as converted: Gaia DR3 at +0.03 to +0.12 / −0.01 to +0.08 px; no `crpix_shift` |
+| F213's differences over-subtract star cores (core −0.050 to −0.075, 10k to 13k negative candidates above S/N 20 per epoch) | recorded; the quality gate holds those sets; the next measurement for this dataset |
+| Every epoch fills the 500-source cap, and a difference takes 28 to 72 min | recorded |
+| The 2025-05-13 truth's times and star positions match the images, its injected signal does not; its dim-EB time series carry the blended-EB ids | recorded; no completeness until a truth for this delivery exists |
+
+The sample is the first ten frames of each filter as the reference
+(`before_mjd = 61455.3`, `dev`'s bound) and the next five epochs. Both
+filters ran end to end, every job on its first attempt and every check
+clean: F087 1,818 packets on the topic, F213 1,499 with one set held by
+the gate. The runbook's part 13 step rimtimsim-reader holds the numbers.
+
