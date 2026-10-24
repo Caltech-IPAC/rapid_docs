@@ -79,6 +79,19 @@ science PSF is derived from the ePSF reference its own file names,
 which is the calibration's PSF and what flight data will carry; the
 simulation's rendering PSF is not a product. (Ben, 2026-10-22 13:08 PDT)
 
+(decision-reference-psf-measured)=
+**The reference PSF is derived data, measured in the difference job**:
+the PSF ZOGY uses for the reference is built from the stars of the
+resampled reference the job has just made and recorded in its manifest,
+not an input chosen at launch, because ZOGY needs the PSF of the image
+it is given and each resampling widens it: on run 17 (r00342 F146 SCA
+8) the resampled reference's stars were 15% wider than the science
+ePSF the `psf` stage had handed ZOGY for both, the cause of 73% of the
+null test's detections. Fewer than ten stars fails the job; there is no
+fallback. `dev` has no knob here (a static, offline-compiled reference
+PSF per detector), so this is a divergence from `dev`.
+(Ben, 2026-10-23 23:22 UTC, fixes-2026-10-23)
+
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
 figure is read and recorded, and nothing hangs on it.
