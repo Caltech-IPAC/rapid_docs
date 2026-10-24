@@ -470,7 +470,13 @@ attempts, the first run and two retries, and its rules retry on exit
 container that failed to start (Batch's reason `Task failed to start`,
 sixteen of them at breadth), and end the job on any other exit code or
 on a failure with no exit code, such as a reclaimed instance. Exits 64,
-65 and 70 are faults a retry would only repeat. The loop adds one
+65 and 70 are faults a retry would only repeat. A transient failure
+exits 75 wherever it is raised: the database unavailable or failing
+mid-query, a storage or AWS call throttled (the parameter store's
+included), timed out or unreachable, or answered with HTTP 503. The
+failed job's row records the same code the process exits with, and its
+`refusal` names the exception's class and message (at most 500
+characters); the traceback is in the job's log. The loop adds one
 rerun of its own: a container Batch ended without `job run` recording
 it is resubmitted once, and its rerun's death fails the loop. A retry after a late commit is safe because `job run` stops on
 a published job and otherwise takes the next attempt. Batch places a
