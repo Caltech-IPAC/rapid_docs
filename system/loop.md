@@ -255,7 +255,8 @@ dataset and one loop each, all six at once:
   loop, one set at a time; a pass of 54 sets of about 205 packets took
   about six minutes, so a chain of 13 or 14 advanced one link each six
   minutes on 54 fields at once, and about two minutes on 17.
-- **One failed job stops a loop**: it exits 2, and every
+- **One failed job stops a loop**: it exits 1 (2 until 2026-10-24),
+  a job published with its binding refused counting as failed, and every
   other SCA of that filter waits for the rerun. 72 psf jobs failing at
   once on the CRDS server stopped all six loops for nine minutes.
 

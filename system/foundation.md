@@ -192,9 +192,11 @@ and returns. The publisher then, serialised on the job's row:
    published attempt and manifest;
 4. inside a savepoint, attempts the automatic binding: if the job's run
    is live for its survey and dataset, and for each output key the open
-   binding is the one the job's `expects` row named, it closes those and
-   opens the job's; otherwise it rolls back to the savepoint and records
-   the refusal on the job;
+   binding is the one the job's `expects` row named, and each expected
+   product's table loaded at least one row (or the manifest's `empty_ok`
+   names it: a difference's `sources`, a packet set with no triggers), it
+   closes those and opens the job's; otherwise it rolls back to the
+   savepoint and records the refusal on the job;
 5. commits, all of the above in one short transaction, then runs
    `ANALYZE` on the tables it loaded, and on `official` when its
    binding wrote there.
@@ -404,7 +406,7 @@ and `dev`'s per-object forced-photometry store.
 | `rapidpipe job local --run --stage --scope JSON [--inputs JSON] [--expects JSON]` | records a job and runs it in this process, then publishes |
 | `rapidpipe job run --job <id>` | runs an existing job's next attempt, then publishes; stops at once if the job is published |
 | `rapidpipe job submit ... --job-definition <name>` | records a job and submits one Batch job whose command is `job run`; with `--job <id>`, submits an existing job's next attempt instead |
-| `rapidpipe job wait --job N [N ...] [--timeout S]` | blocks until every named job is published or failed, reconciling with Batch each check; exits 75 at the timeout |
+| `rapidpipe job wait --job N [N ...] [--timeout S]` | blocks until every named job is published or failed, reconciling with Batch each check; exits 0 when all published, 1 when one failed, 2 at the timeout |
 | `rapidpipe publish --run <id> [--settings FILE]` | the recovery sweep: produces the run's official packet sets that their own jobs did not send and the gate does not hold, and stamps each (Publication to Kafka, below) |
 | `rapidpipe loop --run --filters --scas --pointings [--passes] --job-definition [--job-queue]` | carries a selection one stage forward per pass until it drains ([loop](loop)) |
 
