@@ -153,7 +153,11 @@ files ([datasets](datasets)). Under an OpenUniverse run
 (`[intake] reader = "openuniverse"`) a pointing is the observing
 sequence's row, which is the intake's `expid`; the loop lists each
 selected filter's prefix in the simulation's legacy spelling
-(`--filters F158` lists `H158/`), and `--passes` is refused. A pointing is
+(`--filters F158` lists `H158/`), and `--passes` is refused. Under a
+RimTimSim run (`[intake] reader = "rimtimsim"`) the loop lists the
+source root's flat prefix of `_lite.fits.gz` files, a pointing is the
+file's exposure number, the intake's `expid`, and there are no passes.
+A selection admits only its own reader's stems. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
 passes of one filter. The selection is the operator's instruction for
@@ -371,7 +375,7 @@ dataset and one loop each, all six at once:
   loop, one set at a time; a pass of 54 sets of about 205 packets took
   about six minutes, so a chain of 13 or 14 advanced one link each six
   minutes on 54 fields at once, and about two minutes on 17.
-- **One failed job stops a loop**: it exits 1 (2 until 2026-10-24),
+- **One failed job stops a loop**: it exits 1,
   a job published with its binding refused counting as failed, and every
   other SCA of that filter waits for the rerun. 72 psf jobs failing at
   once on the CRDS server stopped all six loops for nine minutes.

@@ -121,6 +121,23 @@ mosaic's finite fraction (0.32712 against 0.32711) and `cov5percent`
 the zero-point ratio has median 3.2e-5 against `dev`'s own scatter of
 1.3e-3, and the pixels correlate at 0.9962.
 
+At the 9100 px mosaic a three-frame HLWAS reference (`001_0001`, SCA 8,
+F146) peaks at 4.5 GiB against 2.8 GiB at 7000 px, inside the stage's
+6 GiB ask, writes 331 MB a map against 196 MB, and takes 53 to 56 s,
+awaicgen 22 to 23 s of it. At that pointing every covered pixel lies
+inside the central 7000 px, so nothing downstream changes: the
+resampled templates agree to 7e-4 DN/s. Graded by the port and by
+`dev`'s own code (with its Photutils catalog made), the 288 references
+whose files remain all have status 1 and the same bits both ways: bit 0
+(median background above 1.0 DN/s, not fatal) on 282, bit 1 (noise
+above 0.1 DN/s) on the five deep or crowded ones. The point-source mode
+and the SExtractor seeing of 0.25 separate the catalog: on the thin
+field's reference, CLASS_STAR above 0.8 / below 0.2 went from 411 / 1
+to 1,059 / 1,447 of about 4,300, and `fwhmmedpix` reads 2.425 px where
+the all-source median read 2.70; the pixels are unchanged.
+References built before these changes (rapid PRs 406 and 416) carry the
+all-source median under `fwhmmedpix`, status 1 and infobits 0.
+
 ## Not decided here
 
 - Eligibility and selection: which frames a launcher may choose for a

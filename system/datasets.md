@@ -4,8 +4,8 @@
 
 A dataset is one body of input the pipeline takes in, with its own
 live run and its own products, since dataset is in every scientific
-key ([foundation](foundation)). This page states the three simulations
-the rebuild has read, what each one's data are, the quirks met in
+key ([foundation](foundation)). This page states the simulations
+the rebuild has read and the flight data it holds, what each one's data are, the quirks met in
 them, and what each quirk became: a key in the dataset's settings
 overlay, a reader, or a line recorded and moved past. A quirk is fixed
 on the overlay and not debugged to its root in every dataset. The
@@ -19,6 +19,8 @@ comment per key naming the measurement that earned it; the
 | SOC simulation r00342, the High Latitude Wide Area Survey | `hlwas-r00342.toml` | HLWAS | 2026-10-22 |
 | SOC simulation r00340, the Galactic Bulge Time Domain Survey | `gbtds-r00340.toml` | GBTDS | 2026-10-24 |
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
+| RimTimSim, the 2026-06-22 delivery | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
+| Flight, program 1049 | none | | held, not yet read |
 
 ## HLWAS, r00342
 
@@ -111,7 +113,40 @@ evaluated transients are detected at 1.0 to AB 24, 0.8 at 24.5 and 0.5
 at 25, then the source cap ends the count. The run predates
 association by the source's field, so every alerted one is in its
 image's own field and 16 of the 35 detections, outside it, were not
-alerted; the field rule makes such a detection alertable, and the
-chain has not been rerun under it. It is a different test from HLWAS injection, which
+alerted; the field rule makes such a detection alertable. The chain
+has been rerun under it only with SFFT's raw catalog published (24 of
+the 410 detected, every one alerted; [difference](difference),
+Measured), so ZOGY under the field rule is not measured here. It is a different test from HLWAS injection, which
 detects 0.94 to 0.98 to AB 25 on sources placed at will. The runbook's
 part 12 step 3 holds the numbers.
+
+## RimTimSim, 2026-06-22
+
+TRExS's RimTimSim simulator, one Galactic-bulge field (`dev`'s field
+4682737) on SCA 2 in F087 and F213, 263 files read as `dev`'s converted
+`_lite.fits.gz` files: F087 132 and F213 131, every exposure 54.72 s,
+the dithers within 0.69 by 0.61 arcsec and the rotation 29.098° on
+every file.
+
+| Quirk | Disposition |
+|---|---|
+| The files are FITS, the image in DN with a TAN-SIP WCS and a zero point (`ZPTMAG`, 25.8573 in F213 and 26.2982 in F087), no uncertainty and no DQ | a reader of its own: `[intake] reader = "rimtimsim"` writes the SOC layout with `dev`'s converter's headers; a DQ mask is refused, NaN stay NaN; a file not in DN, without `ZPTMAG`, or whose filter or SCA contradicts its name is refused |
+| The file name is the exposure, with no visit or pass | the loop lists the flat prefix; a pointing is the exposure number, the `expid`; no passes |
+| The WCS sits (+0.052, +0.060) px from 588 Gaia DR3 stars | recorded; no `crpix_shift` |
+| No ePSF reference is named; `dev` uses a WebbPSF library file this account cannot read | the overlay's `[psf.epsf]`: the CRDS references context `roman_0077` answers for WFI02 at the field's start, `roman_wfi_epsf_0280` (F213) and `0266` (F087); F213's leaves a residual 0.024 of the peak inside 8 px on 60 isolated stars |
+| `dev` transposes the science PSF for this dataset | not built: the F213 stamp is within 0.0017 of its own transpose, and the residual moves from 0.024 to 0.022 transposed |
+| Written at gain 1, read noise 11, rate saturation 1.1e6 DN, no cosmic rays or bad pixels | the overlay: `dev`'s rimtimsims values, and the artefact repair off, since its threshold is below the stars' cores |
+| The reference stars measure (100 used of 160 passing, σ 1.32 px) | `reference_psf` stays `"measured"` |
+
+The reader is proven on one file; the chain has not yet run on this
+dataset.
+
+## Flight data, program 1049
+
+The first flight images held are program 1049, "RAPID CAR-198
+Implementation" (observed 2026-10-24 10:40 to 11:10 UTC, F062 and F158,
+288 L2 rows at MAST): four dithered F158 epochs of WFI02, observation 2
+visit 1, about 208 MB each, copied once into the inputs bucket under
+`flight-1049/` with a manifest. They are SOC L2 ASDF files and open as
+such; WFI02 was taken because every WFI01 row of the program names a
+placeholder guide star. No run has read them yet.

@@ -3,10 +3,12 @@
 **Status: DRAFT**
 
 `difference` subtracts one epoch's L2 image from the reference its job
-names, with ZOGY, catalogs the result, and declares the difference
-image and its source set for the publisher. SFFT and the naive
-subtraction run beside ZOGY as `dev` runs them, for their outcome bits;
-their files are not published. The stage ports the science of `dev`'s
+names, with ZOGY and with SFFT, catalogs both, and declares one
+differencer's image and source set for the publisher: the one
+`[difference] diff_flavor` names, shipped as `zogy`
+({ref}`ruling <decision-published-differencer>`). The other
+differencer's PSF-fit catalogs stay under the prefix as diagnostics, and
+the naive subtraction runs as `dev` runs it, for its outcome bits. The stage ports the science of `dev`'s
 `pipeline/awsBatchSubmitJobs_runSingleSciencePipeline.py`, refreshed to
 `dev` at d6aac515, under the foundation's `run(job)` contract:
 `rapidpipe/stages/difference.py` and `rapidpipe/science/difference/` on
@@ -124,8 +126,29 @@ the reference coverage is below threshold, the NaNs are restored, and
 negative copies are made. The stage then makes the difference's
 uncertainty image and the positive and negative SExtractor and
 Photutils PSF-fit catalogs. SFFT and the naive subtraction follow with
-their own catalogs; an SFFT failure is recorded in the manifest and is
-not fatal.
+their own catalogs.
+
+Every external tool runs checked, SFFT included: a nonzero exit fails
+the job with exit 70 and `ToolFailed: <tool> exited with code <n>; its
+last <k> output lines: …` (up to 20 lines) on the job row, with no
+fallback to the other differencer
+({ref}`ruling <decision-tool-exit-checked>`). Nothing is caught around the
+Photutils PSF fit: on an empty field photutils returns no table, which
+is the empty catalog, and it raises only on a fault, such as a zero or
+NaN uncertainty under a source, which fails the job.
+
+**`dev`'s pixel columns.** On every row of both SFFT PSF-fit catalogs,
+before the cap and whichever differencer is published, the job measures
+`dev`'s `sumrat` (`sum(p) / sum(|p|)` over a 5 x 5 stamp after a 3 x 3
+truncated median filter), `nneg` and `nbad` (the stamp's finite
+negative and non-finite pixels), each after a 64 px Background2D local
+background subtracted from a copy of the image, each catalog on the
+image its sources are positive in. They are columns of the catalog
+files and of `sources`, nullable: an unmeasurable value (the stamp off
+the image) is NaN in the file and null on the row. A failed local
+background fails the job, where `dev` measures on the unsubtracted image
+({ref}`ruling <decision-pixel-columns-fail>`). They cost 4.3 to 5.2 s a
+difference (`pixel_columns_s`).
 
 ## Declared outputs
 
@@ -133,31 +156,34 @@ The stage publishes, under `diff/` in the attempt's prefix, the files
 that a person or the packet stage reads, and nothing else
 ({ref}`ruling <decision-difference-trimmed>`). `dev` uploads every working file
 for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
-89% of the run's bytes. What is kept, and the reader that earns it:
+89% of the run's bytes. What is kept, and the reader that earns it; the
+published differencer's files carry its prefix (`zogy_diffimage_…`
+under `zogy`, `sfftdiffimage_…` under `sfft`):
 
 | File | Why it is kept |
 |---|---|
-| `zogy_diffimage_masked.fits.gz` | the difference; the `diffimages` row names it, and `packet` reads it for the difference cutout and forced photometry |
-| `zogy_diffimage_uncert_masked.fits.gz` | its uncertainty, read by forced photometry |
+| `zogy_diffimage_masked.fits.gz` or `sfftdiffimage_masked.fits.gz` | the difference; the `diffimages` row names it, and `packet` reads it for the difference cutout and forced photometry |
+| `zogy_diffimage_uncert_masked.fits.gz` or `sfftdiffimage_uncert_masked.fits.gz` | its uncertainty, read by forced photometry |
 | `awaicgen_output_mosaic_cov_map_resampled.fits.gz` | the mask: the resampled reference coverage map the difference is masked with |
-| `zogy_diffimage_masked_psfcat.parquet` | the catalog: ZOGY's positive PSF-fit catalog, uncapped, of which `sources` is the capped set |
-| `diffpsf.fits.gz` | the difference's PSF, for forced photometry on the difference |
-| `refimage_psf.fits.gz` | the reference PSF the job measured and gave ZOGY |
+| `zogy_diffimage_masked_psfcat[_negative].parquet`, `sfftdiffimage_masked_psfcat[_negative].parquet` | the catalogs, uncapped: the published differencer's positive one is the catalog `sources` is the capped set of; the other three are diagnostics read by no stage; SFFT's two carry the pixel columns |
+| `diffpsf.fits.gz` or `sfftdiffpsf.fits.gz` | the difference's PSF, for forced photometry on the difference |
+| `refimage_psf.fits.gz` | the reference PSF the job measured and gave the differencers |
 | `bkg_subbed_science_image.fits.gz` | forced photometry on the science image, and the science cutout |
 | `awaicgen_output_mosaic_image_resampled_gainmatched.fits.gz` | the template cutout |
 
-The first four are the ruling's: the difference, its uncertainty, the
-mask and the catalog. Three of the others are what `packet` reads, and
-the reference PSF is the job's own measurement, kept for whoever checks
-the subtraction (15 KB). Every
+The difference, its uncertainty, the mask and the published catalog
+are the ruling's. Three of the others are what `packet` reads, the
+reference PSF is the job's own measurement, kept for whoever checks
+the subtraction (15 KB), and the three other catalogs are what a
+comparison of the differencers reads. Every
 FITS file is gzipped at level 1 as the intake's are, the `diffimages`
 row names the `.fits.gz`, and its checksum is the MD5 of the gzipped
-file. Everything else, the SFFT and naive products, the negatives,
-the intermediates and the input copies, is removed before the upload.
+file. Everything else, the unpublished differencer's and the naive
+images, the intermediates and the input copies, is removed before the upload.
 There is no setting to keep more: a variant is made again by rerunning
-the job. `packet` reads a difference image's neighbours with the same
-suffix as the image, so a run published before the trim, with plain
-FITS, reads as before. Trimming and compressing change no pixel: the
+the job. `packet` finds a difference image's PSF and uncertainty from
+the image's own file name, so a run published before the trim, with
+plain FITS, or under the other differencer, reads as before. Trimming and compressing change no pixel: the
 packets of four epochs published both ways had byte-equal cutouts, 781
 of 781.
 
@@ -165,19 +191,33 @@ The manifest declares four tables:
 
 | Table | Rows |
 |---|---|
-| `diffimages` | one, the ZOGY image, keyed (dataset, expid, sca, fid); `rid`, `rfid`, `field`, `jd`, the centre and four corners, `infobitssci` (`dev`'s catalog-outcome mask, one bit per differencer and sign with no PSF-fit catalog), `infobitsref`, `status` 1, the file's MD5 |
-| `sources` | the ZOGY positive PSF-fit catalog, mapped onto the `sources` columns exactly as the import maps `dev`'s, the brightest `max_sources` by flux over its error (0 keeps every source) |
+| `diffimages` | one, the published differencer's image, keyed (dataset, expid, sca, fid); `rid`, `rfid`, `field`, `jd`, the centre and four corners, `infobitssci` (`dev`'s catalog-outcome mask, one bit per differencer and sign with no PSF-fit catalog), `infobitsref` (the reference's grade), `status` 1, the file's MD5 |
+| `sources` | the published differencer's positive PSF-fit catalog, mapped onto the `sources` columns exactly as the import maps `dev`'s, inside `dev`'s fit-position bounds, under `sfft` through `dev`'s database prefilter (below), then the brightest `max_sources` by flux over its error (0 keeps every source); `sumrat`, `nneg` and `nbad` from the catalog, null under `zogy` |
 | `objects` | the objects this job founded: one per accepted source that matched no object of its own field or a neighbouring field as the job read them, founded in the source's own field, its id the position hash of that source |
 | `memberships` | this epoch's matches, onto objects it read and onto those it founded: each with the source's offsets from the object's founding position and its flux, the membership's share of the object's sufficient sums |
 
+**`dev`'s database prefilter**, under `diff_flavor = "sfft"` only, ports
+the cut `dev`'s loader makes on SFFT's catalog: after the fit-position
+bounds and before the cap, a source is kept when its `sumrat` is finite
+and above `[difference.database_prefilter] sumrat_prefilter_threshold`
+(0.4) and its nearest pixel is at least 2 px from every edge. A null
+`sumrat` is rejected, where `dev` passes it, and the edge cut is
+`dev`'s XSources rule applied here to the PSF-fit catalog. `""`
+applies none of it, the raw SFFT control. `dev`'s real/bogus cut is not
+there, since no score is computed. Under `sfft` the metrics'
+`n_candidates` counts after the cut; under `zogy` the source set is not
+prefiltered.
+
 The stage draws `pid` from the `diffimages` identity sequence while it
-reads its inputs, so the source rows carry it. A run has one
-differencer, so the SFFT and naive images are never published as rows.
-A missing ZOGY PSF-fit catalog publishes an empty source set with its
-outcome bit set, where `dev`'s loader skips the job. The manifest also
+reads its inputs, so the source rows carry it. A run has one published
+differencer, so the other's and the naive images are never rows.
+A missing PSF-fit catalog of the published differencer publishes an
+empty source set with its outcome bit set (`sources` is declared valid
+when empty, `empty_ok`), where `dev`'s loader skips the job. The manifest also
 records the zero point and where it came from, both FWHMs, the scale
 factor, the registration residuals, the catalog counts, the count of
-sources before the cap, SFFT's outcome, and the published files with
+sources before the cap, `differencer` and both differencers' source
+counts, and the published files with
 their plain and gzipped bytes, the gzip's seconds and what was removed.
 
 ## Association
@@ -227,7 +267,8 @@ outside the image's own field.
 ## Settings
 
 The run's `[difference]` table in `rapidpipe/settings/foundation-thin.toml`
-holds `max_sources` (500) and `dev`'s fit-position bounds, and one
+holds `max_sources` (500), `dev`'s fit-position bounds and the published
+differencer, and one
 subtable per `dev` ini section with `dev`'s values. The tool tables
 (`[difference.sextractor_sciimage]`, `_gainmatch`, `_diffimage`,
 `_diffimage_sfft`, `_diffimage_naive` and `[difference.swarp]`) copy
@@ -236,15 +277,19 @@ port or departs from `dev`:
 
 | Setting | Value | Meaning |
 |---|---|---|
+| `diff_flavor` | `"zogy"` | the published differencer, `dev`'s `[ALERTS] diff_flavor`: `"zogy"` or `"sfft"`, anything else refused; `dev`'s value is `sfft`, and `zogy` is shipped because on HLWAS the raw SFFT catalog fills the cap with bright-star residuals (Measured, below) |
 | `[difference.paths] python`, `[difference.sfft] python_cmd`, `activate_cmd` | empty | ZOGY and SFFT run in the stage's own interpreter; `dev` hard-codes `python3.11` and its own SFFT environment |
 | `[difference.paths] bkgest_code`, `bkgest_include_dir` | `bkgest`, `/opt/rapid/share/bkgest` | bkgest as the pipeline image installs it, where `dev`'s `/code/c` tree is absent |
 | `[difference.paths] work_subdirectory` | `diff` | the working directory under the attempt's prefix |
 | `[difference.awaicgen] zprefimg` | empty | an override of the reference zero point; empty reads the reference's `MAGZP` |
 | `[difference.zogy] astrometric_sigma` | 0.0 | ZOGY's astrometric inputs, 0.0 as `dev` overrides them |
-| `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev` |
+| `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev`; under `diff_flavor = "sfft"`, `run_sfft = false` fails the settings check |
+| `[difference.sumrat]` | `stamp_size` 5, `filter_size` 3, `lower_median` false | `dev`'s `[SUMRAT]`; `false` takes the mean of the two middle values of an even count, so pure noise's sumrat is about 0, where ZTF's median is biased to about −0.32 |
+| `[difference.extra_catalog_cols]` | `nneg_nbad_stamp_size` 5, `pixel_cols_bkg_box` 64, `pixel_cols_bkg_filter_size` 3 | `dev`'s `[EXTRA_CATALOG_COLS]`: the `nneg` and `nbad` stamp and the local background the three columns are measured after |
+| `[difference.database_prefilter] sumrat_prefilter_threshold` | 0.4 | `dev`'s `[DATABASE_PREFILTER]`, applied under `sfft` only; `""` applies no prefilter |
 | `[difference.naive_diffimage] naive_diffimage_flag` | true | the naive subtraction runs, a diagnostic |
 | `[difference.fake_sources] inject_fake_sources_flag` | false | fake-source injection is not ported; true is refused |
-| `reference_psf` | `"measured"` | the reference PSF ZOGY is given: `"measured"`, from the resampled reference's stars, or `"science"`, the science PSF for both images, for a field whose reference stars cannot be measured (the GBTDS bulge, [datasets](datasets)) |
+| `reference_psf` | `"measured"` | the reference PSF the differencers are given: `"measured"`, from the resampled reference's stars, or `"science"`, the science PSF for both images, for a field whose reference stars cannot be measured (the GBTDS bulge, [datasets](datasets)) |
 | `[difference.statistics] clip_correction_seed` | 0 | seeds the clipped-statistics correction's random draw; negative is `dev`'s unseeded draw |
 
 With the seed pinned, the same inputs give the same pixels and rows,
@@ -282,6 +327,27 @@ correlated with `dev`'s difference at 0.99989. The real-tool run
 against fixed inputs and the IMSS comparison remain the team's gate
 before operational use.
 
+**ZOGY against raw SFFT, on the same bytes** (2026-10-24, rapid PR 418):
+the same L2 arrays, reference and PSF rows differenced both ways, with
+SFFT's raw positive catalog published and no prefilter.
+
+| | ZOGY | SFFT |
+|---|---|---|
+| HLWAS injected, `001_0001` SCA 8 F146, passes 4 to 6 (runs 81, 88): detected of 600 injected | 542 | 256 |
+| the same: detected at AB 24 / 25 | 0.97 / 0.99 | 0.61 / 0.00 |
+| the same: false positives per epoch (bright-flagged) | 228 (145) | 385 (289) |
+| the same: core fraction | +0.003 | +0.252 |
+| OpenUniverse TDS, H158 SCA 10, ten epochs (runs 80, 89): detected of 410 evaluated | 35 | 24 |
+| the same: core fraction | +0.005 | +0.005 |
+| difference seconds, median (HLWAS; OpenUniverse) | 205; 292 | 219; 279 |
+
+On HLWAS SFFT leaves about a quarter of each bright star's flux in its
+core, so the 500-source cap fills with stars; on OpenUniverse its stars
+subtract cleanly and the cap fills with candidates matched to no truth
+row. `sumrat > 0.4` keeps 0.90 of the bright-flagged SFFT candidates on
+the HLWAS sample, so the column alone does not remove them (run 96: 0.997
+of 391 injected, 0.68 of 6,464 noise).
+
 ## Not decided here
 
 - Source-level parity with `dev`. The two references are 25 different
@@ -290,8 +356,12 @@ before operational use.
   differ while the images agree; that reading fits every figure and is
   not verified. A check needs the same reference frames or injected
   sources with known positions.
-- sumrat, real/bogus and the extra SFFT catalog columns, and `dev`'s
-  loader prefilter, left out of the thin chain.
-- Whether SFFT and the naive subtraction keep running now that only
-  their outcome bits remain of them. Turning them off is a settings
-  change with a science consequence, the bits.
+- `dev`'s real/bogus score and its prefilter cut, left out of the thin
+  chain: no score is computed.
+- Whether the published differencer returns to `sfft`. `dev`'s pixel
+  columns and its prefilter are ported; whether they bring SFFT's
+  catalog to ZOGY's on HLWAS is not yet measured on a merged run, and
+  the gate's core and ring bounds were read on ZOGY.
+- Whether the naive subtraction keeps running now that only its
+  outcome bits remain of it. Turning it off is a settings change with a
+  science consequence, the bits.
