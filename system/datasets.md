@@ -96,9 +96,20 @@ whole sequence as FITS, 2.06 million files.
 | `err` equals `data` on 90% of pixels | recorded; nothing reads it |
 | The gWCS cannot be inverted by today's gwcs | recorded; only the forward transform is used, matched by the SIP fit to 1.5e-9″ |
 | No ePSF reference is named | recorded; the proof imported a PSF stamp from the simulation's own model |
+| No ePSF reference is named | the psf stage draws the science PSF with galsim.roman, the simulation's own model, for the file's filter and SCA (`[intake] reader` dispatches it); its centroid sits (−0.16, −0.13) px from the stamp's centre in H158 |
+| The file names a pointing, not a visit, exposure and pass | the loop lists `<filter>/` in the legacy spelling for the pipeline's filter name; a pointing is the observing sequence's row, the `expid`; no passes |
+| Transients live through the first visits: 348 of 761 lit transient rows in the sample have light in a reference frame | the reference stays the first visits under `before_mjd`; the count judges only transients that start after its last frame with no light in it, and reports the rest apart |
+| No Gaia stars in the simulation, and the packet stage needs a catalog | the run's catalog is the truth's star rows on Gaia's schema; the intake's WCS metric reads them, (−0.08, −0.07) px |
+| Every difference fills dev's cap of 500 sources (2,077 to 3,682 candidates, 261 to 500 kept above S/N 20) | recorded; it sets the faint end of the count, the next measurement |
+| The gain match scales the reference by 2.2 (HLWAS 0.99) | recorded; the flux of the subtracted transients is right to 0.95 |
 
-One image went through intake under the reader, its truth tables
-carried as binary-table HDUs. A chain past intake needs three pieces
-not yet built: an ePSF source for the psf stage, the loop's file listing
-and the psf stage dispatching on the reader, and a reference from
-epochs before a transient starts.
+The chain runs end to end under the reader. The sample is H158 on one
+SCA, whose live transients are the brightest of the seven filters, in
+one field 27 in-season images share: a reference from the first six
+visits and ten epochs across the season and the late visits, every job
+published on its first attempt. Counted against the truth per image, the
+evaluated transients are detected at 1.0 to AB 24, 0.8 at 24.5 and 0.5
+at 25, then the source cap ends the count; every alerted one is in its
+image's own field. It is a different test from HLWAS injection, which
+detects 0.94 to 0.98 to AB 25 on sources placed at will. The runbook's
+part 12 step 3 holds the numbers.
