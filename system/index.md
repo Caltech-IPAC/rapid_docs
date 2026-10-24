@@ -38,6 +38,7 @@ repository's history. The rebuild starts from this page.
 | [`loop.md`](loop) | DRAFT | The loop, `rapidpipe loop`: the selection as arguments with the passes, one pass's order from the psf submission and hold through intake to the Kafka recovery sweep with the listing by the selection, no field chains, the submission cap and the Spot queue, the Batch reconcile, pending with one automatic rerun, failed and drained, the reference bound and held fields, the per-field chains' history, its exit codes and what it measured, six filters at once among it; it replaces the run model's processing-date loop |
 | [`operations.md`](operations) | DRAFT | Operations proposals the team has not yet ruled on: what they assume about the mission, three shapes of the run model and the recommended named stream of batch runs, replacement scope and the chain switch, batch cadence against the latency requirement, a proposed production check policy, reference eligibility and selection, staged inputs of a production run, capacity lanes |
 | [`observability.md`](observability) | DRAFT | The `rapidpipe` log line and where it goes, the record of an attempt with and without CloudWatch, monitoring with `rapidpipe` alone, queue, execution and orchestration time per Batch job, profiling a stage, and today's job-duration baseline against a 30-minute target |
+| [`migration.md`](migration) | DRAFT | For a team member who knows `dev`: where each of `dev`'s scripts, settings, stages and terms went on `rebuild`, with the reason a page or ruling records; `dev`'s tables mapped to the rebuild's schema; what has no counterpart; the questions for the team's first week |
 
 ```{toctree}
 :hidden:
@@ -64,4 +65,5 @@ tool
 loop
 operations
 observability
+migration
 ```
