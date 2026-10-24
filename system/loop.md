@@ -28,6 +28,114 @@ first. At the end of every pass, whatever packet sets became official
 go to the topic. When a pass finds nothing new, nothing running and
 nothing to submit, the selection is drained and the loop exits.
 
+## Starting a night
+
+Before the loop runs, a night needs four things: a run that names its
+source root and reference bound, that run made live for its survey and
+dataset, the dataset's Gaia catalog imported under it, and a job
+definition revision whose image runs the run's revision. The commands
+below run from the top of a checkout of `rebuild`, in the rapid conda
+environment, against the team's database. The environment is the
+commented block of the
+[repository README](https://github.com/Caltech-IPAC/rapid/blob/rebuild/README.md)'s
+Getting started section,
+with `RAPIDPIPE_OUTPUTS_ROOT` an `s3://` prefix the Batch job role
+writes. The example is HLWAS F146, pointing `001_0001`, SCA 8, with
+passes 1 to 3 for the reference and pass 4's epoch differenced. Each
+night uses a dataset name of its own.
+
+1. **The environment and the names.**
+
+   ```sh
+   export PYTHONPATH=$PWD PY=<python3 of the rapid conda environment>
+   rp() { $PY -m rapidpipe.cli.main "$@"; }
+   D=<a dataset name of your own>                    # e.g. r00342-<initials>-<date>
+   SOURCE_ROOT=s3://stpubdata/roman/nexus/soc_simulations/r00342/l2/
+   BOUND=61591.4056                                  # the F146 bound, between its third and fourth passes
+   GAIA_DIR=<the directory holding the Gaia DR3 Parquet file of the dataset>
+   GAIA_FILE=gaia-dr3-hlwas-r00342-box.parquet
+   REV=<the 40-character sha of the image the job definition runs>
+   JOBDEF=rapid-rebuild:<n>                          # the revision the deploy hook printed for that image
+   ```
+
+   The job definition revision comes from `rapid_systems`: the release
+   hook registers one per image (`docs/deploying-a-change.md` there).
+   The run records a code revision, not a job definition, so the
+   revision is the loop's argument.
+
+2. **The run.** `run create` resolves the settings once, from the base,
+   the dataset's overlay and the `--set` values, and prints the run's id.
+   The source root and the bound are the two keys the base leaves
+   absent, so they always come by `--set`. Other filters' bounds are in
+   the runbook, part 9 step 2.
+
+   ```sh
+   RUN=$(rp run create --who "$USER" --why "<why this night>" --revision $REV \
+     --overlay rapidpipe/settings/datasets/hlwas-r00342.toml \
+     --set "intake.source_root=\"$SOURCE_ROOT\"" --set reference.selection.before_mjd=$BOUND \
+     --survey HLWAS --dataset $D)
+   rp run show $RUN | head -20
+   ```
+
+3. **Make it live.** A change group is a JSON list of items. This item
+   opens the live binding of the survey and dataset for the run:
+
+   ```sh
+   echo '[{"open": {"survey": "HLWAS", "dataset": "'$D'", "run": '$RUN'}}]' > live-$D.json
+   cat live-$D.json      # [{"open": {"survey": "HLWAS", "dataset": "r00342-...", "run": 91}}]
+   rp official change --group live-$D.json --who "$USER" --why "run $RUN live for HLWAS $D"
+   ```
+
+   It prints the group's id. A dataset that already has a live run
+   refuses the group (exit 1). To replace that run, the same item closes
+   its binding as well: `{"close": <the old run's "live" from run show>,
+   "open": {...}}`. `official undo <group>` reverses a group.
+
+4. **Import Gaia.** The packet stage names exactly one official Gaia
+   catalog of the dataset, so the import runs once per dataset, on this
+   host:
+
+   ```sh
+   rp job local --run $RUN --stage import \
+     --scope '{"source_dir": "'$GAIA_DIR'", "gaia": {"name": "gaia-'$D'", "version": "DR3", "path": "'$GAIA_FILE'"}}' \
+     --expects '[{"product": "catalogs", "key": {"dataset": "'$D'", "name": "gaia-'$D'", "version": "DR3"}, "binding": null}]'
+   ```
+
+   It prints the job's result: `"published": true`, `"live": true`,
+   `"refusal": null`.
+
+5. **The loop**, under a timeout (which runs the module, since it cannot run the `rp` function), from this host:
+
+   ```sh
+   timeout 5400 $PY -m rapidpipe.cli.main loop --run $RUN --filters F146 --scas 8 --pointings 001_0001 --passes 1,2,3,4 \
+     --job-definition $JOBDEF --interval 60
+   echo "loop exit $?"
+   ```
+
+   It prints one JSON line a pass. Its first pass submits the PSF job,
+   and later passes the intakes, the reference, the difference and the
+   packet. The sample drained in 9 to 15 minutes (runs 86, 87, 90 and 97, 2026-10-24).
+
+6. **Check the run.**
+
+   ```sh
+   scripts/check_run.sh --run $RUN
+   ```
+
+   The script prints one line, `Check run N: CLEAN validate 6/6 reader
+   1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
+   and exits non-zero.
+
+**What the exit codes mean**, as on `rebuild` at `d4866eab`:
+
+| Code | `loop` | `job local` |
+|---|---|---|
+| 0 | the selection drained with no failed or refused job (or one `--once` pass saw none) | the job published; under a run that is not live, the refusal is on stderr and on its row |
+| 1 | it drained around failed jobs, or jobs published with their binding refused. Each is named on stderr and in the last pass's `failed`, and the rest of the selection drained around them. Read the row's `refusal` (`rp job show <id>`), fix the cause, rerun with `rp job submit --job <id> --job-definition $JOBDEF`, then start the loop again | the job published but its binding was refused under a live run |
+| 64 | a usage error: the run does not exist, the selection cannot be parsed, its first pass found no file of the selection under the source root, or the dataset has no single official Gaia catalog when a packet job is due | the run or an input does not exist, or the arguments are wrong |
+| 70 | an unexpected error, traceback on stderr | the stage failed: an exception, or a tool's nonzero exit (`ToolFailed`, with the tool's name, code and last 20 lines on the row) |
+| 75 | a transient failure: the database was unavailable, or an AWS call was throttled or timed out. Start the loop again | the same; Batch repeats such a job on its own |
+
 ## The selection
 
 ```
@@ -168,7 +276,7 @@ alone. The whole reconcile took 0.1 s a pass.
 **Drained.** A pass is drained when it found no new file, has nothing
 pending and submitted nothing. The verb then exits 0. It exits 0 after
 one pass with `--once`, 1 once the selection has drained around a
-failed job (or after a `--once` pass that saw one), naming each failed
+failed or refused job (or after a `--once` pass that saw one), naming each failed
 job's stage and scope in the last pass's `failed` and on stderr, and
 64 when the run's dataset has no single Gaia catalog or when its first
 pass admits no file: a selection that matches nothing under the source
