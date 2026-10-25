@@ -35,7 +35,8 @@ detector)". None of the contract's other four kinds fits:
 detector; `field` is a tessellation tile; `exposure` is an admitted image
 before any detector-level product exists.
 `rapidpipe.stages.contract.UNIT_KINDS` and
-`rapidpipe.products.manifest.UNIT_KINDS` both carry the fifth value.
+`rapidpipe.products.manifest.UNIT_KINDS` both carried the fifth value;
+both modules are since deleted (rapid PRs 464 and 467).
 Migration `20260924-02` widens the `units.unit_kind` CHECK constraint
 to match, allowing a run to record a `maintain` unit.
 
