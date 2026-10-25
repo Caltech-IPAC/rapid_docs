@@ -20,7 +20,7 @@ comment per key naming the measurement that earned it; the
 | SOC simulation r00340, the Galactic Bulge Time Domain Survey | `gbtds-r00340.toml` | GBTDS | 2026-10-24 |
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
 | RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
-| Flight, program 1049 | `flight-1049.toml` | | held, not yet read by a run |
+| Flight, program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight-1049.toml` | CAR198 | 2026-10-25 |
 
 ## HLWAS, r00342
 
@@ -129,21 +129,36 @@ part 12 step 3 holds the numbers.
 
 ## Flight data, program 1049
 
-The first flight images held are program 1049, "RAPID CAR-198
+The first flight images held and read: program 1049, "RAPID CAR-198
 Implementation" (observed 2026-10-24 10:40 to 11:10 UTC, F062 and F158,
-288 L2 rows at MAST): four dithered F158 epochs of WFI02, observation 2
-visit 1, about 208 MB each, copied once into the inputs bucket under
-`flight-1049/` with a manifest. They are SOC L2 ASDF files and open as
-such; WFI02 was taken because every WFI01 row of the program names a
-placeholder guide star. The overlay `flight-1049.toml` reads them with
-the SOC reader unchanged; no run has read them yet.
+288 L2 rows at MAST). The sample is four dithered F158 epochs of WFI02,
+observation 2 visit 1, 10:56 to 11:02 UTC, 60 s each, over COSMOS
+(150.27, +2.40). They are about 208 MB each, copied once into the inputs
+bucket under `flight-1049/` with a manifest (the source prefix is the
+run's `intake.source_root`). WFI02 was taken because every WFI01 row of
+the program names a placeholder guide star.
 
 | Quirk | Disposition |
 |---|---|
-| The files are SOC L2 (romancal 1.0.2, `wfi_image-2.0.0`) with `meta.photometry` and an ePSF reference named (`roman_wfi_epsf_0239`) | the SOC reader as it is; the overlay sets `program_id = 1049` |
-| The data-quality flags mean what HLWAS's do | the overlay: HLWAS's mask, `0x2110C01`, 0.231% of pixels |
-| The intake's Gaia offset reads dy −0.56 to −0.35 px, Gaia's 2016.0 positions against 2026.81: proper motion, about 0.45 px; propagated, −0.06 to −0.04 px, and tweakreg's fit rmse is 0.013 to 0.015 px | no WCS correction; the metric applies no proper motion, right for the simulations |
-| 472 hot pixels outside the mask, 341 flagged by nothing | recorded; no mask value removes them |
+| romancal 1.0.2's `wfi_image-2.0.0`, with `chisq`, `dumo`, `amp33` and border reference pixels and no `var_rnoise` or `var_flat` | the `soc-l2` reader, unchanged: the same stem grammar, meta tree and pixel flags; the extra arrays become extra HDUs |
+| The data-quality flags are roman_datamodels' pixel flags, as in the simulations | the overlay: HLWAS's mask `0x2110C01`, 0.231% of each frame; 1.36% carry any flag, the largest unmasked GW_AFFECTED_DATA (the guide window) 0.37% |
+| The file names its ePSF, `roman_wfi_epsf_0239` (CRDS `roman_0077`), on all four files: stpsf 2.0.0's pre-flight simulation, pedigree SIMULATION, no jitter | the psf stage reduces it by name, as for the SOC files; the ePSF per file is met |
+| `meta.photometry` is present | the zero point is the file's, ZPTMAG 25.801 |
+| The intake's Gaia offset reads (−0.08 to +0.16, −0.56 to −0.35) px, but that is Gaia DR3 at epoch 2016.0: propagated to 2026.81 the stars sit within 0.09 px | recorded; no WCS key; the metric reads proper motion as WCS on flight data |
+| The program number is real | the overlay: `program_id = 1049` |
+| The dithers, 0.04 deg apart, put the four centres in three tessellation fields, and the loop builds a field's reference only from rows whose own field it is (dev: every file whose `overlapfields` lists it) | recorded ({ref}`decisions <decision-reference-by-field>`); e4's field reference was submitted by hand with dev's selection, e1 to e3 |
+| The reference covers 78.4% of the differenced frame | recorded; usable fraction 0.781, which the gate holds once judged |
+| **Hot pixels**: 3,116 pixels sit above 10 sigma of their local background at the same detector position in all four frames; 341 carry no flag | the mask removes 2,644; no single extra bit removes more than 72 of the other 472 (WARM), so not fixed; the ramp's JUMP_DET fires on 1,235 of them every exposure |
+| **The pointing**: the Gaia stars are 1.19 to 1.20 times the ePSF's width on every frame, nearly isotropic, with a small common elongation over the ePSF (e 0.025 to 0.043, PA +14 to +47°) | recorded; **pointing oscillation unmet, not observable in four 60 s frames**: broadening and a common elongation do not name jitter over charge diffusion or the model's error; the guide window's time series or a run of short exposures would show it |
+
+One run, 118, took the four epochs through the whole chain:
+
+- the reference for e4's field from e1 to e3 (`before_mjd = 61337.4594`);
+- e4 differenced in 223 s, core +0.001 and ring −0.005, registration (−0.018, −0.013) px, S/N > 20 228 positive and 150 negative;
+- 328 packets on the topic, sent unjudged below the gate's `min_epochs`;
+- every job published on its first attempt and every check clean.
+
+The runbook's part 13 step flight-first holds the numbers.
 
 ## RimTimSim, 2026-06-22
 
