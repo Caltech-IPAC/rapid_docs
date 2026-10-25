@@ -15,9 +15,10 @@ stage is.
 ## Scope and inputs
 
 The scope is `{"field", "fid", "sca"}`: the Roman tessellation tile,
-the filter id and the SCA. Every input is an `input` row of product
-`l2files` whose key has the scope's filter and SCA; any other product
-fails the job. The launcher chooses the frames and records them; the
+the filter id and the first SCA among the frames. Every input is an
+`input` row of product `l2files` whose key has the scope's filter, of
+any SCA, each row read by its own key's SCA; any other product or
+filter fails the job. The launcher chooses the frames and records them; the
 stage reads exactly those rows and their files through
 `prefix.get`, and never selects frames itself.
 

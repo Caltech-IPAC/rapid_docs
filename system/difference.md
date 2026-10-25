@@ -8,7 +8,8 @@ differencer's image and source set for the publisher: the one
 `[difference] diff_flavor` names, shipped as `zogy`
 ({ref}`ruling <decision-published-differencer>`). The other
 differencer's PSF-fit catalogs stay under the prefix as diagnostics, and
-the naive subtraction runs as `dev` runs it, for its outcome bits. The stage ports the science of `dev`'s
+the naive subtraction runs as `dev` runs it but makes no PSF-fit catalog
+({ref}`decision <decision-naive-no-psfcat>`). The stage ports the science of `dev`'s
 `pipeline/awsBatchSubmitJobs_runSingleSciencePipeline.py`, refreshed to
 `dev` at d6aac515, under the foundation's `run(job)` contract:
 `rapidpipe/stages/difference.py` and `rapidpipe/science/difference/` on
@@ -46,7 +47,7 @@ evaluates it at the pixel centres of a stamp the science PSF's size,
 re-centred to 0.01 pixel (a secant step, and a grid search where the
 step stalls, since the evaluated centroid's two axes are coupled), takes the science PSF's wings beyond 10 pixels (the measured
 core within 6, a cosine taper between), normalises it, and gives that to
-ZOGY, SFFT and the naive catalogs as the reference PSF. The wings are the
+ZOGY's and SFFT's catalogs as the reference PSF. The wings are the
 science PSF's because the ePSF is built on 31-pixel stamps and holds
 nothing beyond 15 pixels, where the science PSF still holds 3.3% of its
 flux: given the truncated stamp, ZOGY left a ring 10 to 20 pixels out at
@@ -125,8 +126,10 @@ by subprocess. Its difference and significance images are masked where
 the reference coverage is below threshold, the NaNs are restored, and
 negative copies are made. The stage then makes the difference's
 uncertainty image and the positive and negative SExtractor and
-Photutils PSF-fit catalogs. SFFT and the naive subtraction follow with
-their own catalogs.
+Photutils PSF-fit catalogs. SFFT follows with its own; the naive
+subtraction follows with its image, uncertainty and SExtractor catalogs
+and no PSF-fit catalog, so its two catalog-outcome bits (4 and 5) are
+never set.
 
 Every external tool runs checked, SFFT included: a nonzero exit fails
 the job with exit 70 and `ToolFailed: <tool> exited with code <n>; its
@@ -137,7 +140,7 @@ Photutils PSF fit: on an empty field photutils returns no table, which
 is the empty catalog, and it raises only on a fault, such as a zero or
 NaN uncertainty under a source, which fails the job.
 
-Every PSF-fit catalog, ZOGY's, SFFT's and the naive one's, positive and
+Every PSF-fit catalog, ZOGY's and SFFT's, positive and
 negative, takes the difference's non-finite pixels as its mask: the
 finder sees them filled from their neighbours (a Gaussian of σ 1 px; a
 hole wider than its 9 × 9 kernel is set to 0), and the finder and the
@@ -391,6 +394,13 @@ SCA 8 detected 542 → 545 of 600, false positives 214 (233) unchanged
 (run 116). Candidates before the cap rise where the difference has
 isolated masked pixels.
 
+The naive PSF-fit catalogs not made (rapid PR 446, `rapid-rebuild:79`,
+same bytes, RimTimSim F213 epoch 4571, runs 122 → 124): the difference
+job takes 2,645 s against 4,169 s, `sources` equal in all 27 columns,
+`diffimages` equal but `checksum`, the MD5 of a file whose header
+carries its job id and timestamps (pixels equal). ZOGY's negative and
+SFFT's positive PSF-fit catalogs are now 71% of that job.
+
 ## Not decided here
 
 - Source-level parity with `dev`. The two references are 25 different
@@ -408,6 +418,8 @@ isolated masked pixels.
   datasets' blocks are unchecked for the same effect. Under the shipped
   block `n_sources_snr_gt20` sits at the cap on every epoch, so the
   gate's count check cannot see such an SFFT epoch off-scale.
-- Whether the naive subtraction keeps running now that only its
-  outcome bits remain of it. Turning it off is a settings change with a
-  science consequence, the bits.
+- Whether the naive subtraction keeps running now that its PSF-fit
+  catalogs, and so its two catalog-outcome bits, are gone; its image
+  and SExtractor catalogs remain, and turning it off is a settings
+  change. The `[psfcat_diffimage] output_naive_psfcat_*` keys are read
+  by nothing.

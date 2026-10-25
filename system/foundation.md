@@ -1617,8 +1617,12 @@ cold queue.
   the field rule 13 packets carried a source split that way.
 - Forced photometry's cost at scale. It is about 3.6 s per window
   image, dominated by opening the images. A set's `forced` rows are its
-  packets times the window images on the trigger's SCA, so a field's
-  total grows as the square of its epochs inside one window; F158 at
+  objects times its window images (median ratio 1.000), so a field's
+  total grows as the square of its epochs inside one window: on the
+  HLWAS breadth runs, whose fields span under 10 days, quadratically
+  over epochs 1 to 26, copies 0.57 of run 38's rows and copies crossing
+  runs of one dataset; the table is 4.83 M rows, 1.02 GB, 211 B a row,
+  81% of it runs 36 to 38; past a 30-day span unmeasured; F158 at
   14 epochs held about 14 rows per packet and its packet job about
   300 s.
 - The cost of a large change group, about three round trips per item
@@ -1670,8 +1674,8 @@ cold queue.
 - Whether the published differencer returns to SFFT: with `dev`'s
   prefilter under HLWAS's OpenUniverse block it detects 530 of 600
   injected against ZOGY's 542 at half the false positives; and whether
-  the naive subtraction keeps running for its outcome bits
-  ([difference](difference)).
+  the naive subtraction keeps running now that it makes no PSF-fit
+  catalog ([difference](difference)).
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.
