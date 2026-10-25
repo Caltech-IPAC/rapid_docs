@@ -19,8 +19,7 @@ comment per key naming the measurement that earned it; the
 | SOC simulation r00342, the High Latitude Wide Area Survey | `hlwas-r00342.toml` | HLWAS | 2026-10-22 |
 | SOC simulation r00340, the Galactic Bulge Time Domain Survey | `gbtds-r00340.toml` | GBTDS | 2026-10-24 |
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
-| RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | GBTDS | 2026-10-24 |
-| RimTimSim, the 2026-06-22 delivery | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
+| RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
 | Flight, program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight-1049.toml` | CAR198 | 2026-10-25 |
 
 ## HLWAS, r00342
@@ -37,6 +36,7 @@ the second iteration's proofs ran on it.
 | The L2 WCS sits (+0.12, −0.99) px from the simulation's own input-catalog stars, on every file | the overlay: `crpix_shift = [0.12, -0.99]`; the intake's Gaia-offset metric reads +0.127 / −0.986 px without it and +0.007 / +0.003 with it |
 | Each filter's passes differ in timing | the reference bound is the midpoint of the filter's third and fourth passes, set per run |
 | The last two passes' exposures are 107.5 s against 294.1 s | recorded ([foundation](foundation), Not decided here) |
+| Under SFFT's shipped block the stage's zero-filled DQ-masked science cores (0.03% of the frame, 31% of Σ reference²) dominate the kernel fit: core +0.251 | the overlay: `dev`'s OpenUniverse `[difference.sfft]` block, read only under `diff_flavor = "sfft"`: core −0.000 on one pair ({ref}`decisions <decision-hlwas-sfft-block>`); the published differencer stays ZOGY ({ref}`decisions <decision-hlwas-sfft-rearm>`, [difference](difference), Measured) |
 
 ## GBTDS, r00340
 
@@ -64,13 +64,19 @@ simulation's key grammar, with a preview and a thumbnail PNG and a
 | The data-quality flags are HLWAS's | the overlay: HLWAS's mask |
 | The bulge is confusion-limited, so the reference PSF cannot be measured from its stars (none passes) | the overlay: `[difference] reference_psf = "science"`, the science PSF for both images |
 | With the science PSF on the reference, 346 to 418 core-and-ring residuals per epoch above S/N 20 | recorded with its gallery; this dataset's next measurement |
-| The difference job takes 820 s, 3.5 times HLWAS's, on 9,000 candidates per epoch | recorded |
+| The difference job takes 820 to 1,036 s, 3.5 to 4.5 times HLWAS's, on 9,000 to 13,500 candidates per epoch | recorded |
+| The 9100 px reference peaks at 4,514 MiB of its 6,144 MiB ask (27% margin) | recorded |
+| SCA 2's intake Gaia offset `gaia_dy_px` sits at +0.23 to +0.38 px on every epoch (SCA 8 −0.08 to +0.05) | recorded; unread |
 | The input-catalog tiles over the bulge are stars only, 700 MB and 7.7 million rows each | recorded |
 | The Gaia archive returns at most 50,000 rows a job, silently | recorded; the cone is fetched in sub-boxes with the count checked (256,209 rows) |
 
-One pointing's SCA 8, nine F146 epochs, ran through the whole chain:
-the reference from the first six, three epochs differenced, 515
-packets on the topic, every check clean.
+Two samples ran through the whole chain, nine F146 epochs each, the
+reference from the first six and three epochs differenced, every check
+clean: pointing 268.54 −28.54 SCA 8 (`r00340-gb1`), 515 packets, and
+pointing 266.71 −28.93 SCA 2 (`r00340-gb3`), 1,278 packets, every kept
+source above S/N 20. Three differences fall below the gate's
+`min_epochs`, so the gate sends a sample's sets unjudged, and under
+`reference_psf = "science"` only the usable fraction exists to judge.
 
 ## OpenUniverse TDS
 
@@ -121,27 +127,6 @@ Measured), so ZOGY under the field rule is not measured here. It is a different 
 detects 0.94 to 0.98 to AB 25 on sources placed at will. The runbook's
 part 12 step 3 holds the numbers.
 
-## RimTimSim, 2026-06-22
-
-TRExS's RimTimSim simulator, one Galactic-bulge field (`dev`'s field
-4682737) on SCA 2 in F087 and F213, 263 files read as `dev`'s converted
-`_lite.fits.gz` files: F087 132 and F213 131, every exposure 54.72 s,
-the dithers within 0.69 by 0.61 arcsec and the rotation 29.098° on
-every file.
-
-| Quirk | Disposition |
-|---|---|
-| The files are FITS, the image in DN with a TAN-SIP WCS and a zero point (`ZPTMAG`, 25.8573 in F213 and 26.2982 in F087), no uncertainty and no DQ | a reader of its own: `[intake] reader = "rimtimsim"` writes the SOC layout with `dev`'s converter's headers; a DQ mask is refused, NaN stay NaN; a file not in DN, without `ZPTMAG`, or whose filter or SCA contradicts its name is refused |
-| The file name is the exposure, with no visit or pass | the loop lists the flat prefix; a pointing is the exposure number, the `expid`; no passes |
-| The WCS sits (+0.052, +0.060) px from 588 Gaia DR3 stars | recorded; no `crpix_shift` |
-| No ePSF reference is named; `dev` uses a WebbPSF library file this account cannot read | the overlay's `[psf.epsf]`: the CRDS references context `roman_0077` answers for WFI02 at the field's start, `roman_wfi_epsf_0280` (F213) and `0266` (F087); F213's leaves a residual 0.024 of the peak inside 8 px on 60 isolated stars |
-| `dev` transposes the science PSF for this dataset | not built: the F213 stamp is within 0.0017 of its own transpose, and the residual moves from 0.024 to 0.022 transposed |
-| Written at gain 1, read noise 11, rate saturation 1.1e6 DN, no cosmic rays or bad pixels | the overlay: `dev`'s rimtimsims values, and the artefact repair off, since its threshold is below the stars' cores |
-| The reference stars measure (100 used of 160 passing, σ 1.32 px) | `reference_psf` stays `"measured"` |
-
-The reader is proven on one file; the chain has not yet run on this
-dataset.
-
 ## Flight data, program 1049
 
 The first flight images held and read: program 1049, "RAPID CAR-198
@@ -174,8 +159,7 @@ One run, 118, took the four epochs through the whole chain:
 - every job published on its first attempt and every check clean.
 
 The runbook's part 13 step flight-first holds the numbers.
-
-## RimTimSim, the 2026-06-22 delivery
+## RimTimSim, 2026-06-22
 
 TRExS's Roman time-domain image simulator: one Galactic-bulge field
 (`dev`'s 4682737, one tessellation field), SCA 2 only, F087 (132
@@ -189,12 +173,14 @@ tables and time series per filter.
 
 | Quirk | Disposition |
 |---|---|
-| A FITS file, not ASDF: the image in DN at gain 1, no ERR or DQ, NaN present | a reader of its own: `[intake] reader = "rimtimsim"`, `dev`'s header builders onto the SOC layout |
-| The file names no ePSF reference | the overlay's `[psf.epsf]`: CRDS's answer under `roman_0077` for WFI02 per filter ({ref}`decisions <decision-rimtimsim-epsf>`) |
+| A FITS file, not ASDF: the image in DN at gain 1, no ERR or DQ, NaN present, a zero point in `ZPTMAG` (25.8573 F213, 26.2982 F087) | a reader of its own: `[intake] reader = "rimtimsim"`, `dev`'s header builders onto the SOC layout; a DQ mask is refused, NaN stay NaN; a file not in DN, without `ZPTMAG`, or whose filter or SCA contradicts its name is refused |
+| The file name is the exposure, with no visit or pass | the loop lists the flat prefix; a pointing is the exposure number, the `expid`; no passes |
+| The file names no ePSF reference | the overlay's `[psf.epsf]`: CRDS's answer under `roman_0077` for WFI02 per filter, `roman_wfi_epsf_0280` (F213) and `0266` (F087) ({ref}`decisions <decision-rimtimsim-epsf>`) |
+| The reference stars measure (100 used of 160 passing, σ 1.32 px) | `reference_psf` stays `"measured"` |
 | `dev` transposes the science PSF for this simulation | measured on one epoch: core −0.0694 → −0.0688, ring −0.0339 → −0.0385; not taken |
 | `dev`'s artefact repair threshold (10,000 DN/s) is below the stars' cores | the overlay: off, with `dev`'s rimtimsims gain, read noise and saturation |
 | The WCS | right as converted: Gaia DR3 at +0.03 to +0.12 / −0.01 to +0.08 px; no `crpix_shift` |
-| F213's differences over-subtract star cores (core −0.050 to −0.075, 10k to 13k negative candidates above S/N 20 per epoch) | recorded; the quality gate holds those sets; the next measurement for this dataset |
+| F213's differences over-subtract star cores (core −0.050 to −0.075, 10k to 13k negative candidates above S/N 20 per epoch) | recorded; the quality gate holds every such set once the run has `min_epochs` differences (a five-epoch sample sends its first four unjudged); the next measurement for this dataset |
 | Every epoch fills the 500-source cap, and a difference takes 28 to 72 min | recorded |
 | The 2025-05-13 truth's times and star positions match the images, its injected signal does not; its dim-EB time series carry the blended-EB ids | recorded; no completeness until a truth for this delivery exists |
 
