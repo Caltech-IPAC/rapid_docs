@@ -201,12 +201,15 @@ Its order:
    taken, at most `--max-intake` per pass. Each names its filter's and
    SCA's science PSF. The first intake of an exposure expects the
    shared `exposures` key; the others leave it out.
-3. **reference**: one job per field and filter with at least
-   `[reference.selection] min_frames` official L2 rows, no official
-   reference and none pending or failed, and only while no intake of
-   the run is pending, so a reference coadds every epoch the drain
-   admits rather than the first two to land. The rows are one SCA's,
-   the first in order with enough frames; the job's scope records which.
+3. **reference**: one job per field and filter that a selected L2 row
+   has as its own field, with no official reference and none pending or
+   failed, and only while no intake of the run is pending, so a
+   reference coadds every epoch the drain admits rather than the first
+   two to land. Its frames are the selected official rows of the
+   filter, of any SCA, whose `overlapfields` list the field, at least
+   `[reference.selection] min_frames` of them, as `dev` selects them
+   ({ref}`ruling <decision-reference-by-field>`). The job's scope records
+   the first SCA among the rows it serves.
    With a reference bound set, the rules change as described under
    [The reference bound](#the-reference-bound).
 4. **difference**: one job per official L2 row whose field has an
@@ -295,16 +298,17 @@ seconds after the last one started, or at once if the pass ran longer.
 ## The reference bound
 
 A run may set `[reference.selection] before_mjd`, a modified Julian
-date. With it set, a field's reference is built only from the field's
-epochs before the bound, and only the epochs at or after it are
-differenced, so no epoch is subtracted from a reference that holds it.
+date. With it set, a field's reference is built only from the epochs
+before the bound that overlap the field, and only for a field an epoch
+at or after the bound has as its own. Only the epochs at or after it
+are differenced, so no epoch is subtracted from a reference that holds it.
 The bound is a date rather than a list of passes because a survey such
 as GBTDS has no passes ({ref}`ruling <decision-reference-bound>`). Absent, every
 epoch may build the reference and every epoch is differenced, as
 before.
 
-With the bound set, a reference job names only the field's official L2
-rows with `mjdobs` before it, and waits until the selection's intake has
+With the bound set, a reference job names only those official L2 rows
+with `mjdobs` before it, and waits until the selection's intake has
 drained: every listed file the selection admits is published and no
 intake of the run is pending. No intake pending is not enough on its
 own, because a pass admits at most `--max-intake` files and a field's
@@ -313,7 +317,7 @@ bound get no difference, association or packet; the field's chain
 starts at the bound.
 
 A field that, once the intake has drained, has fewer than `min_frames`
-official rows before the bound, none at all included, gets no
+official rows before the bound that overlap it, none at all included, gets no
 reference. The pass reports it under `held`, with the field and the
 reason, on every pass. A held field does not keep the loop from
 draining, and the verb exits 0: the gap is recorded, with no timeout.
