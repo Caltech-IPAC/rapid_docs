@@ -159,6 +159,7 @@ One run, 118, took the four epochs through the whole chain:
 - every job published on its first attempt and every check clean.
 
 The runbook's part 13 step flight-first holds the numbers.
+
 ## RimTimSim, 2026-06-22
 
 TRExS's Roman time-domain image simulator: one Galactic-bulge field
