@@ -145,7 +145,7 @@ the SOC reader unchanged; no run has read them yet.
 | The intake's Gaia offset reads dy −0.56 to −0.35 px, Gaia's 2016.0 positions against 2026.81: proper motion, about 0.45 px; propagated, −0.06 to −0.04 px, and tweakreg's fit rmse is 0.013 to 0.015 px | no WCS correction; the metric applies no proper motion, right for the simulations |
 | 472 hot pixels outside the mask, 341 flagged by nothing | recorded; no mask value removes them |
 
-## RimTimSim, the 2026-06-22 delivery
+## RimTimSim, 2026-06-22
 
 TRExS's Roman time-domain image simulator: one Galactic-bulge field
 (`dev`'s 4682737, one tessellation field), SCA 2 only, F087 (132
