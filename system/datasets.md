@@ -30,6 +30,8 @@ Gaia-fitted WCS and no time-variable sources, so every difference is a
 null test. The ramp, the breadth run over seven filters, the fixes and
 the second iteration's proofs ran on it.
 
+**In the inputs bucket** (every input of the live runs, 2026-10-25): L2 `g0008-selfcontained/stpubdata/roman/nexus/soc_simulations/r00342/l2/` (82 files, 16.79 GB); the injected footprint's L2 `r00342-inj1/l2/` (426 files, 87.03 GB) and truth `r00342-inj1/catalog/` (2 files, 1.50 MB), held there already; Gaia `g0008-selfcontained/host/…/gaia-dr3-hlwas-r00342-box.parquet` (16.3 MB). The prefix's `_manifest.json` lists every object, its source and its sha256.
+
 | Quirk | Disposition |
 |---|---|
 | The L2 data-quality flags mark defects the difference stage otherwise detects | the overlay: `dq_mask_bits = 0x2110C01`, commissioning's rule without SATURATED |
@@ -43,6 +45,8 @@ the second iteration's proofs ran on it.
 STScI's SOC simulation of the bulge survey, in the wide-area
 simulation's key grammar, with a preview and a thumbnail PNG and a
 `_wcs.asdf` sidecar beside every L2 file.
+
+**In the inputs bucket** (every input of the live runs, 2026-10-25): L2 the two sample roots under `g0008-selfcontained/<scratch bucket>/rapidpipe/foundation/samples/`, `r00340-gb1/l2/` and `r00340-gb3/l2/` (9 files each, 3.65 GB); no truth; Gaia `g0008-selfcontained/host/…/gaia-dr3-gbtds-r00340-gb1-box.parquet` (102.4 MB) and, its host file gone, the copy run 112 read, `gaia-dr3-gbtds-r00340-gb3-box.parquet` under `g0008-selfcontained/<scratch bucket>/` (12.8 MB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
 | | r00340 |
 |---|---|
@@ -84,6 +88,8 @@ The OpenUniverse 2024 time-domain simulation, romanisim's
 `simple_model` images. STScI's copy is ASDF, 13,256 files over seven
 filters in one patch of about 0.27 deg²; IRSA's public release holds the
 whole sequence as FITS, 2.06 million files.
+
+**In the inputs bucket** (every input of the live run, 2026-10-25): L2 `g0008-selfcontained/stpubdata/roman/nexus/open_universe/TDS/simple_model/H158/` (16 files, 4.33 GB); truth IRSA's index per image and the observing sequence under `g0008-selfcontained/nasa-irsa-simulations/openuniverse2024/roman/full/RomanTDS/` (17 files, 69.2 MB); the star catalog the packet stage matches, `g0008-selfcontained/host/…/openuniverse-tds-h158-sca10-stars.parquet` (103 kB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
 - **The pointing is a row of the observing sequence**, whose date is
   the file's exposure start. A visit runs all seven filters over 2.7
@@ -138,6 +144,8 @@ bucket under `flight-1049/` with a manifest (the source prefix is the
 run's `intake.source_root`). WFI02 was taken because every WFI01 row of
 the program names a placeholder guide star.
 
+**In the inputs bucket** (every input of the live run, 2026-10-25): L2 `flight-1049/` (4 files, 833.6 MB), held there already; no truth; Gaia `g0008-selfcontained/host/…/gaia-dr3-flight-1049-box.parquet` (355 kB). The prefix's `_manifest.json` lists every object, its source and its sha256.
+
 | Quirk | Disposition |
 |---|---|
 | romancal 1.0.2's `wfi_image-2.0.0`, with `chisq`, `dumo`, `amp33` and border reference pixels and no `var_rnoise` or `var_flat` | the `soc-l2` reader, unchanged: the same stem grammar, meta tree and pixel flags; the extra arrays become extra HDUs |
@@ -171,6 +179,8 @@ converted `lite` files, `rimtimsim_WFI_<filter>_SCA02_<exposure>_lite.fits.gz`
 number GBTDS's. The only truth delivered is the 2025-05-13 delivery's
 metadata: an input catalog of 4.97 million stars, injected-parameter
 tables and time series per filter.
+
+**In the inputs bucket** (every input of the live runs, 2026-10-25): L2 `g0007-rimtimsim/rimtimsim-260622-lite/` (the 30 files read, 1.77 GB) and the 2025-05-13 truth `g0007-rimtimsim/rimtimsim-250513/metadata/` (27 files, 9.89 GB), held there already; Gaia `g0008-selfcontained/host/…/gaia-dr3-rimtimsim-260622-box.parquet` (24.7 MB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
 | Quirk | Disposition |
 |---|---|
