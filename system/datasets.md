@@ -79,8 +79,13 @@ reference from the first six and three epochs differenced, every check
 clean: pointing 268.54 −28.54 SCA 8 (`r00340-gb1`), 515 packets, and
 pointing 266.71 −28.93 SCA 2 (`r00340-gb3`), 1,278 packets, every kept
 source above S/N 20. Three differences fall below the gate's
-`min_epochs`, so the gate sends a sample's sets unjudged, and under
-`reference_psf = "science"` only the usable fraction exists to judge.
+`min_epochs`, so the gate sends a sample's sets unjudged. Under
+`reference_psf = "science"` the core, ring and registration stars are the
+reference mosaic catalog's (rapid PR 465). On `r00340-gb3`'s sample (run
+139) the core is −0.036 to −0.048, the ring −0.038 to −0.039 and the
+registration offset at most 0.019 px, over 29 stars per epoch. The gate,
+replayed at `min_epochs`, holds every epoch on the core (bound ±0.025):
+the science half of ZOGY is mismatched there.
 
 ## OpenUniverse TDS
 

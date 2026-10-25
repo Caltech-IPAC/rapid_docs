@@ -73,7 +73,10 @@ absent, never zero, when it cannot be made: the registration offset
 PSF's stars, before the subpixel shift), the reference stars' width and
 its ratio to the science PSF's, the core (within 2.5 pixels) and ring
 (2.5 to 6) fractions of the difference over star flux at the 30 brightest
-isolated stars, the noise correlation, the usable fraction (finite and
+isolated stars (under `reference_psf = "science"`, which measures no
+reference PSF, the residual, ring and registration stars are the reference
+mosaic's SExtractor catalog mapped onto the science grid, the registration
+stars the residual stars' rule applied to it), the noise correlation, the usable fraction (finite and
 covered pixels), the candidates before the cap and the sources after it,
 those above S/N 20, and the share on a reference-catalog source within 3
 pixels. The database's `job_metrics` view exposes every job's metrics by
