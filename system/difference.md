@@ -137,6 +137,17 @@ Photutils PSF fit: on an empty field photutils returns no table, which
 is the empty catalog, and it raises only on a fault, such as a zero or
 NaN uncertainty under a source, which fails the job.
 
+Every PSF-fit catalog, ZOGY's, SFFT's and the naive one's, positive and
+negative, takes the difference's non-finite pixels as its mask: the
+finder sees them filled from their neighbours (a Gaussian of σ 1 px; a
+hole wider than its 9 × 9 kernel is set to 0), and the finder and the
+fit are both given the mask, so no filled value enters a flux; the
+residual image is made from the unfilled data. Photutils' finder
+otherwise drops any star with a non-finite pixel inside its kernel,
+about 4 px, and passing the mask alone does not change that. A star
+whose own peak pixel is masked is still missed
+({ref}`ruling <decision-psfcat-nan-fill>`).
+
 **`dev`'s pixel columns.** On every row of both SFFT PSF-fit catalogs,
 before the cap and whichever differencer is published, the job measures
 `dev`'s `sumrat` (`sum(p) / sum(|p|)` over a 5 x 5 stamp after a 3 x 3
@@ -283,7 +294,7 @@ port or departs from `dev`:
 | `[difference.paths] work_subdirectory` | `diff` | the working directory under the attempt's prefix |
 | `[difference.awaicgen] zprefimg` | empty | an override of the reference zero point; empty reads the reference's `MAGZP` |
 | `[difference.zogy] astrometric_sigma` | 0.0 | ZOGY's astrometric inputs, 0.0 as `dev` overrides them |
-| `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev`; under `diff_flavor = "sfft"`, `run_sfft = false` fails the settings check |
+| `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev`; under `diff_flavor = "sfft"`, `run_sfft = false` fails the settings check; a dataset's overlay may carry its own block, and HLWAS's is `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100; [datasets](datasets)) |
 | `[difference.sumrat]` | `stamp_size` 5, `filter_size` 3, `lower_median` false | `dev`'s `[SUMRAT]`; `false` takes the mean of the two middle values of an even count, so pure noise's sumrat is about 0, where ZTF's median is biased to about −0.32 |
 | `[difference.extra_catalog_cols]` | `nneg_nbad_stamp_size` 5, `pixel_cols_bkg_box` 64, `pixel_cols_bkg_filter_size` 3 | `dev`'s `[EXTRA_CATALOG_COLS]`: the `nneg` and `nbad` stamp and the local background the three columns are measured after |
 | `[difference.database_prefilter] sumrat_prefilter_threshold` | 0.4 | `dev`'s `[DATABASE_PREFILTER]`, applied under `sfft` only; `""` applies no prefilter |
@@ -358,6 +369,28 @@ refill the cap. On the null epoch (runs 104, 102, 106) the packets are
 same with the cut and without it, so the gate's bounds, read on ZOGY,
 stand for the shipped flavour.
 
+SFFT's core residual on HLWAS is the stage's zero-filled DQ-masked
+science cores in its unmasked kernel fit (5,096 px, 31% of Σ reference²;
+masking them alone gives core −0.014). Under `dev`'s OpenUniverse block,
+which the HLWAS overlay carries, the core is −0.000 and the ring −0.009
+on one pair, with 179 of 200 injected matched against 130 (ZOGY 183;
+rapid PR 435, run 109, Batch proof run 111)
+({ref}`ruling <decision-hlwas-sfft-block>`). With the prefilter under
+that block, on the same injected bytes (rapid PR 440, runs 114 and 113
+on `rapid-rebuild:77`), SFFT detects 530 of 600 against ZOGY's 542, the
+losses only at AB 26 and 26.5, with 102 false positives per epoch (118
+at the highest) against 214 (233) and 86 null packets against 182; the
+total detected is short, so `diff_flavor` stays `zogy`
+({ref}`ruling <decision-hlwas-sfft-rearm>`).
+
+The finder fill (rapid PR 439, on `rapid-rebuild:78`, ZOGY, same
+bytes): on SCA 7, whose isolated masked pixels blinded 24% of its area,
+detection below AB 25 rises from 0.728 to 0.959 (within 5 px of a mask
+9 → 81 of 93), false positives per epoch 174 → 165 (runs 115, 117); on
+SCA 8 detected 542 → 545 of 600, false positives 214 (233) unchanged
+(run 116). Candidates before the cap rise where the difference has
+isolated masked pixels.
+
 ## Not decided here
 
 - Source-level parity with `dev`. The two references are 25 different
@@ -368,11 +401,13 @@ stand for the shipped flavour.
   sources with known positions.
 - `dev`'s real/bogus score and its prefilter cut, left out of the thin
   chain: no score is computed.
-- Whether the published differencer returns to `sfft`. `dev`'s pixel
-  columns and its prefilter do not bring SFFT's catalog to ZOGY's on
-  HLWAS (Measured), so the route is SFFT's own configuration. Under
-  SFFT `n_sources_snr_gt20` sits at the cap on every epoch, so the
-  gate's count check cannot see an SFFT epoch off-scale.
+- Whether the published differencer returns to `sfft`. Under HLWAS's
+  OpenUniverse block SFFT trails ZOGY only at AB 26 and 26.5, at half
+  the false positives (Measured). Excluding the zeroed DQ cores from
+  SFFT's fit in the stage is the lever not yet measured, and the other
+  datasets' blocks are unchecked for the same effect. Under the shipped
+  block `n_sources_snr_gt20` sits at the cap on every epoch, so the
+  gate's count check cannot see such an SFFT epoch off-scale.
 - Whether the naive subtraction keeps running now that only its
   outcome bits remain of it. Turning it off is a settings change with a
   science consequence, the bits.

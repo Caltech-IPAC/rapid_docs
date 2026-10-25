@@ -1667,9 +1667,11 @@ cold queue.
   ([datasets](datasets)).
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
-- Whether the published differencer returns to SFFT, now that `dev`'s
-  pixel columns and prefilter are ported, and whether the naive
-  subtraction keeps running for its outcome bits ([difference](difference)).
+- Whether the published differencer returns to SFFT: with `dev`'s
+  prefilter under HLWAS's OpenUniverse block it detects 530 of 600
+  injected against ZOGY's 542 at half the false positives; and whether
+  the naive subtraction keeps running for its outcome bits
+  ([difference](difference)).
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.
