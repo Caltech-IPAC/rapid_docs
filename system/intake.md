@@ -114,13 +114,18 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 | `dq_mask_bits` | 0 | nothing masked, `dev`'s behaviour; a dataset's overlay names the bits whose pixels become NaN |
 | `crpix_shift` | `[0.0, 0.0]` | the file's WCS unchanged; a dataset's measured translation, in pixels, added to `CRPIX1` and `CRPIX2` |
 | `rederive_wcs` | false | the file's gWCS; true re-derives it from the file's `wcsinfo` and the distortion reference it names, before the SIP fit |
+| `gaia_proper_motion` | false | the Gaia offset's stars at the catalog's `ref_epoch`, where the SOC simulations place them; true carries each star by its `pmra` and `pmdec` to the frame's mid-exposure (`MJD-OBS` plus half `EXPTIME`) with the packet stage's propagation, as flight data needs; `dev` has no such metric |
 
 Each dataset's values, and the measurement behind each, are on the
 [datasets](datasets) page. When the job names its dataset's Gaia
 `catalogs` input, as the loop does once one is official, its metrics
 record `gaia_dx_px`, `gaia_dy_px` and `n_gaia_stars`: the median offset
 of the isolated Gaia stars on the frame, measured minus predicted
-through the published WCS, a check of the WCS on every file.
+through the published WCS, a check of the WCS on every file. Under
+`gaia_proper_motion` the stars are first carried to the frame's epoch,
+so on flight data the offset no longer reads proper motion as WCS
+(program 1049: dy −0.56 to −0.35 px at 2016.0, −0.060 to −0.038 px
+propagated).
 
 ## What it measured
 

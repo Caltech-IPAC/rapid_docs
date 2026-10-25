@@ -70,7 +70,7 @@ simulation's key grammar, with a preview and a thumbnail PNG and a
 | With the science PSF on the reference, 346 to 418 core-and-ring residuals per epoch above S/N 20 | recorded with its gallery; this dataset's next measurement |
 | The difference job takes 820 to 1,036 s, 3.5 to 4.5 times HLWAS's, on 9,000 to 13,500 candidates per epoch | recorded |
 | The 9100 px reference peaks at 4,514 MiB of its 6,144 MiB ask (27% margin) | recorded |
-| SCA 2's intake Gaia offset `gaia_dy_px` sits at +0.23 to +0.38 px on every epoch (SCA 8 −0.08 to +0.05) | recorded; unread |
+| SCA 2's intake Gaia offset `gaia_dy_px` sits at +0.23 to +0.38 px on every epoch (SCA 8 −0.08 to +0.05) | recorded; not proper motion: carried to the frame's epoch it reads +0.297 against +0.232 on one file; SCA 2's distortion or the Gaia sample unread |
 | The input-catalog tiles over the bulge are stars only, 700 MB and 7.7 million rows each | recorded |
 | The Gaia archive returns at most 50,000 rows a job, silently | recorded; the cone is fetched in sub-boxes with the count checked (256,209 rows) |
 
@@ -115,7 +115,8 @@ whole sequence as FITS, 2.06 million files.
 | Transients live through the first visits: 348 of 761 lit transient rows in the sample have light in a reference frame | the reference stays the first visits under `before_mjd`; the count judges only transients that start after its last frame with no light in it, and reports the rest apart |
 | No Gaia stars in the simulation, and the packet stage needs a catalog | the run's catalog is the truth's star rows on Gaia's schema; the intake's WCS metric reads them, (−0.08, −0.07) px |
 | Every difference fills dev's cap of 500 sources (2,077 to 3,682 candidates, 261 to 500 kept above S/N 20) | recorded; it sets the faint end of the count, the next measurement |
-| The gain match scales the reference by 2.2 (HLWAS 0.99) | recorded; the flux of the subtracted transients is right to 0.95 |
+| The gain match scales the reference by 2.2 (HLWAS 0.99) | the shipped socsim reference zero point, `zprefimg_h158` 25.6549 against the file's 26.5113: 10^(0.4 × 0.8564) = 2.2006, 124 stars 2.214, not `sca_gain`; the flux of the subtracted transients is right to 0.95. On the science's own zero points it reads 1.018, and with `sca_gain = 1.0` too 1.011, with every check held but false positives 493 against 492 inside the capped 500, so the overlay keeps the socsim values, the tolerance Ben's |
+| `sca_gain` 2 is not this simulation's: the science sky's std is 1.535 times the gain-2 noise model and 0.980 times the gain-1 model | recorded; the overlay unchanged with the zero points above |
 
 The chain runs end to end under the reader. The sample is H158 on one
 SCA, whose live transients are the brightest of the seven filters, in
@@ -152,21 +153,24 @@ the program names a placeholder guide star.
 | The data-quality flags are roman_datamodels' pixel flags, as in the simulations | the overlay: HLWAS's mask `0x2110C01`, 0.231% of each frame; 1.36% carry any flag, the largest unmasked GW_AFFECTED_DATA (the guide window) 0.37% |
 | The file names its ePSF, `roman_wfi_epsf_0239` (CRDS `roman_0077`), on all four files: stpsf 2.0.0's pre-flight simulation, pedigree SIMULATION, no jitter | the psf stage reduces it by name, as for the SOC files; the ePSF per file is met |
 | `meta.photometry` is present | the zero point is the file's, ZPTMAG 25.801 |
-| The intake's Gaia offset reads (−0.08 to +0.16, −0.56 to −0.35) px, but that is Gaia DR3 at epoch 2016.0: propagated to 2026.81 the stars sit within 0.09 px | recorded; no WCS key; the metric reads proper motion as WCS on flight data |
+| At Gaia DR3's epoch 2016.0 the intake's Gaia offset reads (−0.08 to +0.16, −0.56 to −0.35) px, proper motion and not WCS | the overlay: `[intake] gaia_proper_motion = true` carries each star to the frame's mid-exposure; the offset reads dx −0.091 to −0.045, dy −0.060 to −0.038 px; no WCS key |
 | The program number is real | the overlay: `program_id = 1049` |
-| The dithers, 0.04 deg apart, put the four centres in three tessellation fields, and the loop builds a field's reference only from rows whose own field it is (dev: every file whose `overlapfields` lists it) | recorded ({ref}`decisions <decision-reference-by-field>`); e4's field reference was submitted by hand with dev's selection, e1 to e3 |
+| The dithers, 0.04 deg apart, put the four centres in three tessellation fields | the loop builds e4's field reference from e1 to e3, every row before the bound whose `overlapfields` list the field, as `dev` ({ref}`decisions <decision-reference-by-field>`) |
 | The reference covers 78.4% of the differenced frame | recorded; usable fraction 0.781, which the gate holds once judged |
 | **Hot pixels**: 3,116 pixels sit above 10 sigma of their local background at the same detector position in all four frames; 341 carry no flag | the mask removes 2,644; no single extra bit removes more than 72 of the other 472 (WARM), so not fixed; the ramp's JUMP_DET fires on 1,235 of them every exposure |
 | **The pointing**: the Gaia stars are 1.19 to 1.20 times the ePSF's width on every frame, nearly isotropic, with a small common elongation over the ePSF (e 0.025 to 0.043, PA +14 to +47°) | recorded; **pointing oscillation unmet, not observable in four 60 s frames**: broadening and a common elongation do not name jitter over charge diffusion or the model's error; the guide window's time series or a run of short exposures would show it |
 
-One run, 118, took the four epochs through the whole chain:
+Run 126 takes the four epochs through the whole chain under the loop
+alone (run 118, the first, had e4's reference submitted by hand under
+the loop's earlier field rule; e4 is identical in both):
 
 - the reference for e4's field from e1 to e3 (`before_mjd = 61337.4594`);
 - e4 differenced in 223 s, core +0.001 and ring −0.005, registration (−0.018, −0.013) px, S/N > 20 228 positive and 150 negative;
 - 328 packets on the topic, sent unjudged below the gate's `min_epochs`;
 - every job published on its first attempt and every check clean.
 
-The runbook's part 13 step flight-first holds the numbers.
+The runbook's part 13 steps flight-first, ref-overlap and gaia-pm hold
+the numbers.
 
 ## RimTimSim, 2026-06-22
 
