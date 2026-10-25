@@ -841,8 +841,9 @@ script of the chain, `thin_proof.py`, is retired with `associate`.
 ## On SMDC
 
 The SMDC database `rapid` holds the foundation in its `public` schema,
-and the pipeline repository's `docs/foundation-smdc-step.md` is the
-procedure, one command and then its check per step. It has eleven parts.
+and the pipeline repository's `docs/foundation-smdc-step.md` is its
+state page: what each of the step's thirteen parts proved and the current
+procedure, the run log left to that file's git history.
 
 **The schema.** `public` is dropped and recreated from `schema.sql` in
 one transaction, through the pooler, as the database owner. Everything
@@ -1204,7 +1205,8 @@ and read 33,650 packets back in 388 s.
 ## Measurements
 
 Measured 2026-10-21 on SMDC, field 4658155, SCA 8, filter W146, every
-Batch job with one vCPU. The pipeline repository's runbook carries the
+Batch job with one vCPU. The pipeline repository's runbook, as run at
+[`940e29b5`](https://github.com/Caltech-IPAC/rapid/blob/940e29b5/docs/foundation-smdc-step.md), carries the
 full tables, ids and commands; these are its results. They are
 observations, not gates: latency and performance are a later task
 ({ref}`ruling <decision-latency-later>`).
@@ -1471,8 +1473,9 @@ for F146, the image study's run, read from the database by lineage.
 ### The second iteration
 
 Measured 2026-10-24 on SMDC (brief `night-2026-10-24`), on the
-wide-area simulation's F146 data unless named; the runbook's part 11
-holds the jobs, commands and raw tables.
+wide-area simulation's F146 data unless named; the runbook's part 11,
+as run at [`940e29b5`](https://github.com/Caltech-IPAC/rapid/blob/940e29b5/docs/foundation-smdc-step.md), holds the jobs,
+commands and raw tables.
 
 **The null test, with the bright end flagged.** On pass 4 of the first
 pointing, after the HLWAS WCS translation:
@@ -1507,7 +1510,8 @@ attached its 105 memberships exactly as the sequential run had.
 **Completeness and purity, injected.** 200 constant sources per image,
 AB 21 to 27 uniform, in SCA 8's 162 epochs over the footprint after
 the reference bound; matched within 0.3″ through the corrected WCS.
-Every 0.5 mag bin is in the runbook; every other bin here:
+Every 0.5 mag bin is in the runbook as run at
+[`940e29b5`](https://github.com/Caltech-IPAC/rapid/blob/940e29b5/docs/foundation-smdc-step.md); every other bin here:
 
 | AB | Injected | Detected | Alerted | Alerted, of those detected in their image's own field | Purity, packets at this measured magnitude |
 |---|---|---|---|---|---|
