@@ -28,13 +28,12 @@ in this repository's history.
 | `official undo <group-id> --who --why` | Applies the inverse of a change group and prints the new group's id |
 | `publish --run N [--settings FILE]` | Produces every official packet set of the run not yet stamped to the Kafka topic, stamping each once acknowledged; prints the counts |
 | `loop --run --filters --scas --pointings [--passes] --job-definition D [--job-queue Q] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit ([loop](loop)) |
-| `stage run <name> ...`, `stage <name> ...`, `stage list`, `stage describe <name>` | Runs, lists or describes the stages on the older contract, `admit` and `finalize` ([stage contract](stage-contract), "Stages on the older contract"); the loop runs neither |
-| `selftest --stage finalize [--real-tools] [--work-dir D] [--output-location L]` | Runs `finalize`'s packaged fixture and checks its outputs; no other stage has one |
 
 The stages the loop submits (`psf`, `intake`, `reference`, `difference`,
 `packet`) and `import`, which a person runs by hand before the loop, are
-reached through `job local`, `job submit` and `job run`, never through
-`stage`.
+reached through `job local`, `job submit` and `job run`. The older
+contract's `stage` and `selftest` commands were retired on 2026-10-25
+(rapid PR 464).
 
 ## What the tool does not have
 
@@ -47,7 +46,7 @@ and the named queries in `database/queries.sql`. To cancel a Batch job:
 ## Exit codes
 
 Every `rapidpipe` process uses `rapidpipe/exitcodes.py` (`ExitCode`);
-the [stage contract](stage-contract) page lists the six a stage returns.
+the [stage contract](stage-contract) page lists what `job run` returns.
 
 | Code | Meaning |
 |---|---|

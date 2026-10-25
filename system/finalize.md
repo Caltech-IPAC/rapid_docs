@@ -2,10 +2,11 @@
 
 **Status: DRAFT**
 
-This stage still runs on the older contract ([stage-contract](stage-contract),
-"Stages on the older contract"), and the loop does not run it. Where this
-page describes registration, custody, runs or promotion, the
-[foundation](foundation) page governs.
+The module this page describes was retired from the `rebuild` branch on
+2026-10-25 with the older stage contract it ran on (rapid PR 464); git keeps it.
+The loop never ran it. Whether a post-processing stage (database ids in
+headers, the header stamp) returns is the [migration](migration) page's
+question for the team. This page stays as the record of the port.
 
 The `finalize` stage stamps a difference image's header and republishes
 its bundle as new instances. It lands on the pipeline repository's

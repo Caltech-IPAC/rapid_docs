@@ -31,15 +31,15 @@ import package `rapidpipe`. The word `rapid` alone means the project.
 | `rapidpipe.foundation` | The operations over `database/schema.sql`: runs and jobs, `change` and `undo`, `publish`, the stage contract (`JobContext`, `run_job`), and reading and writing `file://` and `s3://` prefixes. |
 | `rapidpipe.stages` | One module per stage. |
 | `rapidpipe.launch` | Submitting a recorded job to Batch. |
-| `rapidpipe.selftest` | The packaged fixture of `finalize`, the runner that drives the stages still on the older contract, and the fake toolkits the `reference` and `difference` unit tests use. |
 | `rapidpipe.cli` | The command-line tool: parses the command line and prints, with no orchestration of its own. |
 
 A unit test enforces the dependency order across every module,
 including lazy and relative imports: a unit imports only units strictly
-below it. From lowest to highest: the leaf modules (`exitcodes`, `log`
-and `revision`, with no `rapidpipe` import), `products`, then
+below it. From lowest to highest: the leaf modules (`exitcodes` and
+`log`, with no `rapidpipe` import), `products`, then
 `db`, `science` and `foundation` (which do not import one another),
-`stages`, `launch`, `selftest`, then `cli`. A stage module never imports
+`stages`, `launch`, then `cli`. The `reference` and `difference` unit
+tests' fake toolkits are under the repository's `tests/support/`. A stage module never imports
 another stage module.
 
 ## The stage contract
@@ -168,23 +168,17 @@ Off Batch nothing retries by itself. Every retry, whether Batch's, a
 and one that finds the job published stops at once. The
 [foundation](foundation) page states the rule and why.
 
-## Stages on the older contract
+## The older contract, retired
 
-`admit` and `finalize` still run as `rapidpipe stage <name> --run
---unit --attempt --inputs --outputs [--settings] [--dry-run]`, through
-the shared runner `run_stage` in `rapidpipe/stages/contract.py`, with
-their default settings under `rapidpipe/settings/<name>.toml` and
-`finalize`'s fixture under `rapidpipe selftest`. They write files and a
-manifest but publish nothing, and their exit codes are the six of
-`STAGE_EXIT_CODES` (0, 64, 65, 69, 70, 75). They cannot run on Batch:
-`job submit` runs only `run(job)` stages, and the loop runs neither. Each moves to `run(job)` when
-it is ported, declaring the rows its registration block carries today
-(`l2files` for `admit`, a `diffimages` row for `finalize`) as Parquet
-outputs, and computing
-limiting magnitude, overlapping fields and sky indices before
-publication.
+`admit` and `finalize` ran on an older contract, `rapidpipe stage <name>
+--run --unit --attempt --inputs --outputs`, through a shared runner,
+with per-stage settings files and a packaged fixture under `rapidpipe
+selftest`; they wrote files and a manifest and published nothing, and
+the loop ran neither. They, the runner, the `stage` and `selftest`
+commands and the fixture were retired on 2026-10-25 (rapid PR 464); git keeps
+them. `run(job)` is the one contract.
 
-`reference` and `difference` ported the same way, and the port set the
+`reference` and `difference` were ported to `run(job)`, and the port set the
 pattern: the module's settings file becomes the stage's table in the
 run's body, its old entry point, selftest module and fixtures are
 deleted rather than kept beside the new one, and the science modules
@@ -203,5 +197,7 @@ needs.
 
 ## Not decided here
 
-- The port of `admit` and `finalize` to `run(job)`.
+- Whether a post-processing stage (database ids in headers, the header
+  stamp `finalize` wrote) returns: the [migration](migration) page's
+  question for the team.
 - The C tool packaging beneath `rapidpipe.science`.
