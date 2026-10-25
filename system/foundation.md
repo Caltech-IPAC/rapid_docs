@@ -758,7 +758,9 @@ only the offset ranges the run's stamped sets recorded, overlapping
 ranges merged, with no consumer group; keeps a set's messages by key
 and headers; requires every stamped packet to be seen; and decodes and
 byte-compares against the outbox one set per field, the field's latest.
-Zero kept is a failure, so a run with no stamped set fails. The
+A run with no stamped packet set, or whose stamped sets hold no
+packet, fails (rapid PR 458), so a run whose sets the gate holds fails
+the check. The
 client's own record checksum is switched off, since it is pure Python
 and held the read to about 50 messages a second. A run's check takes
 about 4 s at one pointing and 388 s over 33,650 packets, whatever the
@@ -1193,7 +1195,8 @@ took 666 s against 1,512 s.
 a time, and the consumer check, streams their output, and prints one
 line, `Check run <id>: CLEAN|FAIL validate <passed>/<checks> <s> reader
 <clean>/<sets> <s> consumer <seen>/<expected> <s>`, exiting non-zero
-when any of the three fails. Every run of the breadth part was checked
+when any of the three fails; through the consumer check it reads a run
+that sent no packet as FAIL. Every run of the breadth part was checked
 with it, and every one was clean, as was every run of the second
 iteration: the injected footprint's on-demand run validated in 475 s
 and read 33,650 packets back in 388 s.

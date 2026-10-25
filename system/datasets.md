@@ -78,7 +78,8 @@ Two samples ran through the whole chain, nine F146 epochs each, the
 reference from the first six and three epochs differenced, every check
 clean: pointing 268.54 −28.54 SCA 8 (`r00340-gb1`), 515 packets, and
 pointing 266.71 −28.93 SCA 2 (`r00340-gb3`), 1,278 packets, every kept
-source above S/N 20. Three differences fall below the gate's
+source above S/N 20; run 139 on the same sample read 1,196 at equal
+kept sources, cause unread. Three differences fall below the gate's
 `min_epochs`, so the gate sends a sample's sets unjudged. Under
 `reference_psf = "science"` the core, ring and registration stars are the
 reference mosaic catalog's (rapid PR 465). On `r00340-gb3`'s sample (run
@@ -200,7 +201,7 @@ tables and time series per filter.
 | `dev` transposes the science PSF for this simulation | measured on one epoch: core −0.0694 → −0.0688, ring −0.0339 → −0.0385; not taken |
 | `dev`'s artefact repair threshold (10,000 DN/s) is below the stars' cores | the overlay: off, with `dev`'s rimtimsims gain, read noise and saturation |
 | The WCS | right as converted: Gaia DR3 at +0.03 to +0.12 / −0.01 to +0.08 px; no `crpix_shift` |
-| F213's differences over-subtract star cores (core −0.050 to −0.075, 10k to 13k negative candidates above S/N 20 per epoch) | recorded; the quality gate holds every such set once the run has `min_epochs` differences (a five-epoch sample sends its first four unjudged); the next measurement for this dataset |
+| F213's differences over-subtract star cores (core −0.050 to −0.075, 10k to 13k negative candidates above S/N 20 per epoch) | recorded; the quality gate holds every such set once the run has `min_epochs` differences (a five-epoch sample sends its first four unjudged). `reference_psf = "science"` on epoch 4571 brings the core inside its bound but the ring further outside (core −0.0694 → −0.0044, ring −0.0339 → −0.0557, 30 stars, run 133), so it is not taken; the overlay's comment records it (rapid PR 462). A reference-against-science width mismatch (1.39 against 1.30 px), the next lever a code knob |
 | Every epoch fills the 500-source cap, and a difference takes 28 to 72 min | recorded |
 | The 2025-05-13 truth's times and star positions match the images, its injected signal does not; its dim-EB time series carry the blended-EB ids | recorded; no completeness until a truth for this delivery exists |
 

@@ -152,8 +152,9 @@ definition.
 |---|---|
 | 0 | The job was published, or was already published; or it was published and its automatic binding was refused only because its run is not live, the refusal on its row and on standard error |
 | 1 | The job was published, but its automatic binding was refused for another reason, such as an expected binding no longer open; its rows are an unbound candidate |
-| 64 | Usage: bad arguments, no outputs root, a stage with no `run(job)`, a run or input that does not exist, or a database configuration that cannot be read |
-| 70 | The stage or the publication raised, a tool's nonzero exit included (`ToolFailed`); the job is marked `failed` |
+| 64 | Usage: bad arguments, no outputs root, a stage with no `run(job)`, a run or input that does not exist (the foundation's `NotFound`), or a database configuration that cannot be read |
+| 65 | A declared input the stage rejects (`CommandExit(65, reason)`): difference's, reference's and import's input checks |
+| 70 | The stage or the publication raised, a tool's nonzero exit (`ToolFailed`), a stage's own lookup error, a missing dependency or a failed product write included, with the traceback; the job is marked `failed` |
 | 75 | A temporary dependency failure: the database unavailable or failing mid-query after the connection's own retries, or a storage or AWS call (the parameter store's included) throttled, timed out, unreachable or answered with HTTP 503 |
 
 A failed job's row records the code the process exits with, and its

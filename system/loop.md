@@ -126,14 +126,15 @@ night uses a dataset name of its own.
    1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
    and exits non-zero.
 
-**What the exit codes mean**, as on `rebuild` at `d4866eab`:
+**What the exit codes mean**, as on `rebuild` at `efc03fc6`:
 
 | Code | `loop` | `job local` |
 |---|---|---|
 | 0 | the selection drained with no failed or refused job (or one `--once` pass saw none) | the job published; under a run that is not live, the refusal is on stderr and on its row |
 | 1 | it drained around failed jobs, or jobs published with their binding refused. Each is named on stderr and in the last pass's `failed`, and the rest of the selection drained around them. Read the row's `refusal` (`rp job show <id>`), fix the cause, rerun with `rp job submit --job <id> --job-definition $JOBDEF`, then start the loop again | the job published but its binding was refused under a live run |
 | 64 | a usage error: the run does not exist, the selection cannot be parsed, its first pass found no file of the selection under the source root, or the dataset has no single official Gaia catalog when a packet job is due | the run or an input does not exist, or the arguments are wrong |
-| 70 | an unexpected error, traceback on stderr | the stage failed: an exception, or a tool's nonzero exit (`ToolFailed`, with the tool's name, code and last 20 lines on the row) |
+| 65 | not returned | the stage rejected a declared input (difference, reference or import), `CommandExit: <reason>` on the row |
+| 70 | an unexpected error, traceback on stderr | the stage failed: an exception (a stage's own `KeyError` among them, with its traceback), or a tool's nonzero exit (`ToolFailed`, with the tool's name, code and last 20 lines on the row) |
 | 75 | a transient failure: the database was unavailable, or an AWS call was throttled or timed out. Start the loop again | the same; Batch repeats such a job on its own |
 
 ## The selection
