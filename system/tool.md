@@ -53,10 +53,10 @@ the [stage contract](stage-contract) page lists what `job run` returns.
 | 0 | Success; also a job published under a run that is not live, the refusal on its row and on standard error |
 | 1 | A refused change group or a job published with its binding refused; `job wait` when a job failed; `loop`, `--once` included, when a job of the run failed or was published with its binding refused |
 | 2 | `job wait`'s `--timeout` passed first |
-| 64 | Usage: every argparse parse failure (help exits 0), a missing run, job or group, an unreadable file, `RAPIDPIPE_OUTPUTS_ROOT` unset, a database configuration error, and `loop` when its first pass finds no stem of the selection under the source root |
-| 65 | A declared input absent, corrupt or incompatible (a stage's own invocation) |
+| 64 | Usage: every argparse parse failure (help exits 0), a missing run, job or group (the foundation's `NotFound`, no other lookup error), an unreadable file, `RAPIDPIPE_OUTPUTS_ROOT` unset, a database configuration error, and `loop` when its first pass finds no stem of the selection under the source root |
+| 65 | A declared input rejected by the stage reading it: difference, reference or import (`CommandExit: <reason>` on the row) |
 | 69 | Reserved; nothing in this build returns it |
-| 70 | An unexpected error, logged with its traceback; a failed external tool (`ToolFailed`) |
+| 70 | An unexpected error, logged with its traceback: a stage's own `KeyError` or `IndexError`, a missing dependency, a failed product write; a failed external tool (`ToolFailed`) |
 | 75 | A transient failure: the database unavailable or failing mid-query, a storage or AWS call throttled, timed out or unreachable; Batch retries it |
 
 A failed job's row records the same code its process exits with.
