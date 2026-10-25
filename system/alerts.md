@@ -380,12 +380,11 @@ the input set, a choice left to the team.
 `ssMatch` runs only when `[alerts] kona_file` names a file; the default
 is empty, and an empty setting skips the KONA prediction import
 entirely, so nothing imports `rapid_kona` in the default path. `NED`
-cross-matching runs only when `[alerts] ned = true`; the default is
-`false`, where `dev`'s own `ned_match` defaults on, and a test run never
-sets it, since the cross-match calls an external web service
-(`astroquery`, the reader `dev` used before its move to a local HATS
-mirror, which is not ported here). The reference-catalog
-cross-match (`refMatch`) runs when `[alerts] refcat` is set and the
+cross-matching does not run: the packet stage leaves `nedMatches` null,
+where `dev`'s own `ned_match` defaults on. The astroquery reader and
+matcher ported from `dev`'s earlier copy were deleted uncalled (rapid PR
+467), and `dev`'s local HATS mirror of NED is not ported. The
+reference-catalog cross-match (`refMatch`) runs when `[alerts] refcat` is set and the
 input set's `reference-catalog` entry is present.
 
 ## Settings
