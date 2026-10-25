@@ -177,7 +177,7 @@ their default settings under `rapidpipe/settings/<name>.toml` and
 `finalize`'s fixture under `rapidpipe selftest`. They write files and a
 manifest but publish nothing, and their exit codes are the six of
 `STAGE_EXIT_CODES` (0, 64, 65, 69, 70, 75). They cannot run on Batch:
-`job submit` runs only `run(job)` stages. Each moves to `run(job)` when
+`job submit` runs only `run(job)` stages, and the loop runs neither. Each moves to `run(job)` when
 it is ported, declaring the rows its registration block carries today
 (`l2files` for `admit`, a `diffimages` row for `finalize`) as Parquet
 outputs, and computing

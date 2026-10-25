@@ -3,8 +3,9 @@
 **Status: DRAFT**
 
 This stage still runs on the older contract ([stage-contract](stage-contract),
-"Stages on the older contract"). Where this page describes registration,
-custody, runs or promotion, the [foundation](foundation) page governs.
+"Stages on the older contract"), and the loop does not run it. Where this
+page describes registration, custody, runs or promotion, the
+[foundation](foundation) page governs.
 
 The `finalize` stage stamps a difference image's header and republishes
 its bundle as new instances. It lands on the pipeline repository's
