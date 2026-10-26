@@ -1,7 +1,5 @@
 # Stage contract and package layout
 
-**Status: DRAFT**
-
 A stage implementation is accepted only if it meets this contract. The
 [foundation](foundation) page states the records a stage works within:
 runs, jobs, recorded inputs, official bindings and the publisher.
@@ -49,8 +47,8 @@ another stage module.
 A stage is `rapidpipe/stages/<name>.py` with one function,
 `run(job: JobContext) -> None`. The stage named `import` lives in
 `import_products.py`, since `import` is a Python keyword. The stages on
-this contract are `import`, `reference`, `difference`, `associate` and
-`packet`; the [foundation](foundation) page describes each. A stage
+this contract are `intake`, `psf`, `import`, `reference`, `difference`
+and `packet`; the [foundation](foundation) page describes each. A stage
 that needs a C tool (awaicgen, SExtractor, SWarp, ZOGY, SFFT) gets it
 from a `toolkit()` function in its module, which its unit tests
 replace with fakes.
@@ -83,7 +81,7 @@ without publishing.
 ### Settings
 
 A stage's settings are its table in the run's settings body, for
-example `[associate]` in `rapidpipe/settings/foundation-thin.toml`. The
+example `[reference]` in `rapidpipe/settings/foundation-thin.toml`. The
 body is stored whole on the run when the run is created, so there is no
 overlay and no resolution at run time; a retune is a new run.
 Algorithm parameters belong in settings, with `dev`'s values where
@@ -114,7 +112,7 @@ products, reached through the URL a declared row records.
 way of running a stage goes through it:
 
 - `rapidpipe job local --run <id> --stage <name> --scope JSON
-  [--inputs JSON] [--expects JSON] [--excludes JSON]` records the job
+  [--inputs JSON] [--expects JSON]` records the job
   and runs it in this process;
 - `rapidpipe job run --job <id>` runs an existing job's next attempt;
 - `rapidpipe job submit ... --job-definition <name:revision>` records
@@ -193,8 +191,8 @@ checks before a stage reads, `register` writing rows from manifests,
 and stages writing catalog rows themselves. The run model's database
 stages (`register`, `load`, `maintain`, `crossmatch`, `statistics`,
 `prune`, `alerts`, `export`) were retired with its schema; `intake`,
-`import`, `associate` and `packet` replace the ones the thin chain
-needs.
+`psf`, `import` and `packet` replace the ones the thin chain needs, and
+the association runs in the `difference` job.
 
 ## Not decided here
 

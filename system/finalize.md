@@ -1,6 +1,6 @@
 # The finalize stage
 
-**Status: DRAFT**
+**Status: retired**
 
 The module this page describes was retired from the `rebuild` branch on
 2026-10-25 with the older stage contract it ran on (rapid PR 464); git keeps it.

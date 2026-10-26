@@ -1,7 +1,5 @@
 # The command-line tool
 
-**Status: DRAFT**
-
 `rapidpipe` is the team's single command-line tool, shipped in the
 pipeline repository and the image's entrypoint. This page lists the
 commands it has on the `rebuild` branch, as `rapidpipe --help` and each

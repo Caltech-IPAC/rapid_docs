@@ -1,7 +1,5 @@
 # The foundation and the thin chain
 
-**Status: DRAFT**
-
 This page states how RAPID records what it made and which of it is
 official, and the narrow chain of stages built on that record, from
 stored images to alert packets. It is the design the `rebuild` branch
@@ -287,8 +285,15 @@ an archive export all read it without conversion.
 
 **The database is authoritative for bookkeeping.** Runs, failed jobs
 and official changes with their reasons live only in the database, and
-its backups are what protect them. Catalog rows can be reloaded from a
-job's Parquet; the bookkeeping cannot.
+its backups are what protect them. rapid_systems keeps two (`main` at
+`067a425`, 2026-10-26): one crash-consistent EBS snapshot set of the
+database's data and WAL volumes a day at 06:00 UTC, the newest 14 kept
+(`cloudformation/rapid-db-dlm.yaml`), and pgBackRest's continuous WAL
+archive in S3 with a base backup each day at 07:30 UTC, full on Sundays
+and differential otherwise, the newest four fulls kept, for
+point-in-time restore (`cloudformation/rapid-db-backup-schedule.yaml`,
+`rpms/rapid-db-tools/pgbackrest.conf.in`). Catalog rows can be reloaded
+from a job's Parquet; the bookkeeping cannot.
 
 **A cutover is one change group.** It rebinds the affected products and
 the live binding together. A campaign that carries live results forward
@@ -851,9 +856,10 @@ else in the database stays: the operations schema, the pooler's lookup
 schema and every role. The pipeline's role then gets read, write and
 `MAINTAIN` on every table and sequence, and the same by default on
 anything created later. SMDC is a prototype that nothing else writes
-to ({ref}`ruling <decision-smdc-prototype>`), so there is no backup
-before the replace and no fence on the pooler around it; the rollback
-is the previous schema in git. The check that the pipeline's own path
+to ({ref}`ruling <decision-smdc-prototype>`), so the replace keeps no
+copy of the old schema's rows and has no fence on the pooler around it;
+the rollback is the previous schema in git. The standing backups above
+are not part of the step. The check that the pipeline's own path
 works is `rapidpipe run show 1` exiting 64, "run 1 does not exist".
 
 **The inputs.** The field's files are copied into the inputs bucket

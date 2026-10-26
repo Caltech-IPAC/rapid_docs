@@ -1,6 +1,6 @@
 # The prune stage
 
-**Status: DRAFT**
+**Status: retired**
 
 The module this page describes was retired from the `rebuild` branch with
 the run model. The [foundation](foundation) page states what replaced it;
