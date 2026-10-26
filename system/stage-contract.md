@@ -1,5 +1,7 @@
 # Stage contract and package layout
 
+**Status: current**
+
 A stage implementation is accepted only if it meets this contract. The
 [foundation](foundation) page states the records a stage works within:
 runs, jobs, recorded inputs, official bindings and the publisher.

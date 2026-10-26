@@ -8,8 +8,7 @@ governs, as the specification's own header says.
 A page's status is in its first lines. **DRAFT** marks a page that is
 unfinished, carries rulings still pending, or in part describes the run
 model the foundation replaced; **current** marks a page whose text was
-read against the `rebuild` branch's tip (2026-10-26) and carries no
-status line; **retired** marks the record of a stage retired from
+read against the `rebuild` branch's tip (2026-10-26); **retired** marks the record of a stage retired from
 `rebuild`. **ADOPTED** means normative; nothing becomes ADOPTED without
 the team's review.
 

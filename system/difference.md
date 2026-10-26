@@ -1,5 +1,7 @@
 # The difference stage
 
+**Status: current**
+
 `difference` subtracts one epoch's L2 image from the reference its job
 names, with ZOGY and with SFFT, catalogs both, and declares one
 differencer's image and source set for the publisher: the one

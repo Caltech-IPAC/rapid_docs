@@ -231,8 +231,8 @@ a page that has moved past it.
 
 Status lines: **DRAFT** is a page that is itself unfinished, carries
 rulings it calls pending, or in part describes the run model the
-foundation replaced; a page with no status line was read against the
-code at the tip and describes it; **retired** is the record of a stage
+foundation replaced; **current** is a page read against the code at
+the tip that describes it; **retired** is the record of a stage
 retired from `rebuild`; **STUB** is a page for
 a stage that is declared, with its contract and settings fixed, but not
 yet ported; **ADOPTED** is normative and used for nothing in this

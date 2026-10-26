@@ -1,5 +1,7 @@
 # The loop
 
+**Status: current**
+
 `rapidpipe loop` carries a selection of a live run's data from the
 source root to the Kafka topic. Each pass admits what is new, moves
 every ready epoch one stage forward, and ends by publishing what became

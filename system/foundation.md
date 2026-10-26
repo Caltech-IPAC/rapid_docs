@@ -1,5 +1,7 @@
 # The foundation and the thin chain
 
+**Status: current**
+
 This page states how RAPID records what it made and which of it is
 official, and the narrow chain of stages built on that record, from
 stored images to alert packets. It is the design the `rebuild` branch

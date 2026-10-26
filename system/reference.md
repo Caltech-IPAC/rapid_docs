@@ -1,5 +1,7 @@
 # The reference stage
 
+**Status: current**
+
 `reference` coadds the L2 images its job names into one reference image
 for a field, filter and SCA, catalogs the mosaic with SExtractor, and
 declares three tables for the publisher. It runs `dev`'s reference

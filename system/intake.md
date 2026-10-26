@@ -1,5 +1,7 @@
 # The intake stage
 
+**Status: current**
+
 The `intake` stage turns one SOC L2 file, a calibrated Roman image in
 ASDF, into the L2 product the rest of the chain reads: a gzipped FITS
 file in `dev`'s layout, one `l2files` row and, for one SCA of each
