@@ -11,6 +11,7 @@ The text of this site is licensed under
 configuration and scripts, and the pipeline software, are under the BSD
 3-Clause License, stated in their repositories.
 
+- [Day one](day-one): from an SMDC login to a merged pull request and a local epoch
 - [Team and contact](team)
 - [How the project is run](how-the-project-is-run)
 - [Contributing](contributing)
@@ -19,6 +20,7 @@ configuration and scripts, and the pipeline software, are under the BSD
 ```{toctree}
 :hidden:
 
+day-one
 team
 how-the-project-is-run
 contributing

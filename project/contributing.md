@@ -3,8 +3,8 @@
 RAPID is developed in the open. The pipeline's contribution guidelines
 and code of conduct live with the code, in the pipeline repository:
 
-- [Contributing to the pipeline](https://github.com/Caltech-IPAC/rapid/blob/main/CONTRIBUTING.md)
-- [Code of conduct](https://github.com/Caltech-IPAC/rapid/blob/main/CODE_OF_CONDUCT.md)
+- [Contributing to the pipeline](https://github.com/Caltech-IPAC/rapid/blob/rebuild/CONTRIBUTING.md)
+- [Code of conduct](https://github.com/Caltech-IPAC/rapid/blob/rebuild/CODE_OF_CONDUCT.md)
 
 The code of conduct applies to this site and its repository as well.
 
