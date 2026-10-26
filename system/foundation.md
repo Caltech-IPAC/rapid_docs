@@ -241,7 +241,7 @@ searches on image centres, containment on overlapping fields and the
 forced-photometry image search are most of the team's query shapes.
 The base tables keep q3c indexes on image and object centres and a GIN
 index on `overlapfields`, and every official view is a plain join so
-the planner reaches them. A failed execution publishes nothing, so
+PostgreSQL's planner reaches them. A failed execution publishes nothing, so
 `status` is a column a query filters on, not part of a view.
 
 **Columns `dev` backfills are computed before publish.** `dev` fills
@@ -1441,7 +1441,7 @@ stage computes it since rapid PR 422.
 
 ### The fixes
 
-Measured 2026-10-24 on SMDC (brief `fixes-2026-10-23`), on the wide-area
+Measured 2026-10-24 on SMDC (the fixes, the runbook's part 10), on the wide-area
 simulation's first pointing, SCA 8, in all seven filters, each filter a
 dataset of its own with a new live run: the L2 data-quality flags masked
 at intake (commissioning's rule without SATURATED), the reference PSF
@@ -1484,7 +1484,7 @@ for F146, the image study's run, read from the database by lineage.
 
 ### The second iteration
 
-Measured 2026-10-24 on SMDC (brief `night-2026-10-24`), on the
+Measured 2026-10-24 on SMDC (the second iteration), on the
 wide-area simulation's F146 data unless named; the runbook's part 11,
 as run at [`940e29b5`](https://github.com/Caltech-IPAC/rapid/blob/940e29b5/docs/foundation-smdc-step.md), holds the jobs,
 commands and raw tables.

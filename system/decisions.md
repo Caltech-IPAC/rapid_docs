@@ -7,6 +7,28 @@ author's name. CI on `main` is the only gate. Once recorded here, a
 ruling belongs to the team. Design pages state the rule and cite this
 page where attribution matters.
 
+(decision-open-questions)=
+## Open questions
+
+Questions no ruling has closed yet, one line each with why it is open.
+A ruling that closes one goes under Rulings and its line leaves.
+
+- **GBTDS's gate bounds**: whether GBTDS gets core and ring bounds of its
+  own. Replayed at `min_epochs`, the gate holds every run 139 epoch on
+  the core (−0.036 to −0.048 against the HLWAS-derived ±0.025), so the
+  HLWAS bounds would hold every GBTDS set (rapid PRs 465, 470).
+- **A false-positive tolerance**: whether an acceptance that compares
+  false-positive counts allows for the count's own epoch-to-epoch spread.
+  The OpenUniverse zero-point candidate failed only on false positives,
+  493 against 492 inside the capped 500 (rapid PR 451), and the SFFT
+  default only on false positives per epoch, 102.7 against 101.7
+  (rapid PRs 485, 486).
+- **SMDC's resources the rebuild may not need**: whether the alerts bucket,
+  MSK, the bulk lane, unused parameter leaves and authority records are
+  kept or removed. Open until the rebuild's publication and bulk
+  processing are decided (rapid_systems `docs/rebuild-smdc-retirement.md`,
+  `docs/questions.md`).
+
 ## Rulings
 
 (decision-sfft-published)=
@@ -18,7 +40,7 @@ image, its PSF and uncertainty. This is `dev`'s choice since b725007d
 diagnostics. With SFFT off, or on a nonzero SFFT exit, the job fails
 rather than falling back to ZOGY. The switch precedes the measurement:
 rapid PR 408 switches, and the paired measurement against the ZOGY runs
-80 and 81, by brief `differencer`'s second task, adds its numbers here.
+80 and 81 adds its numbers here.
 (Ben, 2026-10-24 19:22 UTC)
 Measured on the same bytes (rapid PR 418; runs 88 and 89 against 81
 and 80): on HLWAS injected `001_0001` SCA 8, three epochs, SFFT detects
@@ -31,7 +53,7 @@ matched to no truth row. Difference seconds are unchanged.
 
 
 Ben's rulings of 2026-10-24 04:00 to 04:40 UTC on the second
-iteration (brief `night-2026-10-24`). The [foundation](foundation) and
+iteration (the pipeline repository's runbook, part 11). The [foundation](foundation) and
 [difference](difference) pages state the rules they set.
 
 (decision-bright-star-flag)=
@@ -181,8 +203,8 @@ detected and 0.40 alerted, and 15,485 of the 15,655 detected injected
 sources outside their image's field lay in a field no image of the run
 is centred on. The packet's forced window follows: the images covering
 the object, whichever field each is centred on. A divergence from
-`dev`, with no knob. (Session decision under the standing rule, Ben's
-yolo of 2026-10-24 14:02 UTC; day-2026-10-24 task 1)
+`dev`, with no knob. (Recorded under the standing rule for a divergence
+with no knob, Ben, 2026-10-24 14:02 UTC; rapid PR 393)
 
 (decision-tool-exit-checked)=
 **An external tool's nonzero exit fails the job**: SExtractor, SWarp,
@@ -200,8 +222,8 @@ difference job failed at its first SExtractor call with exit 70 and
 `ToolFailed: cat exited with code 1` and `cat`'s two lines on its row,
 not rerun; its twin run 84 published as run 82 did (773 against 774
 candidates, Intel against AMD). A divergence from `dev`, with no knob.
-(Session decision under the standing rule, Ben's envelope of 2026-10-24
-19:22 UTC; err-tools task 1, rapid PR 407)
+(Recorded under the standing rule for a divergence with no knob, Ben,
+2026-10-24 19:22 UTC; rapid PR 407)
 
 (decision-pixel-columns-fail)=
 **`dev`'s pixel columns fail the job when their background fails**:
@@ -217,8 +239,8 @@ Measured on HLWAS injected `001_0001` SCA 8, three epochs (rapid PR
 422, run 96): sumrat > 0.4 keeps 0.997 of the 391 injected candidates,
 0.68 of the 6,464 noise candidates and 0.90 of the 2,257 bright-flagged
 ones; the columns cost 4.3 to 5.2 s a difference. A divergence from
-`dev`, with no knob. (Session decision under the standing rule, Ben's
-envelope of 2026-10-24 19:22 UTC; dev-columns task 1)
+`dev`, with no knob. (Recorded under the standing rule for a divergence
+with no knob, Ben, 2026-10-24 19:22 UTC; rapid PR 422)
 
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
@@ -405,8 +427,8 @@ and lanes follow the number. (Ben, 2026-09-27; provisional, the team
 confirms or replaces the number)
 
 (decision-step-ledgers)=
-**Step ledgers**: stay ephemeral. The 632 "supervisor step / R / A"
-citations in code and pages are replaced by the design-page section they
+**Step ledgers**: stay ephemeral. The 632 citations of working steps
+and review rounds in code and pages are replaced by the design-page section they
 implement; the 313 dated narration lines leave the pages.
 (Ben, 2026-09-27)
 
@@ -461,7 +483,7 @@ makes them the team's; each page states the rule.
   departure from `dev` ([load](load)).
 - 2026-09-26: the proof spec stays unrepaired ([operations](operations)).
 
-## Carried from the build, pending team review
+## Pending team review
 
 These rulings come from build sessions and their reviews. Each remains
 in force as its page states it until the team confirms, changes or
@@ -533,28 +555,24 @@ removes it here.
   started, the launcher resubmits the unit as a fresh attempt. The run's
   maximum attempts per unit includes reclaims and defaults to 1. Retries
   stay within that limit; a run must set it to allow them.
-  Carried from the build, pending team review.
-  (Claude for Ben, 2026-09-28)
+  (2026-09-28)
 - **Promoting a retried date.** A `--retry-failed` run cannot be
   promoted alone: its after-instances depend on the seed run's
   candidates and on the field's reference. Today a person promotes the
   reference run, the seed run and the retry run in that order, and
   rolls them back in reverse. The team decides whether `run
   promote-plan` of a seeded run includes its seed chain's candidates in
-  one request. Carried from the build, pending team review.
-  (Claude for Ben, 2026-09-28)
+  one request. (2026-09-28)
 - **Imported references are unreleased.** A reference imported
   launcher-side by `tools/register-reference.py` ran no released image,
   so its promotion records a `--allow-unreleased` exception. The team
   decides whether reference import runs through a released image.
-  Carried from the build, pending team review.
-  (Claude for Ben, 2026-09-28)
+  (2026-09-28)
 - **Checks before promotion.** Neither the loop's failed run nor a
   hand-run `--retry-failed` run carried check results, so promotion
   refused under `rebuild-trial@1`; a person ran `check run` on both
   before promoting. The team decides whether the loop and the retry
-  path run the policy's checks themselves. Carried from the build,
-  pending team review. (Claude for Ben, 2026-09-28)
+  path run the policy's checks themselves. (2026-09-28)
 - Runs written under the first-run prefix stay where they were written.
   (2026-09-24)
 
@@ -580,8 +598,7 @@ removes it here.
   first. (2026-09-27)
 - **No retry in the window.** The scheduled window cannot retry a
   failed date because `op-processing-date-loop.sh` passes no
-  `--retry-failed`; a person runs the retry by hand. Carried from the
-  build, pending team review. (Claude for Ben, 2026-09-28)
+  `--retry-failed`; a person runs the retry by hand. (2026-09-28)
 
 ### Stage contract and tool
 
@@ -621,7 +638,7 @@ removes it here.
 - **Photometry stub removed.** The rebuild carries no photometry stage;
   forced photometry stays `dev`'s `forcedPhotometryForField.py`. Exit
   code 69 stays reserved in the stage contract, since no stage in this
-  build returns it now. Carried from the build, pending team review. (2026-09-27)
+  build returns it now. (2026-09-27)
 - `run cancel` from a workstation needs `batch:TerminateJob` on the
   workstation role, not yet granted. (2026-09-24)
 - **Custody database access.** A stage's database access is `none`,
@@ -629,7 +646,7 @@ removes it here.
   read guard. `admit`, `reference`, `difference` and `finalize` declare
   it, since the guard needs the database whenever their input names a
   registered instance, and `none` skips the guard ([stage
-  contract](stage-contract), "Declaration"). Carried from the build, pending team review. (Claude for Ben, 2026-09-28)
+  contract](stage-contract), "Declaration"). (2026-09-28)
 - A stage declaration carries no argument schema or resource defaults:
   nothing read them, and the Batch job definition owns resources
   ([stage contract](stage-contract)). `run create` takes no `--lane`,
@@ -925,7 +942,7 @@ commit is attested and the unit-file commit is its child). Currency is
 reported with identities and an unknown state, admission control at
 window entry replaces idle checks, the retention table is extended, and
 an acceptance list is met before arming. (Ben, by lifting the
-constraint; Claude, on merit; 2026-10-06)
+constraint; adopted on merit after an independent review, 2026-10-06)
 
 (decision-freeze-reopened)=
 **Freeze reopened, identical membership firm**: production installs the
@@ -933,7 +950,7 @@ canary's recorded version set, with explicit versions and a baseline
 snapshot for errata, and the canary re-runs its install at Thursday
 admission if any repository moved. Identical package membership across
 hosts stays firm. The design is stated on the weekly-maintenance page,
-not as a ruling. (Ben; design by Claude, 2026-10-06)
+not as a ruling. (Ben, 2026-10-06)
 
 (decision-extensibility)=
 **Flexibility for team development**: the transaction runs on every merge
@@ -941,8 +958,8 @@ to main as well as on Wednesday, and the window applies the last bundle
 with valid proofs. Workstations converge on demand outside the window.
 New packages and dependencies enter by pull request and are published
 the same day. Per-user environments are outside the managed set. The
-design page carries this as an Extensibility section. (Ben, requirement;
-design by Claude, 2026-10-06)
+design page carries this as an Extensibility section. (Ben, requirement,
+2026-10-06)
 
 (decision-timetable)=
 **Timetable**: the on-merge transaction is serialised and coalesced;
@@ -982,7 +999,7 @@ The cause is located, not the kernel: the stage zeroes the science image's DQ-ma
 **RimTimSim's science PSF is reduced from CRDS's ePSF for its detector and filter**: new, not dev's. `dev`'s RimTimSim runs read the WebbPSF library file per SCA and filter (`WFI_SCA02_F213_PSF_DET_DIST.fits`, registered by `db_register_sciimg_psfs.py`) from its own bucket; the rebuild's psf stage reduces CRDS ePSF references, and the lite files name none, so the dataset's overlay names the references CRDS's `roman_0077` answers for WFI02 (`roman_wfi_epsf_0280` F213, `0266` F087) in `[psf.epsf]`. Measured: the F087 stars are 1.08 times the stamp's sigma and the subtraction's core fraction is −0.005 to +0.024; the F213 stars are 1.04 times it and the core −0.050 to −0.075 (runs 100 and 99, five epochs each). (rimtimsim-reader, rapid PR 429, 2026-10-24)
 
 (decision-hlwas-sfft-rearm)=
-**The HLWAS overlay does not set `diff_flavor = "sfft"`: under its SFFT block, SFFT with dev's prefilter misses one condition of dev-prefilter's rule against ZOGY, detecting 530 of 600 injected sources against ZOGY's 542.** dev-prefilter's arm C was re-run once on the same bytes at `rapid-rebuild:77` (`a761ae23`), now under the overlay's OpenUniverse block (HLWAS injected `001_0001` SCA 8 F146 passes 4 to 6 against run 81's references, runs 114 and 113 null against run 95's). Arm A's rows (runs 103, 104 at `:76`, the same ZOGY code) were read again, not re-run. The rule, verbatim from dev-prefilter's brief: SFFT ships only if it detects at least as many of the 600 in total and at AB 24 to 25, and has no more false positives per epoch and null packets per epoch than A, on both the mean and the highest epoch. This brief added that every difference sit inside the gate's core ±0.025 and ring ±0.015.
+**The HLWAS overlay does not set `diff_flavor = "sfft"`: under its SFFT block, SFFT with dev's prefilter misses one condition of dev-prefilter's rule against ZOGY, detecting 530 of 600 injected sources against ZOGY's 542.** dev-prefilter's arm C was re-run once on the same bytes at `rapid-rebuild:77` (`a761ae23`), now under the overlay's OpenUniverse block (HLWAS injected `001_0001` SCA 8 F146 passes 4 to 6 against run 81's references, runs 114 and 113 null against run 95's). Arm A's rows (runs 103, 104 at `:76`, the same ZOGY code) were read again, not re-run. The rule, verbatim as set before the measurement: SFFT ships only if it detects at least as many of the 600 in total and at AB 24 to 25, and has no more false positives per epoch and null packets per epoch than A, on both the mean and the highest epoch. The re-run added that every difference sit inside the gate's core ±0.025 and ring ±0.015.
 
 - **It fails on one condition only**: detected 530 against 542. It loses 13 at AB 26 and 26.5 (46 → 41, 20 → 12) and gains one at AB 25.5, net 12.
 - **It meets or beats A on the others**:
