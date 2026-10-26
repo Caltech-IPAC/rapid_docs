@@ -5,8 +5,8 @@
 `difference` subtracts one epoch's L2 image from the reference its job
 names, with ZOGY and with SFFT, catalogs both, and declares one
 differencer's image and source set for the publisher: the one
-`[difference] diff_flavor` names, shipped as `zogy`
-({ref}`ruling <decision-published-differencer>`). The other
+`[difference] diff_flavor` names, shipped as `sfft`
+({ref}`ruling <decision-sfft-default>`). The other
 differencer's PSF-fit catalogs stay under the prefix as diagnostics, and
 the naive subtraction runs as `dev` runs it but makes no PSF-fit catalog
 ({ref}`decision <decision-naive-no-psfcat>`). The stage ports the science of `dev`'s
@@ -294,7 +294,7 @@ port or departs from `dev`:
 
 | Setting | Value | Meaning |
 |---|---|---|
-| `diff_flavor` | `"zogy"` | the published differencer, `dev`'s `[ALERTS] diff_flavor`: `"zogy"` or `"sfft"`, anything else refused; `dev`'s value is `sfft`, and `zogy` is shipped because on HLWAS the raw SFFT catalog fills the cap with bright-star residuals (Measured, below) |
+| `diff_flavor` | `"sfft"` | the published differencer, `dev`'s `[ALERTS] diff_flavor`: `"sfft"` or `"zogy"`, anything else refused; `sfft` as `dev`, with `dev`'s prefilter (Measured, below) |
 | `[difference.paths] python`, `[difference.sfft] python_cmd`, `activate_cmd` | empty | ZOGY and SFFT run in the stage's own interpreter; `dev` hard-codes `python3.11` and its own SFFT environment |
 | `[difference.paths] bkgest_code`, `bkgest_include_dir` | `bkgest`, `/opt/rapid/share/bkgest` | bkgest as the pipeline image installs it, where `dev`'s `/code/c` tree is absent |
 | `[difference.paths] work_subdirectory` | `diff` | the working directory under the attempt's prefix |
@@ -386,8 +386,12 @@ that block, on the same injected bytes (rapid PR 440, runs 114 and 113
 on `rapid-rebuild:77`), SFFT detects 530 of 600 against ZOGY's 542, the
 losses only at AB 26 and 26.5, with 102 false positives per epoch (118
 at the highest) against 214 (233) and 86 null packets against 182; the
-total detected is short, so `diff_flavor` stays `zogy`
-({ref}`ruling <decision-hlwas-sfft-rearm>`).
+total detected is short, so `diff_flavor` stayed `zogy`
+({ref}`ruling <decision-hlwas-sfft-rearm>`). As the shipped default
+(rapid PRs 485 and 490, runs 145 and 146 on `rapid-rebuild:91`, against
+ZOGY's 144 and 127): detected 533 against 546 of 600, false positives per
+epoch 102.7 (119) against 213.3 (233), 86 null packets against 181
+({ref}`ruling <decision-sfft-default>`).
 
 The finder fill (rapid PR 439, on `rapid-rebuild:78`, ZOGY, same
 bytes): on SCA 7, whose isolated masked pixels blinded 24% of its area,
