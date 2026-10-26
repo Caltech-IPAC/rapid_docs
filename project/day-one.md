@@ -51,7 +51,7 @@ git config core.hooksPath .githooks     # the public-safety check, before your f
 ## One epoch on your own machine
 
 The README's
-[Getting started](https://github.com/Caltech-IPAC/rapid/blob/rebuild/README.md#getting-started)
+[Getting started](https://github.com/Caltech-IPAC/rapid/blob/rebuild/README.md)
 takes one HLWAS epoch through every stage, inside the pipeline image,
 against a throwaway PostgreSQL 18. It takes about five minutes and needs
 16 GB of memory. It needs two inputs, and the README says how to get
@@ -83,7 +83,7 @@ The loop page's [Starting a night](../system/loop.md#starting-a-night)
 is the recipe. A night runs against the team's database and the Batch
 queue, from a checkout of `rebuild` on a RAPID host. The runbook's
 Current procedure, in the pipeline repository's
-[`docs/foundation-smdc-step.md`](https://github.com/Caltech-IPAC/rapid/blob/rebuild/docs/foundation-smdc-step.md#current-procedure),
+[`docs/foundation-smdc-step.md`](https://github.com/Caltech-IPAC/rapid/blob/rebuild/docs/foundation-smdc-step.md),
 holds the environment and the checks.
 
 ## What needs Project-Admin today
