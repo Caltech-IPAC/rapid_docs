@@ -547,7 +547,7 @@ image. Each simplification keeps the shape of the full stage.
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `zogy`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; `objects` founded here and this epoch's `memberships` | real/bogus; `rubrat` |
-| `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.06, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
+| `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
 Every stage reads its inputs the same way whoever made them, so
@@ -628,7 +628,7 @@ reconcile is rebased to the surviving object's origin.
 
 ### packet
 
-`packet` is a port of `dev`'s alerts package at schema 00.06, one job
+`packet` is a port of `dev`'s alerts package at schema 00.07, one job
 per official source set, in any order. Every source the run's
 `[associate]` table accepts that is a member of an object triggers a
 packet, and under association by the source's field every accepted
@@ -639,7 +639,11 @@ carries the best information at the time it is made
 ({ref}`ruling <decision-association-in-difference>`), what the job
 read as it ran and recorded:
 
-- `diaSource` from the source row;
+- `diaSource` from the source row and its exposure's official
+  `exposures` row (exposure time, the Roman observation identifiers) and
+  the program's `surveys` row (`survey`, null when the program has none);
+  `reliability`, `reliabilityThreshold` and `reliabilityVersion` null
+  ({ref}`ruling <decision-reliability-null>`);
 - `prvDiaSources`, the object's official members at the read, with
   `mjdobs` before the trigger and within the history window, so a late
   epoch appears in packets issued after it arrives and never in those
@@ -1688,7 +1692,7 @@ cold queue.
   them is open. A campaign reruns from the replaced epoch.
 - Packet counts per chip in a dense field: GBTDS's 9,000 candidates
   per epoch kept 500 sources and 169 to 173 packets.
-- The meaning of `nDiaSources` in the 00.06 schema's own documentation,
+- The meaning of `nDiaSources` in the 00.07 schema's own documentation,
   which is `dev`'s; changing it is a schema change for the team.
 - `packet.edge_pixels` is in the thin run's settings and read by no
   stage, since no two-pixel edge rule exists in `dev`'s alerts code.

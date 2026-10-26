@@ -70,7 +70,7 @@ so intake does not.
 |---|---|---|
 | the gzipped FITS | | under the attempt's prefix; the `l2files` row's `filename` is its URL |
 | `l2files` | dataset, expid, sca, fid | the file's footprint, field, overlapping fields, HEALPix indexes, WCS columns and limiting magnitude |
-| `exposures` | dataset, expid | one per exposure |
+| `exposures` | dataset, expid | one per exposure: `exptime`, `program_id` (the setting below) and the converted header's Roman observation identifiers, `dev`'s columns (`execution_plan`, `pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`), null for a reader whose files carry none |
 
 The manifest records the file's provenance: its observation
 identifiers, romancal's version and the summary of its Gaia WCS fit
