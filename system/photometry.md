@@ -1,6 +1,8 @@
 # Forced photometry
 
-**Status: DRAFT.** Forced photometry for alerts is part of the `packet`
+**Status: current**
+
+Forced photometry for alerts is part of the `packet`
 stage; `dev`'s standalone forced photometry for a list of positions is
 not ported.
 

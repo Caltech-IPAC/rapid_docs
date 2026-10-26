@@ -1,6 +1,6 @@
 # The difference stage
 
-**Status: DRAFT**
+**Status: current**
 
 `difference` subtracts one epoch's L2 image from the reference its job
 names, with ZOGY and with SFFT, catalogs both, and declares one
@@ -412,8 +412,8 @@ SFFT's positive PSF-fit catalogs are now 71% of that job.
   differ while the images agree; that reading fits every figure and is
   not verified. A check needs the same reference frames or injected
   sources with known positions.
-- `dev`'s real/bogus score and its prefilter cut, left out of the thin
-  chain: no score is computed.
+- `dev`'s real/bogus score, left out of the thin chain: no score is
+  computed. Its database prefilter cut is ported (above).
 - Whether the published differencer returns to `sfft`. Under HLWAS's
   OpenUniverse block SFFT trails ZOGY only at AB 26 and 26.5, at half
   the false positives (Measured). Excluding the zeroed DQ cores from

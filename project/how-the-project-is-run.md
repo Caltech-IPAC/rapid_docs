@@ -28,17 +28,21 @@ Scientific methods and tuning are tested with simulations and refined
 through commissioning and survey observations. An end-to-end pipeline provides
 a working basis for that development, with recorded inputs, code and
 configuration so results can be compared. Individual stages can be
-tested and revised independently in scratch runs. Changes enter
-production through tagged releases, as the [specification](../system/specification) states.
+tested and revised independently in scratch runs. A run records the
+code revision and settings it ran with, as the
+[foundation](../system/foundation) page states.
 
 ## Working together
 
 Team members work independently on the pipeline and discuss decisions
-that would be costly to change. Routine development does not require
-the lead's sign-off. The design documents state the intended behavior;
-the code records the implementation. GitHub issues hold open questions
-and their discussion, and Git history records changes. There is no
-separate decision register.
+that would be costly to change. There is no lead role and no review
+gate: the team owns the design
+({ref}`ruling <decision-authority>`). The decision register is
+[decisions](../system/decisions): any team member adds a ruling there
+directly, one dated line with its author, and once recorded it is the
+team's. The design documents state the intended behavior; the code
+records the implementation. GitHub issues hold open questions and their
+discussion, and Git history records changes.
 
 ## Documentation
 
