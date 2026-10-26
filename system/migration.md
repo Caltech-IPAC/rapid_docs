@@ -70,7 +70,7 @@ page or ruling states why.
 | `launchBunchOfReferenceImagePipelines.py`; `RefImages`, `RefImImages`, `RefImCatalogs`, `RefImMeta` | one `reference` job per dataset, field and filter; a 9100 px mosaic graded with `dev`'s status and InfoBits; `refimages`, `refimimages`, `refimcatalogs`; `RefImMeta` reduced to `nframes`, `cov5percent` and manifest metrics | changed | {ref}`a reference per dataset, field and filter <decision-chain-admission-order>`; [reference](reference) |
 | `STARTREFIMMJDOBS`, `ENDREFIMMJDOBS` | `[reference.selection] before_mjd` (a `--set` per run) and `min_frames`; an upper bound only | partial | {ref}`the reference bound by mjdobs <decision-reference-bound>` |
 | `DiffImMeta` (`scalefacref`, `dxrmsfin`, `nsexcatsources`, ...) | metrics in `jobs.manifest`, read through the `job_metrics` view and `scripts/inspect_run.py`; the quality gate reads them | changed | no recorded reason for the table's removal; {ref}`the gate on lost sky and misregistration <decision-gate-coverage-registration>` |
-| `Sources` from the SFFT difference image's PSF-fit catalog (since 2026-04-20) | `sources` from the published differencer, `[difference] diff_flavor`, shipped `zogy`; SFFT runs in every difference job, its catalogs kept as diagnostics, and `sfft` publishes it | changed | {ref}`the differencer as a setting <decision-published-differencer>`; {ref}`the HLWAS SFFT block <decision-hlwas-sfft-block>` |
+| `Sources` from the SFFT difference image's PSF-fit catalog (since 2026-04-20) | `sources` from the published differencer, `[difference] diff_flavor`, shipped `sfft` with `dev`'s prefilter, as `dev`; ZOGY runs in every difference job, its catalogs kept as diagnostics, and `zogy` publishes it | changed | {ref}`the SFFT default <decision-sfft-default>`; {ref}`the HLWAS SFFT block <decision-hlwas-sfft-block>` |
 | `Sources`: every row above the prefilter | `[difference] max_sources = 500`, the brightest by fluxfit over fluxerr; under `sfft`, `dev`'s prefilter first | changed | no recorded reason for the cap |
 | `[DATABASE_PREFILTER]` (`sumrat`, `rb`, aperture S/N) | `[difference.database_prefilter] sumrat_prefilter_threshold` (0.4) and a 2 px edge, applied under `diff_flavor = "sfft"` only; no `rb` and no aperture-S/N cut | partial | {ref}`dev's prefilter under sfft <decision-dev-prefilter>` |
 | `sumrat`, `nneg`, `nbad` columns | measured on every SFFT PSF-fit candidate after a 64 px local background; carried on `sources` under `sfft`, null under `zogy` | partial | {ref}`dev's pixel columns <decision-pixel-columns-fail>` |
@@ -177,9 +177,10 @@ goes on [decisions](decisions) as a ruling.
   comparison named on [difference](difference) come first? Program
   1049's files are held and no run has read them
   ([datasets](datasets.md#flight-data-program-1049)).
-- **The differencer.** Is `zogy` as the published differencer
-  accepted, given that `dev` publishes SFFT's catalog and source-level
-  parity with `dev` is not verified?
+- **The differencer.** The published differencer is SFFT with `dev`'s
+  prefilter, as `dev` ({ref}`ruling <decision-sfft-default>`); is
+  source-level parity with `dev`, not yet verified, required before
+  operational use?
 - **The cap.** Is 500 sources per difference image the production
   value, where `dev` keeps every source above its prefilter?
 - **Real/bogus and the X tables.** Are real/bogus scoring, the XSources
