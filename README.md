@@ -36,7 +36,7 @@ account, with individual maintainers added on top.
   `category` front matter; posts are never revised after publication.
 - `system/` is the design corpus itself, edited here and nowhere else.
   A design change is a pull request against these pages; each page or
-  section keeps its DRAFT or ADOPTED marker current. Open design
+  section keeps its status line current. Open design
   questions are issues in the repository they concern (the pipeline
   repository for code, science and interfaces; the infrastructure
   repository for hosting, fleet and CI); a page may list its open

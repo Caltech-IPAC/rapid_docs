@@ -1,6 +1,6 @@
 # The reference stage
 
-**Status: DRAFT**
+**Status: current**
 
 `reference` coadds the L2 images its job names into one reference image
 for a field, filter and SCA, catalogs the mosaic with SExtractor, and
@@ -106,7 +106,7 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 | `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |
 | `[reference.infobits]` | `dev`'s `REFIMAGE_INFOBITS` thresholds `t00` to `t10` (provisional, "loose enough that a normal reference image raises no bit"), `fwhm_percentile` 90, `maglim_snr` 5, `fatalinfobits` 2, 5, 7, 8, 16 |
-| `[reference.statistics]` | `clip_correction_seed` -1, `dev`'s unseeded draw for the clipped-statistics correction |
+| `[reference.statistics]` | `clip_correction_seed` 0, pinned as the difference stage's so the same frames give the same catalog; a negative value reproduces `dev`'s unseeded draw for the clipped-statistics correction |
 
 The mosaic, the two SExtractor values and the grade carry `dev`'s
 latest reference changes (2026-10-24).
@@ -145,9 +145,6 @@ all-source median under `fwhmmedpix`, status 1 and infobits 0.
   field, and when a reference is rebuilt. The night's reference took the
   first 25 epochs by `mjdobs` because none of `dev`'s 25 frames was in
   the night.
-- `[reference.statistics] clip_correction_seed` is still -1, so the
-  catalog's source count varies run to run by a few sources as the
-  difference stage's did before its seed was pinned.
 - The Photutils reference catalog, and where its PSF would come from.
   `dev`'s reference pipeline makes one from a per-filter reference PSF
   file; without it the grade's bits 5, 6, 7 and 16 stay unset.

@@ -1,6 +1,6 @@
 # The command-line tool
 
-**Status: DRAFT**
+**Status: current**
 
 `rapidpipe` is the team's single command-line tool, shipped in the
 pipeline repository and the image's entrypoint. This page lists the

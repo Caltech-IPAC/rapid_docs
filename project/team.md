@@ -2,7 +2,9 @@
 
 RAPID is a Project Infrastructure Team of the Nancy Grace Roman Space
 Telescope mission, based at Caltech. The Principal Investigator is Mansi
-Kasliwal; Ben Rusholme leads IPAC pipeline development.
+Kasliwal. The team owns the pipeline's design, with no lead role
+({ref}`ruling <decision-authority>`); team communication about the
+rebuild is Ben Rusholme's to open.
 
 | Name | ORCID |
 |---|---|
