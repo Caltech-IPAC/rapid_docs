@@ -294,7 +294,8 @@ database's data and WAL volumes a day at 06:00 UTC, the newest 14 kept
 archive in S3 with a base backup each day at 07:30 UTC, full on Sundays
 and differential otherwise, the newest four fulls kept, for
 point-in-time restore (`cloudformation/rapid-db-backup-schedule.yaml`,
-`rpms/rapid-db-tools/pgbackrest.conf.in`). Catalog rows can be reloaded
+`rpms/rapid-db-tools/pgbackrest.conf.in`; what it retains and how it
+fails, on [backups](backups)). Catalog rows can be reloaded
 from a job's Parquet; the bookkeeping cannot.
 
 **A cutover is one change group.** It rebinds the affected products and
