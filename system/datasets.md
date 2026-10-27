@@ -124,7 +124,8 @@ passes 2, 4 and 5, every input of both tests among them. Overlay
 | A reference is the field's first 25 pass-2 frames by `mjdobs`; `dev` breaks a tie on `mjdobs` (the SCAs of one exposure) by distance from the tile centre, the loop does not | recorded: on 18 fields, 10 identical to Russ's 10/20 references, 8 sharing 22 to 24 of 25 frames |
 | Every difference of the first exposure differenced (2027-10-07 23:52, 18 SCAs) fills the 500-source cap and reads core fraction +0.039 to +0.107 | recorded; the gate holds the sets |
 
-The runbook's part 13 step socsims-1021 holds the numbers.
+The runbook's part 13 step socsims-1021 holds the numbers, and the
+[run 158 post](../log/2026-10-27-socsims-1021.md) sets them beside Russ's.
 
 ## OpenUniverse TDS
 
