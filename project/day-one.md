@@ -90,7 +90,7 @@ holds the environment and the checks.
 
 `Project-Admin` is the SMDC role for IAM-scope stacks. Operators hold
 `Project-Power-User` (`rapid_systems` `docs/team-access-policy.md`).
-Read from the tips of the three repositories on 2026-10-26:
+Read from the tips of the three repositories on 2026-10-27:
 
 | Step | Who can do it today |
 |---|---|
@@ -98,14 +98,11 @@ Read from the tips of the three repositories on 2026-10-26:
 | Membership of `IPAC-SW` | an owner of the organization |
 | One epoch locally, a pull request, CI | anyone with the two checkouts and a RAPID host |
 | Building an image for a merged commit and registering its `rapid-rebuild` job-definition revision | `Project-Admin`: the release hook's change set carries `CAPABILITY_NAMED_IAM` (`rapid_systems` `cloudformation/release-hooks/`) |
-| Submitting a night's jobs to Batch from your workstation | your workstation's instance role on the submitter roster (`rapid_systems` `docs/workstation-submission.md`), or the administrator profile the runbook names; adding a role to the roster is a stack deploy by `Project-Admin` |
+| Submitting a night's jobs to Batch from your workstation | you: a night runs under your own workstation's instance role, with no administrator profile (`rapid_systems` `docs/workstation-submission.md`); a new workstation's role joins the submitter roster by a stack deploy by `Project-Admin` |
 | A schema statement on the team's database, or a fresh schema | the database host's `postgres`, by `Project-Admin` |
 
 Open, and not promised here:
 
-- **The submitter roster** holds one workstation role. Per-owner roles
-  for every teammate's workstation are being added. Until they land, a
-  night needs `Project-Admin`.
 - **A second `Project-Admin`** is required by the access policy, and no
   one is designated yet.
 - **The access question** for each member and tier is one of the team's
