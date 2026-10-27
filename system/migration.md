@@ -84,7 +84,7 @@ page or ruling states why.
 
 | `dev` | `rebuild` | Status | Why |
 |---|---|---|---|
-| stage 18 (`produceAlertsForProcDate.py`, `alerts/`; Avro to S3, no Kafka) | the `packet` stage, one packet set per difference image, sent to Kafka as the job's last act, with `rapidpipe publish` as the sweep; schema 00.07, as `dev`, its Roman observation identifiers and `survey` filled from `exposures` and `surveys`, its three reliability fields null | changed | a packet set is per difference image ([foundation](foundation.md#why-it-is-this-way)); {ref}`the producer in the packet job <decision-producer-last>`; {ref}`reliability null <decision-reliability-null>` |
+| stage 18 (`produceAlertsForProcDate.py`, `alerts/`; Avro to S3, no Kafka) | the `packet` stage, one packet set per difference image, sent to Kafka as the job's last act, with `rapidpipe publish` as the sweep; schema 00.07, as `dev`, its Roman observation identifiers and `survey` filled from `exposures` and `surveys`, its three reliability fields from `dev`'s RuBR-AT score on SFFT's catalog | changed | a packet set is per difference image ([foundation](foundation.md#why-it-is-this-way)); {ref}`the producer in the packet job <decision-producer-last>`; {ref}`the score on SFFT's catalog <decision-reliability-scored>` |
 | `alertnames`, `nalertpackets` | the `packets` index: file, byte offset and length per source | changed | an object's alert history is a query over the index ([foundation](foundation.md#why-it-is-this-way)) |
 | `forcedPhotometryForField.py` (a CSV of positions in one field) | forced photometry inside `packet`, rows in `forced`; the standalone script is not ported | partial | nothing outside packets needs it yet ([photometry](photometry)) |
 
@@ -183,7 +183,8 @@ goes on [decisions](decisions) as a ruling.
   operational use?
 - **The cap.** Is 500 sources per difference image the production
   value, where `dev` keeps every source above its prefilter?
-- **Real/bogus and the X tables.** Are real/bogus scoring, the XSources
+- **Real/bogus and the X tables.** Real/bogus scoring is ported
+  ({ref}`ruling <decision-reliability-scored>`); are the XSources
   family and `dev`'s `rb` and aperture-S/N prefilter cuts ported or
   retired, and who decides? `dev`'s owners of RUBRAT and the X tables
   are the people to ask.
