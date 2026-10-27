@@ -162,9 +162,9 @@ negative and non-finite pixels), each after a 64 px Background2D local
 background subtracted from a copy of the image, each catalog on the
 image its sources are positive in. They are columns of the catalog
 files and of `sources`, nullable: an unmeasurable value (the stamp off
-the image) is NaN in the file and null on the row. A failed local
-background fails the job, where `dev` measures on the unsubtracted image
-({ref}`ruling <decision-pixel-columns-fail>`). They cost 4.3 to 5.2 s a
+the image) is NaN in the file and null on the row. Where the local
+background fails, they are measured on the unsubtracted image, as `dev`
+does ({ref}`ruling <decision-pixel-columns-background>`). They cost 4.3 to 5.2 s a
 difference (`pixel_columns_s`).
 
 ## Declared outputs
