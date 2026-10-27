@@ -226,22 +226,25 @@ candidates, Intel against AMD). A divergence from `dev`, with no knob.
 (Recorded under the standing rule for a divergence with no knob, Ben,
 2026-10-24 19:22 UTC; rapid PR 407)
 
-(decision-pixel-columns-fail)=
-**`dev`'s pixel columns fail the job when their background fails**:
+(decision-pixel-columns-background)=
+**`dev`'s pixel columns fall back to the image itself when their background fails**:
 `sumrat`, `nneg` and `nbad` are measured on every SFFT PSF-fit source
 after a 64 px local background is subtracted, as `dev` measures them
-(c32e28f6), and are carried on `sources`. `dev` catches a failed
-background and measures on the unsubtracted image; here the failure
-fails the job, as every fault in the stage does. `dev`'s ini gives the
-reason the background matters: on its socsims SFFT images, at a
-pedestal of -2 to -6 DN/s, sumrat > 0.4 keeps 0.60 of injected sources
-at S/N 5 to 10 on the image itself and 0.95 after the background.
-Measured on HLWAS injected `001_0001` SCA 8, three epochs (rapid PR
-422, run 96): sumrat > 0.4 keeps 0.997 of the 391 injected candidates,
-0.68 of the 6,464 noise candidates and 0.90 of the 2,257 bright-flagged
-ones; the columns cost 4.3 to 5.2 s a difference. A divergence from
-`dev`, with no knob. (Recorded under the standing rule for a divergence
-with no knob, Ben, 2026-10-24 19:22 UTC; rapid PR 422)
+(c32e28f6), and are carried on `sources`. When the background fails, the
+columns are measured on the unsubtracted image with a warning, as `dev`'s
+`_compute_pixel_catalog_cols` does. `dev`'s ini gives the reason the
+background matters: on its socsims SFFT images, at a pedestal of -2 to
+-6 DN/s, sumrat > 0.4 keeps 0.60 of injected sources at S/N 5 to 10 on
+the image itself and 0.95 after the background. Measured on HLWAS
+injected `001_0001` SCA 8, three epochs (rapid PR 422, run 96): sumrat >
+0.4 keeps 0.997 of the 391 injected candidates, 0.68 of the 6,464 noise
+candidates and 0.90 of the 2,257 bright-flagged ones; the columns cost
+4.3 to 5.2 s a difference. Until rapid PR 500 a failed background failed
+the job. On run 158, the socsims 10/21 window under `dev`'s socsims SFFT
+block, that failed 6 of 1,998 differences, all SCA 18: photutils 3.0
+drops every mesh box that keeps under 90 % of its pixels after the
+3-sigma clip, and a heavy-tailed SFFT difference keeps 88.5 %. Russ's
+run of the same images exited 0 on all 1,998. (rapid PRs 422, 500)
 
 (decision-spot-parked)=
 **Spot stays parked**: the rebuild's jobs run on demand; the cost
