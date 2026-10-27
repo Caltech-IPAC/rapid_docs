@@ -28,6 +28,7 @@ in this repository's history.
 | `official undo <group-id> --who --why` | Applies the inverse of a change group and prints the new group's id |
 | `publish --run N [--settings FILE]` | Produces every official packet set of the run not yet stamped to the Kafka topic, stamping each once acknowledged; prints the counts |
 | `loop --run --filters --scas --pointings [--passes] [--expids] --job-definition D [--job-queue Q] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit ([loop](loop)) |
+| `outage-probe --window DATE --until TIME [--scenario N] [--interval S] [--hold S] [--stall S]` | Meets the database maintenance bracket with one probe scenario (0 fresh login, 1 idle connection, 2 transaction in flight; default the Batch array index) until `--until`, one JSON line per step, and writes its timeline under `RAPIDPIPE_OUTPUTS_ROOT/outage-probe/<window>/<index>-<scenario>/<attempt>/`; temporary, for the windows of 2026-10-29 and 2026-11-05, deleted with outage-probe-read (rapid PR 510) |
 
 The stages the loop submits (`psf`, `intake`, `reference`, `difference`,
 `packet`) and `import`, which a person runs by hand before the loop, are
