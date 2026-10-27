@@ -141,7 +141,7 @@ night uses a dataset name of its own.
 
 ```
 rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    [--passes 1,2,3] --job-definition <name:revision> [--job-queue <queue>] \
+    [--passes 1,2,3] [--expids LO-HI,...] --job-definition <name:revision> [--job-queue <queue>] \
     [--max-intake 100] [--interval 120] [--once]
 ```
 
@@ -158,6 +158,15 @@ selected filter's prefix in the simulation's legacy spelling
 RimTimSim run (`[intake] reader = "rimtimsim"`) the loop lists the
 source root's flat prefix of `_lite.fits.gz` files, a pointing is the
 file's exposure number, the intake's `expid`, and there are no passes.
+Under a socsims lite run (`[intake] reader = "socsims-lite"`, `dev`'s
+converted socsims files) the loop lists the SOC observations' flat
+`_cal_lite.fits.gz` files and selects them as SOC stems.
+`--expids` bounds any selection by inclusive ranges of the intake's
+`expid`, comma separated, with the other terms; a SOC `expid` packs
+pass, observation, visit and exposure in that order, so one range is a
+contiguous stretch of a pass's observations (Russ Laher's 10/20/2026
+subset with its reference frames is `--passes 2,5 --expids
+2000000-2999999,5036101-5036401`).
 A selection admits only its own reader's stems. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between

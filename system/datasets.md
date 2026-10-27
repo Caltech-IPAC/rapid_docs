@@ -21,6 +21,7 @@ comment per key naming the measurement that earned it; the
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
 | RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
 | Flight, program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight-1049.toml` | CAR198 | 2026-10-25 |
+| SOC simulation r00340 with `dev`'s fake sources, as `dev`'s socsims lite FITS (Russ Laher's 10/20 and 10/21/2026 tests) | `gbtds-r00340-fakesrc.toml` | GBTDS | 2026-10-27 |
 
 ## HLWAS, r00342
 
@@ -101,6 +102,29 @@ reference mosaic catalog's (rapid PR 465). On `r00340-gb3`'s sample (run
 registration offset at most 0.019 px, over 29 stars per epoch. The gate,
 replayed at `min_epochs`, holds every epoch on the core (bound ±0.025):
 the science half of ZOGY is mismatched there.
+
+## GBTDS socsims fake-source lite, r00340
+
+The SOC GBTDS simulation as `dev` processed it for Russ Laher's 10/20 and
+10/21/2026 socsims tests: r00340's L2 with `dev`'s 2026-08-07 fake
+variable sources injected, the gWCS re-derived and fitted to fifth-order
+TAN-SIP, converted to `<SOC stem>_cal_lite.fits.gz`. The inputs bucket's
+`g0005-fits-20260821/` holds a 2026-09-09 copy, 9,911 W146 files in
+passes 2, 4 and 5, every input of both tests among them. Overlay
+`gbtds-r00340-fakesrc.toml`; the source root and the bound come by
+`--set`.
+
+| Quirk | Disposition |
+|---|---|
+| A FITS file: the image in DN in `SCI_ORIG`, no ERR or DQ, NaN present, a zero point per SCA in `ZPTMAG` (26.8266 WFI01, 26.8613 WFI08) | `[intake] reader = "socsims-lite"`, the RimTimSim reader taught the SOC stem: the SOC key and `expid`, the stem's observation identifiers, the file's own centre and WCS, inverse SIP carried; no DQ mask |
+| The file names no ePSF reference, and each detector has its own | the overlay's `[psf.epsf] F146`, a list of the 18 references Jacob's science PSFs for these runs were built from (each file's `EPSFREF`) |
+| The WCS | right as converted: Gaia DR3 at (−0.028, −0.017) px on 1,640 stars (pass 2, WFI01) and (+0.028, −0.024) on 996 (pass 5, WFI08); median (−0.004, −0.004) over 2,549 frames; no `rederive_wcs`, no `crpix_shift` |
+| A confusion-limited bulge | gbtds-r00340's `reference_psf = "science"` |
+| SFFT | `dev`'s socsims `[SFFT]` block on the overlay, as Russ ran it (no cross-convolution, bright-source mask 20000 DN/s within 30 px, no gain-match catalogs, no segmentation); the base's OpenUniverse block fails r00340's kernel solve |
+| A reference is the field's first 25 pass-2 frames by `mjdobs`; `dev` breaks a tie on `mjdobs` (the SCAs of one exposure) by distance from the tile centre, the loop does not | recorded: on 18 fields, 10 identical to Russ's 10/20 references, 8 sharing 22 to 24 of 25 frames |
+| Every difference of the first exposure differenced (2027-10-07 23:52, 18 SCAs) fills the 500-source cap and reads core fraction +0.039 to +0.107 | recorded; the gate holds the sets |
+
+The runbook's part 13 step socsims-1021 holds the numbers.
 
 ## OpenUniverse TDS
 
