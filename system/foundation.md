@@ -1708,3 +1708,42 @@ cold queue.
   which is `dev`'s; changing it is a schema change for the team.
 - `packet.edge_pixels` is in the thin run's settings and read by no
   stage, since no two-pixel edge rule exists in `dev`'s alerts code.
+- The record pins a job's image digest and settings hash but not the
+  schema it ran against. Schema changes are dated SQL applied by hand,
+  nothing applies them at release time, and the dated files do not
+  replay onto a fresh `schema.sql`, so an image can run against a
+  schema it was not written for and the row does not say so. A schema
+  hash on the run or job, checked by the publisher, is the candidate
+  remedy (design gap, read 2026-10-28).
+- Bindings are reversible and publication is not. Every change group
+  has an `undo`, but a packet on the topic cannot be recalled and no
+  retraction or correction message kind exists, so an undo on the
+  database diverges silently from what was broadcast once a consumer
+  reads the topic. Either a retraction packet or a stated rule that
+  the topic is append-only and the database follows it (design gap,
+  read 2026-10-28).
+- A held set has no exit. Nothing releases one, so the only route out
+  is a new run under other bounds; run 158 sent one set of 1,998. A
+  review path, a release by change group, or per-dataset bounds as a
+  mechanism rather than an overlay comment is open. The count check
+  normalises against the run's own median, so a uniformly bad run
+  passes it and rests on the absolute core and ring bounds alone
+  (design gap, read 2026-10-28).
+- No retention or deletion rule. Prefixes are immutable, no task
+  deletes anything, scratch cleanup has been a hand-run PR, and the
+  custody tiers the specification's scratch lifetime assumed were given
+  up without a replacement; over a multi-year survey that is unbounded
+  growth with no owner, and `run expire` has none either (design gap,
+  read 2026-10-28).
+- Arrival from the mission is not designed. The loop lists a source
+  root on S3; the SOC or MAST delivery manifest, its completeness
+  signal, what wakes the loop on new data and the service identity
+  that pulls it are open, and the flight data so far came from a hand
+  pull under a personal token (design gap, read 2026-10-28).
+- Scale is unmeasured. The official views are plain joins with no
+  stored flag, a change group costs per key through the pooler, object
+  statistics are summed in the view, and every number here is from
+  thousands of epochs; nothing says what a year of survey does, and the
+  reference refresh a real survey needs, a deeper coadd replacing every
+  field's reference and rebinding every downstream product, has the
+  mechanism and no policy (design gap, read 2026-10-28).
