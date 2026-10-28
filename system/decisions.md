@@ -32,6 +32,9 @@ A ruling that closes one goes under Rulings and its line leaves.
 
 ## Rulings
 
+(decision-dlm-prepost)=
+**rapid-db's daily DLM set is application-consistent, through AWS's pre and post script**: before the set starts, DLM runs the `rapid-db-dlm-prepost` SSM document on rapid-db: `CHECKPOINT` in the `rapid-postgres` container, `sync`, a 60 s auto-thaw armed, then `fsfreeze` of `/var/lib/pgsql` and `/var/lib/pgsql-wal`; after it starts, the document thaws both. A failed pre-script falls back to a crash-consistent set rather than skipping the day (`ExecuteOperationOnScriptFailure`), with no retry; an auto-thaw that beats the post-script reports exit 203, never success. A dead-man alarm, `rapid-db-snapshot-set-age`, pages when the newest complete set (data-1, data-2 and wal, one start time, all completed) is older than 26 h or its age stops arriving. `pg_backup_start` was named and dropped: DLM cannot hold a session across its own snapshot start, and fsfreeze is the route AWS documents. Measured on rapid-db by hand, 2026-10-28: the freeze held 2.0 s (07:12:14.569 to 07:12:16.584 UTC), the CHECKPOINT 59 ms; on a scratch filesystem the auto-thaw released an unanswered freeze at 60.06 s and a pre that failed on its second mount thawed the first. The gap it closes: the policy sat in ERROR from 06:06 to 14:04 UTC on 2026-10-27 unobserved, and every set had been crash-consistent. (Ben, 2026-10-27 18:47 UTC, the design `rapid-db-verification.md`; dlm-prepost task 1, rapid_systems PR 449)
+
 (decision-sfft-published)=
 **SFFT is the published differencer**: the difference job publishes the
 SFFT image and SFFT's positive PSF-fit catalog as `diffimages` and
