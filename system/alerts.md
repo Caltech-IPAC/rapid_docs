@@ -62,10 +62,11 @@ naming an alert. The rebuild needs that row, so the stage registers the
 container and outbox row set as its own products in the transaction
 that writes the rows.
 
-Kafka publication, alert naming and two of the three cutout images are
+Kafka publication, alert naming and two of the three cutout images were
 ported as designed-in, off-by-default mechanisms, as `dev` leaves them.
 `dev` never calls its naming procedures or Kafka publisher from the
-pipeline path.
+pipeline path. The `packet` stage that replaced this one fills all three
+cutouts and publishes to Kafka (the Cutouts and Kafka sections below).
 
 ## Inputs
 
@@ -327,9 +328,15 @@ Only the compressed block has a byte range; individual records do not.
 independently against the container header. `record_index` selects the
 alert from that decoded block; `record_ordinal` locates it in the whole
 container, independent of block boundaries. With the default 129x129
-cutout, each alert (about 67 kB) usually fills its own block because
-`dev`'s sync interval is 16,000 bytes. Only records without a filled
-cutout are small enough to share a block.
+cutouts, each alert fills its own block because `dev`'s sync interval is
+16,000 bytes; only a record with no cutout is small enough to share a
+block. The `packet` stage's alert is about 251 kB before the codec:
+three stamps of 83,520 bytes (a 14,400-byte header carrying the parent's
+WCS and SIP cards, then 66,564 bytes of float32 pixels), and about 0.6 kB
+of rows while the object has no history. The deflated block is about
+193 kB, and that block is the Kafka message (measured on run 7's SCA 8
+container, 39 packets, 2026-10-21). The retired stage's alert, with the
+difference cutout alone, was about 67 kB.
 `UNIQUE (instance, candidate)` is the row's own idempotency key, the
 same pair a rerun's recovery reads back.
 
@@ -364,16 +371,25 @@ naming for the team to decide.
 
 ## Cutouts
 
-Only the difference cutout is populated: a 129x129 pixel stamp cut from
+The `packet` stage fills all three cutouts (rapid 0d503382, 2026-10-21):
+`cutoutDifference` from the trigger's difference image, `cutoutScience`
+from `bkg_subbed_science_image.fits` and `cutoutReference` from
+`awaicgen_output_mosaic_image_resampled_gainmatched.fits`, the two read
+as the difference image's neighbours in its staged window directory
+(gzipped beside a gzipped image). Each is a 129x129 float32 FITS stamp
+with the parent's WCS cards, the same geometry as below, and all three
+are required: a trigger image that cannot be read fails the job. What
+follows is the retired stage's record.
+
+Only the difference cutout was populated: a 129x129 pixel stamp cut from
 the finalized difference instance's `difference` member with astropy
 (`dev` uses fitsio through a temporary file; the rebuild reads the FITS
 data directly), centered on the source's fitted position plus one pixel
 (`xfit+1`, `yfit+1`, `dev`'s 1-based FITS convention), off-chip pixels
-filled with 0.0. The science and reference cutouts are null in this
+filled with 0.0. The science and reference cutouts were null in that
 port: `dev` cuts them from the background-subtracted science image and
-the resampled, gain-matched reference, neither of which is an input-set
-member the stage can name yet. They stay null until those roles exist in
-the input set, a choice left to the team.
+the resampled, gain-matched reference, neither of which was an input-set
+member the stage could name.
 
 ## Cross-matches
 

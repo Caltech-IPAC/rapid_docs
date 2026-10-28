@@ -667,7 +667,10 @@ read as it ran and recorded:
   `refStarMatches` and `refGalaxyMatches` from the reference's mosaic
   catalog;
 - `cutoutDifference`, `cutoutScience` and `cutoutReference`, each 129
-  pixels square, pixels off the chip filled with 0.0.
+  pixels square, pixels off the chip filled with 0.0: float32 FITS
+  stamps of 83,520 bytes each, so an alert is about 251 kB before the
+  container's deflate and about 193 kB after it (run 7's SCA 8
+  container, 39 packets, 2026-10-21).
 
 A required input that cannot be read fails the job with its name on
 the row: the trigger epoch's difference, science or template image for
