@@ -118,8 +118,9 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 
 Each dataset's values, and the measurement behind each, are on the
 [datasets](datasets) page. When the job names its dataset's Gaia
-`catalogs` input, as the loop does once one is official, its metrics
-record `gaia_dx_px`, `gaia_dy_px` and `n_gaia_stars`: the median offset
+`catalogs` input, as the loop does once one is official, it reads the
+frame's cone from the Gaia mirror ({ref}`the Gaia mirror <decision-gaia-mirror>`) and its
+metrics record `gaia_dx_px`, `gaia_dy_px` and `n_gaia_stars`: the median offset
 of the isolated Gaia stars on the frame, measured minus predicted
 through the published WCS, a check of the WCS on every file. Under
 `gaia_proper_motion` the stars are first carried to the frame's epoch,

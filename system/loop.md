@@ -52,8 +52,7 @@ night uses a dataset name of its own.
    D=<a dataset name of your own>                    # e.g. r00342-<initials>-<date>
    SOURCE_ROOT=s3://stpubdata/roman/nexus/soc_simulations/r00342/l2/
    BOUND=61591.4056                                  # the F146 bound, between its third and fourth passes
-   GAIA_DIR=<the directory holding the Gaia DR3 Parquet file of the dataset>
-   GAIA_FILE=gaia-dr3-hlwas-r00342-box.parquet
+   GAIA_PREFIX=s3://<the inputs bucket>/catalogs/gaia/DR3/   # the team's Gaia mirror (datasets page)
    REV=<the 40-character sha of the image the job definition runs>
    JOBDEF=rapid-rebuild:<n>                          # the revision the deploy hook printed for that image
    ```
@@ -91,14 +90,14 @@ night uses a dataset name of its own.
    its binding as well: `{"close": <the old run's "live" from run show>,
    "open": {...}}`. `official undo <group>` reverses a group.
 
-4. **Import Gaia.** The packet stage names exactly one official Gaia
+4. **Register Gaia.** The packet stage names exactly one official Gaia
    catalog of the dataset, so the import runs once per dataset, on this
-   host:
+   host; it names the mirror's prefix and copies nothing:
 
    ```sh
    rp job local --run $RUN --stage import \
-     --scope '{"source_dir": "'$GAIA_DIR'", "gaia": {"name": "gaia-'$D'", "version": "DR3", "path": "'$GAIA_FILE'"}}' \
-     --expects '[{"product": "catalogs", "key": {"dataset": "'$D'", "name": "gaia-'$D'", "version": "DR3"}, "binding": null}]'
+     --scope '{"gaia": {"name": "gaia", "version": "DR3", "prefix": "'$GAIA_PREFIX'"}}' \
+     --expects '[{"product": "catalogs", "key": {"dataset": "'$D'", "name": "gaia", "version": "DR3"}, "binding": null}]'
    ```
 
    It prints the job's result: `"published": true`, `"live": true`,
