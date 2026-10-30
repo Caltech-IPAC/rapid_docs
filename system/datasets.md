@@ -39,7 +39,11 @@ Gaia DR3 mirror, one copy per release in the catalogs bucket under
 partitions of `gaiadr3.gaia_source`, each leaf cut to the matcher's
 columns and keyed by `_healpix_29`, with its ingest record `gaia.json`
 (release, reference epoch 2016.0, row total checked against the
-collection's). `python -m rapidpipe.science.catalogs.store ingest-gaia` builds it from
+collection's). The team's copy was built on 2026-10-30 on rapid-admin (2,016 leaves,
+1,811,709,771 rows, the collection's own count, 226 GB, 55 minutes) and
+the release sealed; run 159 was its first night (the HLWAS F146 sample,
+86 packets, check CLEAN; the packet job read one row group of leaf
+2/138, the intakes' offsets within 0.03 px on 33 to 34 stars). `python -m rapidpipe.science.catalogs.store ingest-gaia` builds it from
 `https://data.lsdb.io/hats/gaia_dr3/gaia/`, resumable, a few leaves at a
 time for a local copy (`--leaves`); `gaia-from-table` writes the same
 layout from a table of rows on Gaia's schema (a synthetic catalog, or a
