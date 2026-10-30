@@ -34,15 +34,16 @@ the second iteration's proofs ran on it.
 **In the inputs bucket** (every input of the live runs, 2026-10-25): L2 `g0008-selfcontained/stpubdata/roman/nexus/soc_simulations/r00342/l2/` (82 files, 16.79 GB); the injected footprint's L2 `r00342-inj1/l2/` (426 files, 87.03 GB) and truth `r00342-inj1/catalog/` (2 files, 1.50 MB), held there already; Gaia `g0008-selfcontained/host/…/gaia-dr3-hlwas-r00342-box.parquet` (16.3 MB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
 **The Gaia catalog.** Every dataset's `catalogs` row names the team's
-Gaia DR3 mirror, one copy per release in the inputs bucket under
-`catalogs/gaia/DR3/` ({ref}`the Gaia mirror <decision-gaia-mirror>`): LINCC's HATS
+Gaia DR3 mirror, one copy per release in the catalogs bucket under
+`gaia/DR3/` ({ref}`the Gaia mirror <decision-gaia-mirror>`): LINCC's HATS
 partitions of `gaiadr3.gaia_source`, each leaf cut to the matcher's
 columns and keyed by `_healpix_29`, with its ingest record `gaia.json`
 (release, reference epoch 2016.0, row total checked against the
-collection's). `scripts/ingest_gaia.py` builds it from
+collection's). `python -m rapidpipe.science.catalogs.store ingest-gaia` builds it from
 `https://data.lsdb.io/hats/gaia_dr3/gaia/`, resumable, a few leaves at a
-time for a local copy (`--leaves`), or from a table of rows on Gaia's
-schema (`--from-parquet`, for a synthetic catalog). The packet and
+time for a local copy (`--leaves`); `gaia-from-table` writes the same
+layout from a table of rows on Gaia's schema (a synthetic catalog, or a
+box extract for a walkthrough). The packet and
 intake jobs read the chip's cone from it. Until 2026-10-29 the product
 was one file per dataset, every column over the footprint's box with a
 0.2-degree margin from the ESA Gaia archive (34,171 rows for this
