@@ -52,7 +52,7 @@ night uses a dataset name of its own.
    D=<a dataset name of your own>                    # e.g. r00342-<initials>-<date>
    SOURCE_ROOT=s3://stpubdata/roman/nexus/soc_simulations/r00342/l2/
    BOUND=61591.4056                                  # the F146 bound, between its third and fourth passes
-   GAIA_PREFIX=s3://<the inputs bucket>/catalogs/gaia/DR3/   # the team's Gaia mirror (datasets page)
+   GAIA_PREFIX=s3://roman-rapid-catalogs/gaia/DR3/          # the team's Gaia mirror (datasets page)
    REV=<the 40-character sha of the image the job definition runs>
    JOBDEF=rapid-rebuild:<n>                          # the revision the deploy hook printed for that image
    ```
