@@ -33,19 +33,24 @@ the second iteration's proofs ran on it.
 
 **In the inputs bucket** (every input of the live runs, 2026-10-25): L2 `g0008-selfcontained/stpubdata/roman/nexus/soc_simulations/r00342/l2/` (82 files, 16.79 GB); the injected footprint's L2 `r00342-inj1/l2/` (426 files, 87.03 GB) and truth `r00342-inj1/catalog/` (2 files, 1.50 MB), held there already; Gaia `g0008-selfcontained/host/…/gaia-dr3-hlwas-r00342-box.parquet` (16.3 MB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
-**The Gaia catalog's recipe.** The file is every column of Gaia DR3 over
-the footprint's box with a 0.2-degree margin, from the ESA Gaia archive;
-the query is in the file's own metadata (`query`, fetched 2026-10-22):
-
-```sql
-SELECT * FROM gaiadr3.gaia_source WHERE ra BETWEEN 6.9 AND 11.2 AND dec BETWEEN -45.7 AND -42.6
-```
-
-It holds 34,171 rows and 152 columns. The archive caps a job at 50,000
-rows. The pipeline repository's README, Getting started, runs the query
-in the pipeline image and writes the file. Run again on 2026-10-26, it
-gave the same rows, the same `source_id` set and identical values in
-every column.
+**The Gaia catalog.** Every dataset's `catalogs` row names the team's
+Gaia DR3 mirror, one copy per release in the catalogs bucket under
+`gaia/DR3/` ({ref}`the Gaia mirror <decision-gaia-mirror>`): LINCC's HATS
+partitions of `gaiadr3.gaia_source`, each leaf cut to the matcher's
+columns and keyed by `_healpix_29`, with its ingest record `gaia.json`
+(release, reference epoch 2016.0, row total checked against the
+collection's). `python -m rapidpipe.science.catalogs.store ingest-gaia` builds it from
+`https://data.lsdb.io/hats/gaia_dr3/gaia/`, resumable, a few leaves at a
+time for a local copy (`--leaves`); `gaia-from-table` writes the same
+layout from a table of rows on Gaia's schema (a synthetic catalog, or a
+box extract for a walkthrough). The packet and
+intake jobs read the chip's cone from it. Until 2026-10-29 the product
+was one file per dataset, every column over the footprint's box with a
+0.2-degree margin from the ESA Gaia archive (34,171 rows for this
+footprint on 2026-10-22 and 2026-10-26); the archive's release 3.15
+then returned partial boxes with no error, which is why the mirror
+replaced it. The live runs of 2026-10-25 stay bound to the boxes they
+read.
 
 | Quirk | Disposition |
 |---|---|

@@ -379,8 +379,12 @@ could read; the later of them copies one of the two.
 
 **Reference catalogs are products.** Gaia, NED, NED-LVS and the
 solar-system predictions are copies whose version no packet recorded.
-Each is a product keyed by (name, version), and a job names the one it
-read.
+Each is a product keyed by (dataset, name, version), and a job names the
+one it read. A catalog's location is a file or a prefix: the Gaia mirror
+is a prefix of HEALPix-partitioned leaves with its ingest record
+({ref}`the Gaia mirror <decision-gaia-mirror>`), registered for a dataset without a copy,
+and a job reads the part of it its chip needs and records the leaves and
+row groups it read beside the catalog's job.
 
 **One schema file, applied fresh.** `schema.sql` holds every table,
 view and operation, with the q3c extension and its indexes in a block
@@ -551,11 +555,11 @@ image. Each simplification keeps the shape of the full stage.
 | Stage | Reads (named in `job_inputs`) | Writes (declared outputs) | Left out until breadth |
 |---|---|---|---|
 | `intake` | one L2 file under the run's source root, by the dataset's reader (SOC L2 or OpenUniverse ASDF, RimTimSim lite FITS); the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
-| `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia copy; the cap on sources per image | copies of the image files; `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
+| `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `sfft`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; `objects` founded here and this epoch's `memberships` | real/bogus; `rubrat` |
-| `packet` | the epoch's source set, the science PSF, the Gaia product, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images and the official `forced` rows | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
+| `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
 Every stage reads its inputs the same way whoever made them, so
@@ -566,7 +570,8 @@ or coadded.
 
 The import stage takes stored products into the record. One job
 imports the shared products (the reference with its mosaic catalog, the
-science PSF and the Gaia copy) and one job imports each epoch, because
+science PSF and the Gaia mirror's prefix, registered as the dataset's
+`catalogs` row without a copy) and one job imports each epoch, because
 a source set's job binds one key. The kept sources are mapped onto the
 `sources` columns with the old load stage's join, and their HEALPix and
 tessellation columns are computed. A row's `filename` is the URL of the
@@ -663,9 +668,11 @@ read as it ran and recorded:
   field the image is centred on, difference
   and science image merged into one row per object and image, rows an
   official set already holds copied rather than measured;
-- `gaiaMatches` with proper motion propagated to the trigger, and
-  `refStarMatches` and `refGalaxyMatches` from the reference's mosaic
-  catalog;
+- `gaiaMatches` from the chip's cone of the Gaia mirror, the centre and
+  half-diagonal widened by the largest proper motion over the epoch
+  offset, every row carried to the trigger by its proper motion from the
+  mirror's `ref_epoch`, and `refStarMatches` and `refGalaxyMatches` from
+  the reference's mosaic catalog;
 - `cutoutDifference`, `cutoutScience` and `cutoutReference`, each 129
   pixels square, pixels off the chip filled with 0.0: float32 FITS
   stamps of 83,520 bytes each, so an alert is about 251 kB before the
