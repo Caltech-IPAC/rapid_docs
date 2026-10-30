@@ -1,9 +1,9 @@
 # Day one
 
 This page takes a new member of the team from an SMDC login to a merged
-pull request and one epoch run on their own machine. It links the pages
-that hold each step rather than repeating them. Three repositories are
-involved:
+pull request and one epoch run on their own SMDC workstation, an EC2
+instance. It links the pages that hold each step rather than repeating
+them. Three repositories are involved:
 
 | Repository | Holds | Visibility |
 |---|---|---|
@@ -48,7 +48,11 @@ cd rapid
 git config core.hooksPath .githooks     # the public-safety check, before your first push
 ```
 
-## One epoch on your own machine
+## One epoch on your workstation
+
+Run this on your workstation, the Personal EC2 from Setup above, not on a
+laptop: the image pull below is granted to RAPID hosts through their
+instance roles.
 
 The README's
 [Getting started](https://github.com/Caltech-IPAC/rapid/blob/rebuild/README.md)
