@@ -16,8 +16,7 @@ with the night's result, then choose which result the team uses.
 A night has finished. A scientist inspects an epoch and finds that its
 PSF needs retuning. In the familiar `dev` workflow, the replacement
 passes through a version bump, the `vbest` selection flag,
-re-registration and prune. Those are the team's existing terms for
-making a new result and selecting it for downstream work. The
+re-registration and prune. The
 [migration](../system/migration) page maps those terms onto the rebuild.
 
 In the rebuild, the scientist creates a new run with the retuned
@@ -60,7 +59,7 @@ measurement remains readable.
 In `dev` terms, `ProcReqs` and `reqid` map to the run; the product's
 `version` maps to its producing job. The run's revision and settings,
 the stage and the image digest carry the information associated with
-`ppid`, `pipelines` and `swversions`. The familiar exposure, SCA and
+`ppid`, `pipelines` and `swversions`. The exposure, SCA and
 filter remain scientific keys, with dataset included so simulations
 and their source-injected variants have separate selections in the
 same database.
@@ -119,8 +118,7 @@ human selection expressed by `vbest = 2`. A superseded source set's
 memberships leave the official view while its rows stay in the record,
 covering the selection work the team knows through prune. The
 [measured replacement](../system/foundation.md#measurements) changed
-four keys in 12.1 ms; its undo took 8.9 ms. The scientific products
-remain in place throughout that change.
+four keys in 12.1 ms; its undo took 8.9 ms.
 
 ## The operating path is exercised as well as the science
 
@@ -151,7 +149,6 @@ fraction of +0.016. A held set remains official and available for
 inspection, with its reason recorded, while the stream waits for
 acceptable results. The gate judges available measurements after the
 minimum epoch count; a metric that cannot be computed holds nothing.
-Those limits matter when interpreting a successful send.
 
 [Kafka publication](../system/foundation.md#publication-to-kafka)
 follows database publication and the gate. Each packet is a
@@ -176,23 +173,21 @@ The fleet remains AWS Batch on SMDC, with PostgreSQL and spatial SQL
 behind the catalog. The official views preserve access to the q3c and
 GIN indexes used by the team's query shapes. At the initial measured
 database size of 239 MB, all 23 statements in `database/queries.sql`
-ran under 30 ms. That is a measurement at that size. Stage-specific
+ran under 30 ms. Stage-specific
 memory requests let Batch place small jobs alongside difference jobs,
 and the recorded instance type makes execution comparisons possible.
 The [foundation measurements](../system/foundation.md#measurements)
 state the tested scale.
 
-## The socsims comparison puts the new path beside familiar science
+## The rebuild reproduces a team member's socsims test
 
 [Run 158](../log/2026-10-27-socsims-1021) processes the same 1,998
 files as a team member's 2026-10-21 socsims test. Every image has a
-published SFFT difference and packet set. Positive SFFT SExtractor
-counts total 146,053,130 against 145,903,083, within 0.1%; the
-image-by-image median count ratio is 1.000 for both signs. PSF-fit
-counts are about 15% higher per image. The report identifies differing
+published SFFT difference and packet set. The positive SFFT SExtractor
+counts match the team member's to within 0.1% over the 1,998 images.
+PSF-fit counts are about 15% higher per image. The report identifies differing
 PSFs and reference tie-breaks, while leaving the cause of the PSF-fit
-excess unverified. This is a measured comparison with explicit
-remaining differences.
+excess unverified.
 
 The gate holds 1,997 of the 1,998 packet sets, chiefly for bright-star
 core residuals beyond the bounds derived on HLWAS. One set, containing
