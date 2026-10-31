@@ -124,6 +124,17 @@ night uses a dataset name of its own.
    The script prints one line, `Check run N: CLEAN validate 6/6 reader
    1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
    and exits non-zero.
+7. **Close the night.** A dataset is live only while its night is in
+   flight (Ben, 2026-10-30): once the run is checked, close its live
+   binding, the `live` id `run show` prints, so a loop started on it by
+   mistake submits nothing and the live list names what is running.
+   ```sh
+   echo '[{"close": <the run's live id>}]' > close-$D.json
+   rp official change --group close-$D.json --who "$USER" --why "night $RUN checked"
+   ```
+   `official undo <group>` reopens it. The bindings of the 113 finished
+   nights of 2026-10-21 to 10-27 were closed in one group (30820) on
+   2026-10-30, leaving runs 158 and 159 live.
 
 **What the exit codes mean**, as on `rebuild` at `efc03fc6`:
 
