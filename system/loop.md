@@ -129,7 +129,7 @@ night uses a dataset name of its own.
    binding, the `live` id `run show` prints, so a loop started on it by
    mistake submits nothing and the live list names what is running.
    ```sh
-   LIVE=<the run's live id>
+   LIVE=<the live id that run show prints>
    echo '[{"close": '$LIVE'}]' > close-$D.json
    rp official change --group close-$D.json --who "$USER" --why "night $RUN checked"
    ```
