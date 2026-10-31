@@ -207,7 +207,7 @@ work. The mask derives from commissioning's rule, with the measured
 SATURATED-bit exception recorded in [measurements](../system/measurements.md#the-dq-mask-at-intake).
 
 Real/bogus work also has a starting point: the
-[scoring ruling](../system/decisions.md#decision-reliability-scored)
+{ref}`scoring ruling <decision-reliability-scored>`
 records the port of `dev`'s RuBR-AT model for SFFT, with scores carried
 to packets and no selection cut on the score. Team validation and the
 choice of scoring cuts remain part of adopting it; ZOGY remains
