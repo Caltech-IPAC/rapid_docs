@@ -168,6 +168,13 @@ and HEALPix indices. `xsources` is split and loaded like `sources`, into
 `xsources_<yyyymmdd>_<sca>` by `COPY`. Its rows belong to the source
 set, so `xsources_official` follows the set's binding. Under `zogy` the
 SFFT image is not the published one, and no `xsources` are written.
+`xsources` are always loaded. `sources` records are loaded unless
+`[difference] skip_loading_sources_records` is true
+({ref}`ruling <decision-skip-sources>`). With it true, the job still
+declares its source set, with no rows, so the set's binding opens and
+its `xsources` are official through it. Nothing is then associated (no
+`objects` or `memberships`), the epoch's packet set is empty, and the
+quality metrics are still those of the set the job computed.
 A value the computation cannot produce, where `dev` writes `-999` (a
 stamp off the image, a source not fitted or with nothing left to fit, a
 source not scored), is null in the row, as `dev`'s loader loads it, and
@@ -861,7 +868,7 @@ cap `max_sources` (500); `associate.match_radius` (1.528e-05 degrees),
 and `[difference]` carry `dev`'s ini sections as subtables, one per
 section, with `dev`'s values (`min_frames` 2 and `max_frames` 25 among
 them); `[difference]` adds `max_sources` (500) with the import's
-meaning, and `[difference.statistics] clip_correction_seed` (0) makes
+meaning, `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
 the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
