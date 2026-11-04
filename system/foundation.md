@@ -186,6 +186,37 @@ child. A query by hand on a parent stays correct, and the children's
 `CHECK` constraints let one that filters on `mjdobs` or `sca` skip the
 children it excludes.
 
+**Object, membership, packet and forced rows are stored by field**
+({ref}`ruling <decision-field-children>`). `objects`, `memberships`,
+`packets` and `forced` keep their rows in child tables that inherit them,
+one per Roman tessellation field, `<parent>_<field>`, as `dev`'s
+`astroobjects` and `merges` are split by field; the parents hold none.
+Every row is filed under its object's field. An object's field is the
+field of the source that founded it; `memberships`, `packets` and
+`forced` carry a `field` column set to the field of the object
+(`object_job`, `aid`) the row belongs to. An object's row, its
+memberships, its packet rows and its forced photometry therefore share
+one field's four children, while one source set's memberships and one
+packet set's rows can span the source's field and its neighbours. Each
+child's `CHECK` holds it to its field.
+
+The publisher makes these children as it makes the `sources` children,
+in a short transaction before the load, through
+`create_field_child(parent, field)`, and loads them by `COPY`. A
+membership that the reconcile attaches to an object founded in a
+neighbouring field takes that object's field; in the rare case that the
+field has no `memberships` child yet, the loading transaction makes it.
+In the same transaction the publisher records, in `job_fields`, the
+fields each job's rows went to, so a job's rows are found without a
+parent. Readers query the children their task needs: `<parent>_in(fields)`
+for the rows in some fields, `<parent>_of(jobs)` for the rows some jobs
+wrote, and `objects_official_in(fields)` for `objects_official`'s rows
+of some fields. The difference job reads its sources' fields' objects;
+the packet job reads its set's memberships, then its triggers' objects,
+their members and their forced rows in the triggers' fields. The
+operator scripts and the named queries do the same, and the unit test
+that guards the `sources` parents guards these too.
+
 `xsources` are always loaded. `sources` records are loaded unless
 `[difference] skip_loading_sources_records` is true
 ({ref}`ruling <decision-skip-sources>`). With it true, the job still
