@@ -109,14 +109,16 @@ distinct live streams:
 | `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
 | `sources` (source set) | dataset, expid, sca, fid | `sources`, with `xsources` beside it (`dev`'s SExtractor sources of the SFFT image) |
 | `objects` (the object catalog, not bound) | dataset, survey, field, object id, founding job | `objects`, with `memberships` declared beside each source set |
+| `xobjects` (the xsources' object catalog, not bound) | dataset, survey, field, xobject id, founding job | `xobjects`, with `xmemberships` declared beside each source set |
 | `packets` (packet set) | dataset, expid, sca, fid | `packets`, with children `forced` and `external` |
 | `catalogs` (reference catalog) | dataset, name, version | `catalogs` |
 
 A source is identified by its set and its source id, an object by its
 founding job and its object id, a packet by its set and its source.
-Objects, memberships and xsources carry no binding of their own: a
-membership or an xsource is official when its source set is, and an
-object when one of its memberships is. A set is
+Objects, memberships, xobjects, xmemberships and xsources carry no
+binding of their own: a membership, an xmembership or an xsource is
+official when its source set is, an object when one of its memberships
+is, and an xobject when one of its xmemberships is. A set is
 identified by the job that wrote it, so a job that writes a set binds
 exactly one key of that set's product.
 
@@ -216,6 +218,27 @@ the packet job reads its set's memberships, then its triggers' objects,
 their members and their forced rows in the triggers' fields. The
 operator scripts and the named queries do the same, and the unit test
 that guards the `sources` parents guards these too.
+
+**The xsources have their own object catalog, `xobjects` and
+`xmemberships`** ({ref}`ruling <decision-xobjects>`), `dev`'s
+XAstroObjects and XMerges. Under `diff_flavor = "sfft"` the difference
+job cross-matches its `xsources` as it associates its sources, as
+`dev`'s crossMatchXSources.py does for crossMatchSources.py's sources:
+the xsources whose SExtractor `flags` equal `[associate] xsource_flags`
+(0, as in `dev`), positive and negative together, are matched within
+`match_radius` against the run's xobjects in their fields and the
+neighbouring fields, as the job read them. An unmatched xsource founds
+an xobject in its own field, its id the hash of its position and its
+`flux0` its aperture flux, `fluxap`. Each xmembership records the
+xsource's offsets from the xobject's founding position and its `fluxap`,
+the xobject's sufficient sums, and `xobjects_official` adds them up. The
+publisher reconciles the founded xobjects at publish as it reconciles
+objects, under the same field locks, and records the outcome as
+`xreconcile`. The two tables are split by field and read like `objects`
+and `memberships`: `xobjects_in`, `xobjects_of`, `xmemberships_in`,
+`xmemberships_of` and `xobjects_official_in`. They do not yet feed alert
+production: packets and forced photometry are still made from `objects`
+and `memberships`.
 
 `xsources` are always loaded. `sources` records are loaded unless
 `[difference] skip_loading_sources_records` is true
@@ -674,7 +697,7 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `sfft`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; under `sfft`, `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships` | real/bogus; `rubrat` |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `sfft`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; under `sfft`, `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; under `sfft`, `xobjects` founded here and this epoch's `xmemberships`, from its `xsources` | real/bogus; `rubrat` |
 | `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
