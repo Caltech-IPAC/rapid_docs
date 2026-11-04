@@ -107,16 +107,16 @@ distinct live streams:
 | `diffimages` | dataset, expid, sca, fid | `diffimages` |
 | `psfs` | dataset, fid, sca, kind | `psfs` |
 | `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
-| `sources` (source set) | dataset, expid, sca, fid | `sources` |
+| `sources` (source set) | dataset, expid, sca, fid | `sources`, with `xsources` beside it (`dev`'s SExtractor sources of the SFFT image) |
 | `objects` (the object catalog, not bound) | dataset, survey, field, object id, founding job | `objects`, with `memberships` declared beside each source set |
 | `packets` (packet set) | dataset, expid, sca, fid | `packets`, with children `forced` and `external` |
 | `catalogs` (reference catalog) | dataset, name, version | `catalogs` |
 
 A source is identified by its set and its source id, an object by its
 founding job and its object id, a packet by its set and its source.
-Objects and memberships carry no binding of their own: a membership is
-official when its source set is, and an object when one of its
-memberships is. A set is
+Objects, memberships and xsources carry no binding of their own: a
+membership or an xsource is official when its source set is, and an
+object when one of its memberships is. A set is
 identified by the job that wrote it, so a job that writes a set binds
 exactly one key of that set's product.
 
@@ -147,6 +147,63 @@ published row here is never deleted. A child carries no foreign key to
 `jobs`, as `dev`'s carry none, since adding one would lock `jobs` against
 every publish in flight; the publisher sets `job` from the job row it
 holds locked.
+
+**`xsources` holds `dev`'s SExtractor sources of the SFFT difference
+image** ({ref}`ruling <decision-xsources>`). Under `diff_flavor = "sfft"`
+the difference job writes them beside its source set. They come from the
+positive and the negative SExtractor catalog, with the extra columns
+`dev`'s science pipeline adds to those catalogs: `sumrat`, `nneg` and
+`nbad` at the windowed position; DAOStarFinder's sharpness and roundness
+at the convolved image's peak; a 5 × 5 PSF fit's flux, S/N, reduced χ²,
+pixel count, flags and `cfit`; and RuBR-AT's score and label. The fit
+runs only on the sources that pass the prefilter's sumrat and S/N cuts
+and lie inside the image, as in `dev`. Both signs are scored, as in
+`dev`, though the model was trained on positive sources. The rows kept
+are the ones `dev`'s XSources loader keeps: inside the image more than 2
+pixels from its edge, and not cut by the prefilter. A source is dropped
+when its finite sumrat is at or below 0.4, its finite rb score at or
+below 0.0, or its finite S/N in the 3 px aperture at or below 5; a
+missing value is never cut. Each row carries its own tessellation field
+and HEALPix indices. `xsources` is split and loaded like `sources`, into
+`xsources_<yyyymmdd>_<sca>` by `COPY`. Its rows belong to the source
+set, so `xsources_official` follows the set's binding. Under `zogy` the
+SFFT image is not the published one, and no `xsources` are written.
+The pipeline, the operator scripts and the named queries read the child
+tables their task needs and never a parent
+({ref}`ruling <decision-children-reads>`). A query on `sources`,
+`xsources` or their `_official` views visits every child, and the
+children grow by up to 18 a night. A source set's child is found
+without the parent: the job that wrote the set also wrote its difference
+image, whose L2 row's `mjdobs` (its own `jd` when it has no L2 row) and
+whose own SCA name the child, `source_set_child(parent, job)` in the
+schema. SQL reads a set's rows through `sources_of(jobs)` and
+`xsources_of(jobs)`, which read the named sets' children only. The
+packet job reads its own set from that child. It reads the triggers'
+members in two steps: their memberships first, then each member's row
+from the child that holds it. The publisher analyses the children it
+loaded and not the parents, since a parent's `ANALYZE` samples every
+child. A query by hand on a parent stays correct, and the children's
+`CHECK` constraints let one that filters on `mjdobs` or `sca` skip the
+children it excludes.
+
+`xsources` are always loaded. `sources` records are loaded unless
+`[difference] skip_loading_sources_records` is true
+({ref}`ruling <decision-skip-sources>`). With it true, the job still
+declares its source set, with no rows, so the set's binding opens and
+its `xsources` are official through it. Nothing is then associated (no
+`objects` or `memberships`), the epoch's packet set is empty, and the
+quality metrics are still those of the set the job computed.
+A value the computation cannot produce, where `dev` writes `-999` (a
+stamp off the image, a source not fitted or with nothing left to fit, a
+source not scored), is null in the row, as `dev`'s loader loads it, and
+the job goes on; the other sources' values are unaffected. Three things
+differ from `dev`. The classifier reads the features at full precision,
+where `dev` reads them back from its text catalog. The PSF fit masks an
+uncertainty pixel of 0 or less as it masks a non-finite one, where
+photutils raises on it and `dev` then loads the whole catalog without its
+extra columns. A failure of the computation itself fails the job, where
+`dev` loads the catalog without its extra columns and so without its
+sumrat cut.
 
 The pipeline id that `dev` carries in nearly every image query is not
 in any key: a run has one differencer, and a second differencer is
@@ -586,7 +643,7 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `sfft`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; `objects` founded here and this epoch's `memberships` | real/bogus; `rubrat` |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `sfft`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; under `sfft`, `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships` | real/bogus; `rubrat` |
 | `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -829,7 +886,7 @@ cap `max_sources` (500); `associate.match_radius` (1.528e-05 degrees),
 and `[difference]` carry `dev`'s ini sections as subtables, one per
 section, with `dev`'s values (`min_frames` 2 and `max_frames` 25 among
 them); `[difference]` adds `max_sources` (500) with the import's
-meaning, and `[difference.statistics] clip_correction_seed` (0) makes
+meaning, `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
 the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
