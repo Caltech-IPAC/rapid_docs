@@ -168,11 +168,17 @@ and HEALPix indices. `xsources` is split and loaded like `sources`, into
 `xsources_<yyyymmdd>_<sca>` by `COPY`. Its rows belong to the source
 set, so `xsources_official` follows the set's binding. Under `zogy` the
 SFFT image is not the published one, and no `xsources` are written.
-Three things differ from `dev`. A missing value is null in the table, as
-`dev`'s loader makes its `-999`. The classifier reads the features at full
-precision, where `dev` reads them back from its text catalog. A failure
-in the extra columns fails the job, where `dev` loads the catalog without
-them and so without its sumrat cut.
+A value the computation cannot produce, where `dev` writes `-999` (a
+stamp off the image, a source not fitted or with nothing left to fit, a
+source not scored), is null in the row, as `dev`'s loader loads it, and
+the job goes on; the other sources' values are unaffected. Three things
+differ from `dev`. The classifier reads the features at full precision,
+where `dev` reads them back from its text catalog. The PSF fit masks an
+uncertainty pixel of 0 or less as it masks a non-finite one, where
+photutils raises on it and `dev` then loads the whole catalog without its
+extra columns. A failure of the computation itself fails the job, where
+`dev` loads the catalog without its extra columns and so without its
+sumrat cut.
 
 The pipeline id that `dev` carries in nearly every image query is not
 in any key: a run has one differencer, and a second differencer is
