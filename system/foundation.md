@@ -120,6 +120,34 @@ memberships is. A set is
 identified by the job that wrote it, so a job that writes a set binds
 exactly one key of that set's product.
 
+**Source rows are stored by observation date and SCA**
+({ref}`ruling <decision-sources-children>`). As in `dev`, each row of
+`sources` lives in a child table that inherits it, the one for the UT day
+of the row's `mjdobs` and its SCA, named `sources_<yyyymmdd>_<sca>`, and
+the parent holds none. `sources_20261104_8` holds SCA 8's sources from
+exposures that began on 2026-11-04 UT (an MJD day begins at 0h UT). A
+source set is one exposure on one SCA, so a whole set lands in one child.
+A `CHECK (false)` that the children do not inherit refuses any row in the
+parent, and each child's own `CHECK` holds it to its date and SCA, so a
+row cannot land in the wrong child and a query that filters on `mjdobs`
+or `sca` skips the children it excludes. A query on `sources` or
+`sources_official` reads every child.
+
+The publisher makes the children a set needs before the transaction that
+loads it, in a short transaction of its own, by calling
+`create_catalog_child(parent, mjdobs, sca)`. The schema's owner runs that
+function, because the pipeline's role holds table grants only. A child is
+made as `dev`'s loaders make one, `LIKE` the parent with its defaults and
+its `(job, sid)` unique index, then `INHERIT`, which locks the parent
+`SHARE UPDATE EXCLUSIVE`, a lock that loads and reads do not wait for.
+The publisher then loads each child by bulk `COPY`, as `dev`'s loaders do;
+every other table takes `INSERT`. The children are logged. `dev`'s are
+unlogged, and PostgreSQL empties an unlogged table after a crash, while a
+published row here is never deleted. A child carries no foreign key to
+`jobs`, as `dev`'s carry none, since adding one would lock `jobs` against
+every publish in flight; the publisher sets `job` from the job row it
+holds locked.
+
 The pipeline id that `dev` carries in nearly every image query is not
 in any key: a run has one differencer, and a second differencer is
 another run. A PSF's kind is in its key, `science` or `reference`
