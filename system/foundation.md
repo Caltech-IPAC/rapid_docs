@@ -168,6 +168,20 @@ and HEALPix indices. `xsources` is split and loaded like `sources`, into
 `xsources_<yyyymmdd>_<sca>` by `COPY`. Its rows belong to the source
 set, so `xsources_official` follows the set's binding. Under `zogy` the
 SFFT image is not the published one, and no `xsources` are written.
+The pipeline reads the child tables its task needs and never a parent
+({ref}`ruling <decision-children-reads>`). A query on `sources`,
+`xsources` or their `_official` views visits every child, and the
+children grow by up to 18 a night. A source set's child is found
+without the parent: the job that wrote the set also wrote its difference
+image, whose L2 row's `mjdobs` and whose own SCA name the child. The
+packet job reads its own set from that child. It reads the triggers'
+members in two steps: their memberships first, then each member's row
+from the child that holds it. The publisher analyses the children it
+loaded and not the parents, since a parent's `ANALYZE` samples every
+child. A query by hand on a parent stays correct, and the children's
+`CHECK` constraints let one that filters on `mjdobs` or `sca` skip the
+children it excludes.
+
 `xsources` are always loaded. `sources` records are loaded unless
 `[difference] skip_loading_sources_records` is true
 ({ref}`ruling <decision-skip-sources>`). With it true, the job still

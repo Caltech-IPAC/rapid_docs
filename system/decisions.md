@@ -1080,3 +1080,6 @@ The SFFT rows are runs 145 and 146. Run 146's false positives, 102.7, are one pe
 
 (decision-skip-sources)=
 **A run may skip loading `sources` records; `xsources` are always loaded**: `[difference] skip_loading_sources_records`, false by default (as `dev` can leave out its sources loader). True declares the difference job's source set with no rows, so its binding opens and its `xsources` stay official through it; nothing is associated and the epoch's packet set is empty; the quality metrics are those of the set computed, so the gate is unchanged. (Russ Laher, 2026-11-04)
+
+(decision-children-reads)=
+**The pipeline queries the child tables of `sources` and `xsources` its task needs, not the parents**: a parent (or its `_official` view) is queried only where its children's `CHECK` constraints make that the cheaper read. A source set's child is named by its difference image's L2 `mjdobs` and SCA (`rapidpipe.foundation.children`), so finding it touches no parent. The packet job reads its own set and its triggers' members from their children; the publisher analyses only the children it loaded. (Russ Laher, 2026-11-04)
