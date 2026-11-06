@@ -183,7 +183,7 @@ for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
 | `sfftdiffimage_masked.fits.gz` | SFFT's positive difference; the `diffimages` row names it, and `packet` reads it for the difference cutout and forced photometry |
 | `sfftdiffimage_uncert_masked.fits.gz` | its uncertainty, read by forced photometry |
 | `awaicgen_output_mosaic_cov_map_resampled.fits.gz` | the mask: the resampled reference coverage map the difference is masked with |
-| `zogy_diffimage_masked_psfcat[_negative].parquet`, `sfftdiffimage_masked_psfcat[_negative].parquet` | the catalogs, uncapped: SFFT's positive one is the catalog `sources` is the capped set of; the other three (ZOGY's two only when `run_zogy` is true) are diagnostics read by no stage; SFFT's two carry the pixel columns |
+| `zogy_diffimage_masked_psfcat[_negative].parquet`, `sfftdiffimage_masked_psfcat[_negative].parquet` | the catalogs, uncapped: SFFT's positive and negative ones are the catalogs `sources` is made from ({ref}`ruling <decision-negative-sources>`); the other two (ZOGY's two only when `run_zogy` is true) are diagnostics read by no stage; SFFT's two carry the pixel columns |
 | `sfftdiffpsf.fits.gz` | the difference's PSF, for forced photometry on the difference |
 | `refimage_psf.fits.gz` | the reference PSF the job measured and gave the differencers |
 | `bkg_subbed_science_image.fits.gz` | forced photometry on the science image, and the science cutout |
@@ -210,7 +210,7 @@ The manifest declares four tables:
 | Table | Rows |
 |---|---|
 | `diffimages` | one, SFFT's positive difference image, keyed (dataset, expid, sca, fid); `rid`, `rfid`, `field`, `jd`, the centre and four corners, `infobitssci` (`dev`'s catalog-outcome mask, one bit per differencer and sign with no PSF-fit catalog), `infobitsref` (the reference's grade), `status` 1, the file's MD5 |
-| `sources` | SFFT's positive PSF-fit catalog, mapped onto the `sources` columns exactly as the import maps `dev`'s, inside `dev`'s fit-position bounds, through `dev`'s database prefilter (below), then the brightest `max_sources` by flux over its error (0 keeps every source); `sumrat`, `nneg` and `nbad` from the catalog |
+| `sources` | SFFT's positive and negative PSF-fit catalogs, as `dev`'s loader loads them, each row with its sign as `isdiffpos` and a negative row's `sid` numbered after the positive catalog's ids ({ref}`ruling <decision-negative-sources>`), mapped onto the `sources` columns exactly as the import maps `dev`'s, inside `dev`'s fit-position bounds, through `dev`'s database prefilter (below), then per sign the brightest `max_sources` by flux over its error (shipped 0, every source, as `dev`); `sumrat`, `nneg`, `nbad` and the real/bogus score from the catalog |
 | `objects` | the objects this job founded: one per accepted source that matched no object of its own field or a neighbouring field as the job read them, founded in the source's own field, its id the position hash of that source |
 | `memberships` | this epoch's matches, onto objects it read and onto those it founded: each with the source's offsets from the object's founding position and its flux, the membership's share of the object's sufficient sums |
 
@@ -222,8 +222,10 @@ and above `[difference.database_prefilter] sumrat_prefilter_threshold`
 `sumrat` is rejected, where `dev` passes it, and the edge cut is
 `dev`'s XSources rule applied here to the PSF-fit catalog. `""`
 applies none of it, the raw SFFT control. `dev`'s real/bogus cut is not
-there, since no score is computed. The metrics' `n_candidates` counts
-after the cut.
+there. The metrics' `n_candidates` counts after the cut. The quality
+metrics (`n_candidates`, `n_sources`, `n_sources_snr_gt20` and the rest)
+are the positive sources', so the gate reads what it read before;
+`n_candidates_negative` and `n_sources_negative` count the negatives.
 
 The stage draws `pid` from the `diffimages` identity sequence while it
 reads its inputs, so the source rows carry it. Only SFFT's positive
@@ -233,7 +235,7 @@ empty source set with its outcome bit set (`sources` is declared valid
 when empty, `empty_ok`), where `dev`'s loader skips the job. The manifest also
 records the zero point and where it came from, both FWHMs, the scale
 factor, the registration residuals, the catalog counts, the count of
-sources before the cap, `differencer` and both differencers' source
+sources before the cap and kept, per sign, the real/bogus summary per sign, `differencer` and both differencers' source
 counts (ZOGY's null when `run_zogy` is false), and the published files with
 their plain and gzipped bytes, the gzip's seconds and what was removed.
 
@@ -284,8 +286,7 @@ outside the image's own field.
 ## Settings
 
 The run's `[difference]` table in `rapidpipe/settings/foundation-thin.toml`
-holds `max_sources` (500), `dev`'s fit-position bounds and the published
-differencer, and one
+holds `max_sources` (0, no cap), `dev`'s fit-position bounds, and one
 subtable per `dev` ini section with `dev`'s values. The tool tables
 (`[difference.sextractor_sciimage]`, `_gainmatch`, `_diffimage`,
 `_diffimage_sfft`, `_diffimage_naive` and `[difference.swarp]`) copy

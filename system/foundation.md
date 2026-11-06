@@ -110,7 +110,7 @@ distinct live streams:
 | `diffimages` | dataset, expid, sca, fid | `diffimages` |
 | `psfs` | dataset, fid, sca, kind | `psfs` |
 | `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
-| `sources` (source set) | dataset, expid, sca, fid | `sources`, from SFFT's positive Photutils PSF-fit catalog, with extra columns computed after it (`sumrat`, `nneg`, `nbad`, the real/bogus score); optional: a run may skip loading them ({ref}`ruling <decision-skip-sources>`), and the set is then declared with no rows, so its binding still opens |
+| `sources` (source set) | dataset, expid, sca, fid | `sources`, from SFFT's positive and negative Photutils PSF-fit catalogs, each row with its sign as `isdiffpos` ({ref}`ruling <decision-negative-sources>`), with extra columns computed after them (`sumrat`, `nneg`, `nbad`, the real/bogus score); optional: a run may skip loading them ({ref}`ruling <decision-skip-sources>`), and the set is then declared with no rows, so its binding still opens |
 | `xsources` (in the source set, not bound) | dataset, expid, sca, fid | `xsources`, always loaded: `dev`'s SExtractor sources of the SFFT image, from its positive and negative SExtractor catalogs, with extra columns computed after them (`sumrat`, `nneg`, `nbad`, DAOStarFinder's sharpness and roundness, a 5 × 5 PSF fit, the real/bogus score; below); official when their source set is |
 | `objects` (the object catalog, not bound) | dataset, survey, field, object id, founding job | `objects`, with `memberships` declared beside each source set; optional with `sources`: a set loaded with no rows associates nothing |
 | `xobjects` (the xsources' object catalog, not bound) | dataset, survey, field, xobject id, founding job | `xobjects`, with `xmemberships` declared beside each source set; always made, from the `xsources` |
@@ -945,8 +945,8 @@ cap `max_sources` (500); `associate.match_radius` (1.528e-05 degrees),
 `refcat_radius_arcsec` (5) with `refcat_max_matches` (3). `[reference]`
 and `[difference]` carry `dev`'s ini sections as subtables, one per
 section, with `dev`'s values (`min_frames` 2 and `max_frames` 25 among
-them); `[difference]` adds `max_sources` (500) with the import's
-meaning, `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
+them); `[difference]` adds `max_sources` (0, no cap, as `dev`; a
+nonzero value caps each sign), `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
 the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
@@ -1840,10 +1840,10 @@ cold queue.
   own exposure time, or is differenced at all, is open.
 - Completeness on real hosts and light curves past AB 25. The
   OpenUniverse TDS chain runs end to end and its transients are
-  detected at 1.0 to AB 24 and 0.5 at 25, but every difference fills
-  the rebuild's cap of 500 sources (`[difference] max_sources`), so the
-  cap ends the count
-  ([datasets](datasets)).
+  detected at 1.0 to AB 24 and 0.5 at 25, but every difference filled
+  the cap of 500 sources then in force (`[difference] max_sources`), so
+  the cap ended the count ([datasets](datasets)); the cap is now off
+  (`max_sources = 0`), and the count past it is unmeasured.
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
 - Whether the naive subtraction keeps running now that it makes no
