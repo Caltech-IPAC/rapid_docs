@@ -119,6 +119,9 @@ distinct live streams:
 
 A source is identified by its set and its source id, an object by its
 founding job and its object id, a packet by its set and its source.
+A source id, `sid` or `xsid`, is numbered within its set, not drawn from
+a database sequence as `dev`'s are, so it is unique only with its job
+({ref}`ruling <decision-per-set-source-ids>`).
 Objects, memberships, xobjects, xmemberships and xsources carry no
 binding of their own: a membership, an xmembership or an xsource is
 official when its source set is, an object when one of its memberships
