@@ -210,7 +210,7 @@ The manifest declares four tables:
 | Table | Rows |
 |---|---|
 | `diffimages` | one, SFFT's positive difference image, keyed (dataset, expid, sca, fid); `rid`, `rfid`, `field`, `jd`, the centre and four corners, `infobitssci` (`dev`'s catalog-outcome mask, one bit per differencer and sign with no PSF-fit catalog), `infobitsref` (the reference's grade), `status` 1, the file's MD5 |
-| `sources` | SFFT's positive and negative PSF-fit catalogs, as `dev`'s loader loads them, each row with its sign as `isdiffpos` and a negative row's `sid` numbered after the positive catalog's ids ({ref}`ruling <decision-negative-sources>`), mapped onto the `sources` columns exactly as the import maps `dev`'s, inside `dev`'s fit-position bounds, through `dev`'s database prefilter (below), then per sign the brightest `max_sources` by flux over its error (shipped 0, every source, as `dev`); `sumrat`, `nneg`, `nbad` and the real/bogus score from the catalog |
+| `sources` | SFFT's positive and negative PSF-fit catalogs, as `dev`'s loader loads them, each row with its sign as `isdiffpos` and a negative row's `sid` numbered after the positive catalog's ids ({ref}`ruling <decision-negative-sources>`), mapped onto the `sources` columns exactly as the import maps `dev`'s, inside `dev`'s fit-position bounds, through `dev`'s database prefilter (below), then per sign the brightest `max_sources` by flux over its error (shipped -1, no cap, every source, as `dev`; 0 keeps none); `sumrat`, `nneg`, `nbad` and the real/bogus score from the catalog |
 | `objects` | the objects this job founded: one per accepted source that matched no object of its own field or a neighbouring field as the job read them, founded in the source's own field, its id the position hash of that source |
 | `memberships` | this epoch's matches, onto objects it read and onto those it founded: each with the source's offsets from the object's founding position and its flux, the membership's share of the object's sufficient sums |
 
@@ -286,7 +286,8 @@ outside the image's own field.
 ## Settings
 
 The run's `[difference]` table in `rapidpipe/settings/foundation-thin.toml`
-holds `max_sources` (0, no cap), `dev`'s fit-position bounds, and one
+holds `max_sources` (-1, no cap; a non-negative value keeps the
+brightest that many per sign, 0 none, and anything below -1 is refused), `dev`'s fit-position bounds, and one
 subtable per `dev` ini section with `dev`'s values. The tool tables
 (`[difference.sextractor_sciimage]`, `_gainmatch`, `_diffimage`,
 `_diffimage_sfft`, `_diffimage_naive` and `[difference.swarp]`) copy
