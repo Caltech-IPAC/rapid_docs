@@ -633,9 +633,13 @@ characters); the traceback is in the job's log. The loop adds one
 rerun of its own: a container Batch ended without `job run` recording
 it is resubmitted once, and its rerun's death fails the loop. A retry after a late commit is safe because `job run` stops on
 a published job and otherwise takes the next attempt. Batch places a
-retry within seconds, with no backoff, so the three attempts ride out a
-database outage only as long as the connection's own retries inside
-each attempt, about 8 s each. A job can still be resubmitted by hand,
+retry within seconds, with no backoff, so what rides out a database
+outage is the connection's own retry inside each attempt: 300 s of
+connects with backoff, the Thursday window's reboot (178 s from PAUSE
+to the first login the restarted pooler accepted, in three windows)
+plus 120 s. The first refused connect logs the maintenance lock's
+holder once, so the job's log names the window run that closed the
+database. A job can still be resubmitted by hand,
 the same Batch request again. Running the job records the job
 definition's image digest on the job row and beside it the instance
 type, read from the instance's metadata service when the attempt
