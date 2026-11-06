@@ -941,15 +941,15 @@ a run whose messages have aged out fails it as never read.
 
 The run's body is `rapidpipe/settings/foundation-thin.toml`, one table
 per stage, with `dev`'s values where `dev` hard-codes them: the import
-cap `max_sources` (0, no cap, as `dev`); `associate.match_radius` (1.528e-05 degrees),
+cap `max_sources` (-1, no cap, as `dev`; 0 keeps none); `associate.match_radius` (1.528e-05 degrees),
 `source_flags` (0) and `min_snr` (5); `packet.stamp_half_width` (64),
 `prv_window_days` (365.25), `forced_window_days` (30),
 `gaia_radius_arcsec` (1) with `gaia_max_matches` (3), and
 `refcat_radius_arcsec` (5) with `refcat_max_matches` (3). `[reference]`
 and `[difference]` carry `dev`'s ini sections as subtables, one per
 section, with `dev`'s values (`min_frames` 2 and `max_frames` 25 among
-them); `[difference]` adds `max_sources` (0, no cap, as `dev`; a
-nonzero value caps each sign), `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
+them); `[difference]` adds `max_sources` (-1, no cap, as `dev`; a
+non-negative value caps each sign, 0 keeping none), `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
 the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
@@ -1051,7 +1051,7 @@ exposures, L2 files, PSFs and Gaia copy stay on the baseline's jobs.
 The undo of that group restores every official view, and every table's
 row count is unchanged except `official`'s, so nothing is deleted.
 
-**Uncapped.** The same chain at `max_sources = 0`, against the same
+**Uncapped.** The same chain at `max_sources = 0` (then the no-cap value; it is -1 now), against the same
 reference, measured per stage, then its own change group and undo.
 
 **The night.** The sixth part takes one field's whole simulated night,
@@ -1846,7 +1846,7 @@ cold queue.
   detected at 1.0 to AB 24 and 0.5 at 25, but every difference filled
   the cap of 500 sources then in force (`[difference] max_sources`), so
   the cap ended the count ([datasets](datasets)); the cap is now off
-  (`max_sources = 0`), and the count past it is unmeasured.
+  (`max_sources = -1`), and the count past it is unmeasured.
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
 - Whether the naive subtraction keeps running now that it makes no
