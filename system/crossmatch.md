@@ -3,9 +3,15 @@
 **Status: retired**
 
 The module this page describes was retired from the `rebuild` branch with
-the run model. The [foundation](foundation) page states what replaced it;
-this page stays as the record of the port until the replacement's own page
-supersedes it.
+the run model. Its replacement is the difference job's association, on
+the [difference](difference) page (Association): each difference job
+matches its own sources, in memory, against the run's objects in its
+sources' fields and their neighbours, and under SFFT does the same for
+its xsources against the run's xobjects
+({ref}`association in the difference job <decision-association-in-difference>`,
+{ref}`association by the source's field <decision-association-by-source-field>`,
+{ref}`xobjects <decision-xobjects>`). The [foundation](foundation) page
+states the tables. This page stays as the record of the port.
 
 `crossmatch` assigns newly loaded sources to astronomical objects and
 records the associations in `astroobjects_<field>` and `merges_<field>`.
@@ -80,6 +86,15 @@ transaction on one connection. In `dev`,
 processing date's jobs for sources tables and distinct fields, then a
 process pool runs the fields. In the rebuild, the launcher owns the scan
 and pool: the stage's unit is one field, and its input names the sets.
+
+That was the retired stage. The rebuild now has no port of
+`lookup_source_tables_to_crossmatch_and_distinct_fields` and no per-date
+scan: the difference job takes the distinct fields from its own accepted
+sources, each in the tessellation field of its position, adds every
+field sharing an edge or a corner with one of them, and reads those
+fields' objects. `dev` takes the union of the fields its L2 files'
+footprints (`source_footprint_fields`) can assign sources to, which can
+include a field with no `flags = 0` source.
 
 `dev` runs Query A and B against every sources table for every exposure.
 The rebuild queries only sets whose exposure list includes that exposure;
