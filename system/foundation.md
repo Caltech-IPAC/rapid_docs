@@ -151,8 +151,8 @@ every publish in flight; the publisher sets `job` from the job row it
 holds locked.
 
 **`xsources` holds `dev`'s SExtractor sources of the SFFT difference
-image** ({ref}`ruling <decision-xsources>`). Under `diff_flavor = "sfft"`
-the difference job writes them beside its source set. They come from the
+image** ({ref}`ruling <decision-xsources>`). The difference job writes
+them beside its source set. They come from the
 positive and the negative SExtractor catalog, with the extra columns
 `dev`'s science pipeline adds to those catalogs: `sumrat`, `nneg` and
 `nbad` at the windowed position; DAOStarFinder's sharpness and roundness
@@ -221,8 +221,7 @@ that guards the `sources` parents guards these too.
 
 **The xsources have their own object catalog, `xobjects` and
 `xmemberships`** ({ref}`ruling <decision-xobjects>`), `dev`'s
-XAstroObjects and XMerges. Under `diff_flavor = "sfft"` the difference
-job cross-matches its `xsources` as it associates its sources, as
+XAstroObjects and XMerges. The difference job cross-matches its `xsources` as it associates its sources, as
 `dev`'s crossMatchXSources.py does for crossMatchSources.py's sources:
 the xsources whose SExtractor `flags` equal `[associate] xsource_flags`
 (0, as in `dev`), positive and negative together, are matched within
@@ -697,7 +696,7 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | the published differencer's gzipped difference image (`[difference] diff_flavor`, shipped `sfft`), its uncertainty, the mask, both differencers' uncapped catalogs (SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, under `sfft` through `dev`'s prefilter; under `sfft`, `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; under `sfft`, `xobjects` founded here and this epoch's `xmemberships`, from its `xsources` | real/bogus; `rubrat` |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through `dev`'s prefilter; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources` | real/bogus; `rubrat` |
 | `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -750,12 +749,11 @@ filter and SCA), the `l2files` rows it coadds in `dev`'s order, the
 three tables it declares with the `rfid` it draws, and its settings.
 The [difference](difference) page states `difference`: its scope (one
 epoch's key), its four inputs (the L2 row, a reference, and one PSF of
-each kind), the image and source set of the differencer
-`[difference] diff_flavor` names (shipped `sfft`) with the `pid` it
-draws, the files it publishes and why each is kept, and its settings.
-A run has one published differencer, so only its image is a row; the
-other's PSF-fit catalogs are uploaded as diagnostics, and its images and
-the naive files are not uploaded at all.
+each kind), SFFT's positive difference image and source set with the
+`pid` it draws, the files it publishes and why each is kept, and its
+settings. Only SFFT's image is a row ({ref}`ruling <decision-sfft-only-registered>`); ZOGY's PSF-fit catalogs are
+uploaded as diagnostics, and its images and the naive files are not
+uploaded at all.
 
 ### Association
 
@@ -1840,11 +1838,9 @@ cold queue.
   ([datasets](datasets)).
 - GBTDS's core-and-ring residual with the science PSF on both images,
   346 to 418 per epoch above S/N 20.
-- Whether the published differencer returns to SFFT: with `dev`'s
-  prefilter under HLWAS's OpenUniverse block it detects 530 of 600
-  injected against ZOGY's 542 at half the false positives; and whether
-  the naive subtraction keeps running now that it makes no PSF-fit
-  catalog ([difference](difference)).
+- Whether the naive subtraction keeps running now that it makes no
+  PSF-fit catalog ([difference](difference)); `naive_diffimage_flag =
+  false` skips it.
 - Packets after a replacement stay as published with the old
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.
