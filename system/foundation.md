@@ -941,7 +941,7 @@ a run whose messages have aged out fails it as never read.
 
 The run's body is `rapidpipe/settings/foundation-thin.toml`, one table
 per stage, with `dev`'s values where `dev` hard-codes them: the import
-cap `max_sources` (500); `associate.match_radius` (1.528e-05 degrees),
+cap `max_sources` (0, no cap, as `dev`); `associate.match_radius` (1.528e-05 degrees),
 `source_flags` (0) and `min_snr` (5); `packet.stamp_half_width` (64),
 `prv_window_days` (365.25), `forced_window_days` (30),
 `gaia_radius_arcsec` (1) with `gaia_max_matches` (3), and
