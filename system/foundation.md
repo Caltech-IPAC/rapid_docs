@@ -11,6 +11,9 @@ package `rapidpipe.foundation`, the stages `intake`, `import`, `psf`,
 Kafka publication, the reader `scripts/read_packets.py`, the run
 validation `scripts/validate_run.py`, the check script
 `scripts/check_run.sh` and the queries in `database/queries.sql`.
+The schema's entity diagram,
+[`database/schema.svg`](https://github.com/Caltech-IPAC/rapid/blob/rebuild/database/schema.svg),
+is drawn from `schema.sql` by `scripts/schema_diagram.py`.
 The [stage contract](stage-contract) page states what a stage is under
 it, and the [decisions](decisions) page records the rulings it rests
 on. The chain has run end to end on SMDC's database and AWS Batch over
