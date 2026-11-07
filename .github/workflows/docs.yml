@@ -1,8 +1,19 @@
 name: docs
 
+# push is main only: with a bare push: every PR commit built twice (push +
+# pull_request), 22 of the last 38 commits (measured 2026-11-07).
+# linkcheck runs weekly, not per PR: github.com answers the anonymous burst
+# of linkcheck's workers with 429 and sphinx sleeps 60 s, 120 s, 240 s per
+# limited URL; the step went from a 10 s median to 123 s (p90 245 s, max 13
+# min) once the docs linked into the rapid repo (W44 2026). A dead external
+# link waits a week; a broken internal reference still fails the html build.
 on:
   push:
+    branches: [main]
   pull_request:
+  schedule:
+    - cron: '0 12 * * MON'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,6 +35,7 @@ jobs:
       - run: sphinx-build -W --keep-going -b html . _build/html
 
       - run: sphinx-build -b linkcheck . _build/linkcheck
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
       - run: scripts/acceptance.sh _build/html
 
