@@ -224,8 +224,9 @@ and above `[difference.sources_database_prefilter] sumrat_prefilter_threshold`
 applies none of it, the raw SFFT control. A source with a finite rb
 score at or below `rb_prefilter_threshold` (0.0, `dev`'s) is dropped, an
 unscored one passing, and so is one whose PSF-fit S/N, `flux_fit /
-flux_err`, is at or below `snr_prefilter_threshold` (5.0, a cut `dev`
-does not make on its sources); each is `""` for none
+flux_err`, is at or below `snr_prefilter_threshold` when one is set; each
+is `""` for none, and the S/N one ships `""`: `dev` makes no S/N cut on
+its sources and what one costs in recovered transients is unmeasured
 ({ref}`ruling <decision-sources-prefilter>`). The metrics' `n_candidates` counts after the cut. The quality
 metrics (`n_candidates`, `n_sources`, `n_sources_snr_gt20` and the rest)
 are the positive sources', so the gate reads what it read before;
@@ -310,7 +311,7 @@ port or departs from `dev`:
 | `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev`; `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own block, and HLWAS's is `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100; [datasets](datasets)) |
 | `[difference.sumrat]` | `stamp_size` 5, `filter_size` 3, `lower_median` false | `dev`'s `[SUMRAT]`; `false` takes the mean of the two middle values of an even count, so pure noise's sumrat is about 0, where ZTF's median is biased to about −0.32 |
 | `[difference.extra_catalog_cols]` | `nneg_nbad_stamp_size` 5, `pixel_cols_bkg_box` 64, `pixel_cols_bkg_filter_size` 3 | `dev`'s `[EXTRA_CATALOG_COLS]`: the `nneg` and `nbad` stamp and the local background the three columns are measured after |
-| `[difference.sources_database_prefilter]` | `sumrat_prefilter_threshold` 0.4, `rb_prefilter_threshold` 0.0, `snr_prefilter_threshold` 5.0 | the `sources`' cuts, both signs, in this job and the import, kept apart from the `xsources`' ({ref}`ruling <decision-sources-prefilter>`): sumrat and the 2 px edge (`""` applies neither), a finite rb at or below 0.0, a PSF-fit S/N at or below 5; `""` is no such cut |
+| `[difference.sources_database_prefilter]` | `sumrat_prefilter_threshold` 0.4, `rb_prefilter_threshold` 0.0, `snr_prefilter_threshold` `""` | the `sources`' cuts, both signs, in this job and the import, kept apart from the `xsources`' ({ref}`ruling <decision-sources-prefilter>`): sumrat and the 2 px edge (`""` applies neither), a finite rb at or below 0.0, a PSF-fit S/N at or below the threshold when one is set; `""` is no such cut, and the S/N one ships off until a run has measured its cost |
 | `[difference.xsources_database_prefilter]` | `sumrat_prefilter_threshold` 0.4, `rb_prefilter_threshold` 0.0, `snr_prefilter_threshold` 5.0 | `dev`'s `[DATABASE_PREFILTER]`, the `xsources`' cuts and the selection of the xsources the PSF fits run on; `""` is no such cut |
 | `[difference.naive_diffimage] naive_diffimage_flag` | true | the naive subtraction runs, a diagnostic; false skips its image and catalogs, as `dev`'s |
 | `[difference.fake_sources] inject_fake_sources_flag` | false | fake-source injection is not ported; true is refused |
