@@ -72,7 +72,7 @@ page or ruling states why.
 | `DiffImMeta` (`scalefacref`, `dxrmsfin`, `nsexcatsources`, ...) | metrics in `jobs.manifest`, read through the `job_metrics` view and `scripts/inspect_run.py`; the quality gate reads them | changed | no recorded reason for the table's removal; {ref}`the gate on lost sky and misregistration <decision-gate-coverage-registration>` |
 | `Sources` from the SFFT difference image's PSF-fit catalog (since 2026-04-20) | `sources` from SFFT's positive and negative PSF-fit catalogs with `dev`'s prefilter, `isdiffpos` the sign, as `dev` ({ref}`ruling <decision-negative-sources>`); ZOGY runs unless `run_zogy` is false, its catalogs kept as diagnostics; `diff_flavor`, which could publish ZOGY's, is retired ({ref}`ruling <decision-sfft-only-registered>`) | same | {ref}`the SFFT default <decision-sfft-default>`; {ref}`the HLWAS SFFT block <decision-hlwas-sfft-block>` |
 | `Sources`: every row above the prefilter | `[difference] max_sources = -1`, no cap: every row above the prefilter, as `dev`; a non-negative value keeps the brightest that many per sign by fluxfit over fluxerr, 0 none | same | {ref}`ruling <decision-negative-sources>` |
-| `[DATABASE_PREFILTER]` (`sumrat`, `rb`, aperture S/N), one section for both loaders | `sources`: `[difference.sources_prefilter] sumrat_prefilter_threshold` (0.4) and a 2 px edge, both signs, no `rb` and no aperture-S/N cut; `xsources`: `[difference.database_prefilter]`, all three as `dev` | partial | {ref}`dev's prefilter under sfft <decision-dev-prefilter>`; {ref}`separate thresholds <decision-sources-prefilter>` |
+| `[DATABASE_PREFILTER]` (`sumrat`, `rb`, aperture S/N), one section for both loaders | `sources`: `[difference.sources_prefilter]`, sumrat (0.4) with a 2 px edge, `rb` (0.0, as `dev`) and PSF-fit S/N (5.0, where `dev` cuts none), both signs; `xsources`: `[difference.database_prefilter]`, all three as `dev` | partial | {ref}`dev's prefilter under sfft <decision-dev-prefilter>`; {ref}`separate thresholds <decision-sources-prefilter>` |
 | `sumrat`, `nneg`, `nbad` columns | measured on every SFFT PSF-fit candidate after a 64 px local background; carried on `sources` | partial | {ref}`dev's pixel columns <decision-pixel-columns-background>` |
 | `Sources` child tables `sources_<date>_<sca>`, `loadPSFCatIntoDBSourcesTable.py` | `sources`, one source set per (dataset, expid, sca, fid) and job, declared by the difference job | changed | a source is official when its set is ([foundation](foundation.md#why-it-is-this-way)) |
 | `AstroObjects_<field>`, `Merges_<field>` | `objects` and `memberships`, append-only; `objects_official`, `memberships_official`; object ids are position hashes that never change | changed | {ref}`association in the difference job <decision-association-in-difference>` |
@@ -181,13 +181,14 @@ goes on [decisions](decisions) as a ruling.
   prefilter, as `dev` ({ref}`ruling <decision-sfft-default>`); is
   source-level parity with `dev`, not yet verified, required before
   operational use?
-- **The cap.** Is 500 sources per difference image the production
-  value, where `dev` keeps every source above its prefilter?
-- **Real/bogus and the X tables.** Real/bogus scoring is ported
-  ({ref}`ruling <decision-reliability-scored>`); are the XSources
-  family and `dev`'s `rb` and aperture-S/N prefilter cuts ported or
-  retired, and who decides? `dev`'s owners of RUBRAT and the X tables
-  are the people to ask.
+- **The cap.** Settled: `max_sources` ships -1, no cap, as `dev`
+  ({ref}`ruling <decision-negative-sources>`).
+- **Real/bogus and the X tables.** Settled: real/bogus scoring is ported
+  ({ref}`ruling <decision-reliability-scored>`), the XSources family is
+  ported ({ref}`ruling <decision-xsources>`, {ref}`ruling <decision-xobjects>`),
+  and `dev`'s `rb` and S/N prefilter cuts apply to both `sources` and
+  `xsources`, each with its own thresholds
+  ({ref}`ruling <decision-sources-prefilter>`).
 - **HATS and positional forced photometry.** What replaces the HATS
   catalogs and forced photometry on a list of positions?
 - **Redelivery.** How is a redelivered L2 file handled? The loop skips
