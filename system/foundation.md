@@ -175,8 +175,9 @@ below 0.0, or its finite S/N in the 3 px aperture at or below 5; a
 missing value is never cut. Each row carries its own tessellation field
 and HEALPix indices. `xsources` is split and loaded like `sources`, into
 `xsources_<yyyymmdd>_<sca>` by `COPY`. Its rows belong to the source
-set, so `xsources_official` follows the set's binding. Under `zogy` the
-SFFT image is not the published one, and no `xsources` are written.
+set, so `xsources_official` follows the set's binding. The import reads
+the extra columns `dev` wrote into an imported epoch's catalogs instead
+of computing them ({ref}`ruling <decision-import-both-signs>`).
 The pipeline, the operator scripts and the named queries read the child
 tables their task needs and never a parent
 ({ref}`ruling <decision-children-reads>`). A query on `sources`,
@@ -704,7 +705,7 @@ image. Each simplification keeps the shape of the full stage.
 | Stage | Reads (named in `job_inputs`) | Writes (declared outputs) | Left out until breadth |
 |---|---|---|---|
 | `intake` | one L2 file under the run's source root, by the dataset's reader (SOC L2 or OpenUniverse ASDF, RimTimSim lite FITS); the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
-| `import` | stored products for one field: L2 files, difference images, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs` and `sources` (the brightest N per difference image by flux over its error), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
+| `import` | stored products for one field: L2 files, difference images with SFFT's PSF-fit and SExtractor catalogs, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs`, `sources` (from both PSF-fit catalogs, the brightest N of each sign by flux over its error, every source at the shipped -1) and `xsources` (from both SExtractor catalogs, as `dev`'s loader reads them; {ref}`ruling <decision-import-both-signs>`), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through `dev`'s prefilter; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources` | real/bogus; `rubrat` |
@@ -723,7 +724,12 @@ science PSF and the Gaia mirror's prefix, registered as the dataset's
 `catalogs` row without a copy) and one job imports each epoch, because
 a source set's job binds one key. The kept sources are mapped onto the
 `sources` columns with the old load stage's join, and their HEALPix and
-tessellation columns are computed. A row's `filename` is the URL of the
+tessellation columns are computed. Both of SFFT's PSF-fit catalogs are
+read, the negative one's rows with `isdiffpos` false and numbered after
+the positive catalog's ids, and both of its SExtractor catalogs give the
+`xsources`, with the extra columns and rb scores `dev` wrote into them,
+as `dev`'s XSources loader reads them
+({ref}`ruling <decision-import-both-signs>`). A row's `filename` is the URL of the
 copy under the job's prefix; every file is reached through its row.
 A PSF's `psf` scope declares its kind; the stage reads the file's
 `PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
@@ -941,7 +947,7 @@ a run whose messages have aged out fails it as never read.
 
 The run's body is `rapidpipe/settings/foundation-thin.toml`, one table
 per stage, with `dev`'s values where `dev` hard-codes them: the import
-cap `max_sources` (-1, no cap, as `dev`; 0 keeps none); `associate.match_radius` (1.528e-05 degrees),
+cap `max_sources` (-1, no cap, as `dev`; a non-negative value caps each sign, 0 keeping none); `associate.match_radius` (1.528e-05 degrees),
 `source_flags` (0) and `min_snr` (5); `packet.stamp_half_width` (64),
 `prv_window_days` (365.25), `forced_window_days` (30),
 `gaia_radius_arcsec` (1) with `gaia_max_matches` (3), and
