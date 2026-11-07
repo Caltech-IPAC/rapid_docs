@@ -332,75 +332,100 @@ differences from `dev`, are revoked. `dev`'s table shapes and column
 names are kept where they cost nothing and the team's queries read
 them. (Ben, 2026-10-20)
 
-Ben's rulings of 2026-10-08 on the pipeline's Python environment, the
-rapid-python RPM, after a review of the environment. The infrastructure
-repository's rapid-python README states the design they produced.
+Ben's rulings of 2026-10-08 and 2026-11-07 on the pipeline's Python
+environment, the rapid-python RPM. The infrastructure repository's
+rapid-python README states the design they produced.
+
+(decision-python-stasis-shape)=
+**STASIS's shape**: the environment takes the shape of STScI's STASIS
+deliveries: conda-forge supplies the interpreter only (python and pip),
+and everything else is one hash-pinned pip lock compiled by uv. The
+PyPI-to-conda override map, the guard against a package in both layers,
+the conda-lock proof and the hand caps go. The envhouse becomes a
+wheelhouse, and the offline replay's import gate stays the bar. The
+RPM, its path and the promotion chain are unchanged. (Ben, 2026-11-07
+08:41 UTC; infrastructure PR 494)
+
+(decision-python-stasis-pins)=
+**STASIS's pins**: the tracked delivery is the newest STASIS Roman
+delivery that is not a release candidate (`ROMANDP-1.1.0+26Q4_B23` at
+the re-platform); a release candidate is tracked only when Ben names
+it. The delivery's exact pins bind the Roman stack, a committed list of
+28 names (romancal, roman-datamodels, rad, stcal, stpipe, romanisim,
+crds, pysiaf, gwcs, the asdf family, the stsci packages, tweakwcs,
+drizzle, spherical-geometry, numpy, astropy, photutils, scipy, pandas,
+pyarrow, matplotlib, galsim); uv solves everything else at its newest,
+and the interpreter's patch release and pip float. Taking every pin the
+delivery carries would have held 38 housekeeping libraries, among them
+certifi, cryptography and urllib3, at the delivery's August versions.
+(Ben, 2026-11-07 08:46 and 19:06 UTC)
+
+(decision-python-overrides)=
+**Override list**: an override is one floor line in the requirements
+file with its reason, who and when, earned by a named fix or by a
+package that cannot solve against a delivery pin. A floor on a stack
+name replaces the delivery's pin. The re-lock retires a floor once the
+delivery's pin meets it, returning the line to the bare name, and
+reports it; a floor off the stack list replaces no pin and never
+retires. At the re-platform: `sip_tpv>=2`, the release without
+`pkg_resources`, so setuptools is no longer capped (Ben, 2026-11-07
+08:39 UTC), and `astrocut>=1.4`, without which uv backtracks astrocut
+to a release with no S3 support. (Ben, 2026-11-07 08:46 UTC)
 
 (decision-python-one-env)=
-**One environment**: the single-environment design holds. The Kafka
-client stays: kafka-python, aws-glue-schema-registry and
-aws-msk-iam-sasl-signer-python remain in the environment file.
-(Ben, 2026-10-08)
+**One environment**: the single-environment design holds, at the same
+breadth, notebook tooling included. The Kafka client stays:
+kafka-python, aws-glue-schema-registry and
+aws-msk-iam-sasl-signer-python. onnxruntime is in the environment;
+TensorFlow and Keras are not. (Ben, 2026-10-08; onnxruntime 2026-11-07
+08:50 UTC)
 
 (decision-python-version)=
-**Python version**: the environment moves to Python 3.13. If the
-conda-lock solve on 3.13 still fails after two corrective attempts, the
-environment falls back to 3.14 and the reason is recorded.
-(Ben, 2026-10-08)
+**Python version**: Python 3.13 first, from the delivery's 3.13 set.
+The minor then follows one rule: the newest minor in bugfix phase that
+the tracked delivery ships and for which every compiled package has a
+wheel, taken at a re-lock as a one-line change. That is 3.14 at the
+first re-lock after the re-platform. (Ben, 2026-10-08 for 3.13;
+2026-11-07 09:00 and 21:12 UTC)
 
 (decision-python-astroquery)=
-**astroquery**: a direct conda-forge entry in the environment file, not
-only a transitive dependency. (Ben, 2026-10-08)
-
-(decision-python-romancal-floor)=
-**romancal floor**: the pip block requires `romancal>=1.1`.
-(Ben, 2026-10-08)
-
-(decision-python-base-variants)=
-**Base variants**: matplotlib, photutils and astropy are taken as
-`matplotlib-base`, `photutils-base` and `astropy-base`. The lock showed
-what the full metapackages pull in and the pipeline never imports:
-pyside6 and qt6-main for matplotlib, rasterio and GDAL for photutils,
-ipydatagrid for astropy. (Ben, 2026-10-08)
+**astroquery**: a direct entry in the requirements file, not only a
+transitive dependency. (Ben, 2026-10-08)
 
 (decision-python-nexus-packages)=
 **Roman Research Nexus packages**: the environment carries what the team
-expects from the Nexus: sncosmo, healsparse, skyproj and ipympl from
-conda-forge, and astrocut from PyPI, where it is the only source.
-(Ben, 2026-10-08)
+expects from the Nexus: sncosmo, healsparse, skyproj, ipympl and
+astrocut. (Ben, 2026-10-08)
 
 (decision-python-build-on-change)=
 **Build on change**: the promoter builds the rapid-python RPM only when
 its inputs are new. A NEVRA that is already published, with unchanged
 tracked inputs, is taken from the published object instead of being
 rebuilt. A changed lock under an unchanged NEVRA still meets the
-immutable-NEVRA refusal. (Ben, 2026-10-08)
+immutable-NEVRA refusal. Version is the resolve date. (Ben, 2026-10-08)
 
 (decision-python-spec-committed)=
 **Committed spec**: the rapid-python spec is a committed file, not
-generated. The spec generator, its block directory, the shared prep
-block and the generator's freshness check go. (Ben, 2026-10-08)
+generated. (Ben, 2026-10-08)
 
 (decision-python-import-list)=
 **One import list**: a single list of the environment's import names,
-read by every consumer: the offline-replay gate, the RPM smoke test, the
-fixtures and the re-lock's import proof. (Ben, 2026-10-08)
+read by every consumer: the offline-replay gate, the RPM smoke test and
+the fixtures. (Ben, 2026-10-08)
 
 (decision-python-relock)=
-**Re-lock cadence**: the environment is re-locked monthly on a schedule,
-and on any push to main that changes its environment file. The weekly
-bump no longer tracks it: the pin table's conda-lock row, its
-locked-inputs token and the bump's resolver and probe for it go. The
-re-lock pull request merges itself once validation is green on it and
-the re-lock job has proved that the new lock imports every module on
-the import list. This reopens the earlier rule that a re-lock is never
-merged automatically: the import proof is the gate that rule lacked.
-(Ben, 2026-10-08)
+**Re-lock cadence**: the environment is re-locked weekly, Wednesday at
+04:00 UTC, the Wednesday chain's slot after the pins bump, and on any
+push to main that changes its inputs. The re-lock pull request merges
+itself once validation is green on it and the envhouse build has
+imported every module on the import list offline. This reopened the
+earlier rule that a re-lock is never merged automatically: the import
+proof is the gate that rule lacked. (Ben, 2026-10-08 for the automatic
+merge; weekly 2026-11-07 19:07 UTC, replacing monthly)
 
 (decision-python-envhouse-retirement)=
-**Envhouse retirement deferred**: the envhouse stays until build on
-change has run for a few releases. Until then the only change to it is
-the switch to the envhouse keyed by the lock's hash. (Ben, 2026-10-08)
+**Envhouse retirement deferred**: the envhouse, now a wheelhouse, stays
+until build on change has run for a few releases. (Ben, 2026-10-08)
 
 Ben's rulings of 2026-09-27 on the rebuild's open questions.
 
@@ -878,7 +903,7 @@ longer attended. (Ben, 2026-10-06; the weekly bump's day is superseded
 below by
 {ref}`the Wednesday transaction <decision-maintenance-redesign>`; the
 Python environment's place in the bump is superseded above by
-{ref}`the monthly re-lock <decision-python-relock>`)
+{ref}`the weekly re-lock <decision-python-relock>`)
 
 (decision-one-builder)=
 **One builder and publisher**: the promoter builds every artefact derived
