@@ -243,17 +243,21 @@ publisher reconciles the founded xobjects at publish as it reconciles
 objects, under the same field locks, and records the outcome as
 `xreconcile`. The two tables are split by field and read like `objects`
 and `memberships`: `xobjects_in`, `xobjects_of`, `xmemberships_in`,
-`xmemberships_of` and `xobjects_official_in`. They do not yet feed alert
-production: packets and forced photometry are still made from `objects`
-and `memberships`.
+`xmemberships_of` and `xobjects_official_in`. They feed alert
+production by default: `[packet] alert_catalog = "xsources"` makes
+packets and forced photometry from `xsources`, `xobjects` and
+`xmemberships`, and `"sources"` from `sources`, `objects` and
+`memberships` ({ref}`ruling <decision-packets-from-xsources>`).
 
 `xsources` are always loaded. `sources` records are loaded unless
 `[difference] skip_loading_sources_records` is true
 ({ref}`ruling <decision-skip-sources>`). With it true, the job still
 declares its source set, with no rows, so the set's binding opens and
 its `xsources` are official through it. Nothing is then associated (no
-`objects` or `memberships`), the epoch's packet set is empty, and the
-quality metrics are still those of the set the job computed.
+`objects` or `memberships`), the epoch's packet set is empty under
+`[packet] alert_catalog = "sources"` (under `"xsources"` it is made from
+the xsources as usual), and the quality metrics are still those of the
+set the job computed.
 A value the computation cannot produce, where `dev` writes `-999` (a
 stamp off the image, a source not fitted or with nothing left to fit, a
 source not scored), is null in the row, as `dev`'s loader loads it, and
@@ -709,7 +713,7 @@ image. Each simplification keeps the shape of the full stage.
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
 | `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through `dev`'s prefilter; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources` | real/bogus; `rubrat` |
-| `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' objects and official members, their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
+| `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' xobjects and official xmembers (objects and members under `[packet] alert_catalog = "sources"`), their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
 Every stage reads its inputs the same way whoever made them, so
@@ -799,7 +803,14 @@ reconcile is rebased to the surviving object's origin.
 ### packet
 
 `packet` is a port of `dev`'s alerts package at schema 00.07, one job
-per official source set, in any order. Every source the run's
+per official source set, in any order. It reads the catalog
+`[packet] alert_catalog` names: `"xsources"` (shipped) reads the set's
+`xsources` and the `xobjects` and `xmemberships`, `"sources"` the
+`sources`, `objects` and `memberships`
+({ref}`ruling <decision-packets-from-xsources>`). The rest of this
+section states the `"sources"` reading; under `"xsources"` read
+xsource, xobject and xmembership for source, object and membership,
+with the `diaSource` mapping the ruling gives. Every source the run's
 `[associate]` table accepts that is a member of an object triggers a
 packet, and under association by the source's field every accepted
 source is a member, so every accepted detection is alertable wherever
