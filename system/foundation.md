@@ -729,7 +729,10 @@ read, the negative one's rows with `isdiffpos` false and numbered after
 the positive catalog's ids, and both of its SExtractor catalogs give the
 `xsources`, with the extra columns and rb scores `dev` wrote into them,
 as `dev`'s XSources loader reads them
-({ref}`ruling <decision-import-both-signs>`). A row's `filename` is the URL of the
+({ref}`ruling <decision-import-both-signs>`). Both signs' `sources` pass
+the run's `[difference.sources_database_prefilter]`, and the `xsources` its
+`[difference.xsources_database_prefilter]`, as the difference job's do
+({ref}`ruling <decision-sources-prefilter>`). A row's `filename` is the URL of the
 copy under the job's prefix; every file is reached through its row.
 A PSF's `psf` scope declares its kind; the stage reads the file's
 `PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
