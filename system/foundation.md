@@ -165,7 +165,8 @@ positive and the negative SExtractor catalog, with the extra columns
 `nbad` at the windowed position; DAOStarFinder's sharpness and roundness
 at the convolved image's peak; a 5 × 5 PSF fit's flux, S/N, reduced χ²,
 pixel count, flags and `cfit`; and RuBR-AT's score and label. The fit
-runs only on the sources that pass the prefilter's sumrat and S/N cuts
+runs only on the sources that pass the sumrat and S/N cuts of
+`[difference.xsources_database_prefilter]`
 and lie inside the image, as in `dev`. Both signs are scored, as in
 `dev`, though the model was trained on positive sources. The rows kept
 are the ones `dev`'s XSources loader keeps: inside the image more than 2
@@ -712,7 +713,7 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images with SFFT's PSF-fit and SExtractor catalogs, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs`, `sources` (from both PSF-fit catalogs, the brightest N of each sign by flux over its error, every source at the shipped -1) and `xsources` (from both SExtractor catalogs, as `dev`'s loader reads them; {ref}`ruling <decision-import-both-signs>`), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through `dev`'s prefilter; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources` | real/bogus; `rubrat` |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects and xobjects in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through the run's `[difference.sources_database_prefilter]`; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources`; the RuBR-AT score of both signs' PSF-fit catalogs and the xsources ({ref}`ruling <decision-reliability-scored>`) | nothing |
 | `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' xobjects and official xmembers (objects and members under `[packet] alert_catalog = "sources"`), their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -815,7 +816,9 @@ with the `diaSource` mapping the ruling gives. Every source the run's
 packet, and under association by the source's field every accepted
 source is a member, so every accepted detection is alertable wherever
 it falls on its image; a source in several objects takes the lowest object id, as
-`dev` does, and `dev`'s cap per chip is not carried. Each packet
+`dev` does. `[packet] max_alerts` (2000, `dev`'s per-chip cap; -1 keeps
+every trigger) keeps the triggers of highest |S/N| (`dev` ranks by the signed S/N)
+and drops the rest before their objects' history is read. Each packet
 carries the best information at the time it is made
 ({ref}`ruling <decision-association-in-difference>`), what the job
 read as it ran and recorded:
@@ -823,8 +826,10 @@ read as it ran and recorded:
 - `diaSource` from the source row and its exposure's official
   `exposures` row (exposure time, the Roman observation identifiers) and
   the program's `surveys` row (`survey`, null when the program has none);
-  `reliability`, `reliabilityThreshold` and `reliabilityVersion` null
-  ({ref}`ruling <decision-reliability-null>`);
+  `reliability` from the source's real/bogus score, and on a scored
+  trigger `reliabilityThreshold` (0.5134) and `reliabilityVersion`; all
+  three are null on an unscored source
+  ({ref}`ruling <decision-reliability-scored>`);
 - `prvDiaSources`, the object's official members at the read, with
   `mjdobs` before the trigger and within the history window, so a late
   epoch appears in packets issued after it arrives and never in those
@@ -856,9 +861,7 @@ measured. No set ships with null cutouts or null reference matches.
 
 `ssMatches`, `nedMatches` and `lvsMatches` are null: in the schema's
 contract null means the match did not run, and these are deferred. The
-difference image is measured with its own PSF and uncertainty map,
-where `dev` measures the SFFT difference image whatever the named
-flavour.
+difference image is measured with its own PSF and uncertainty map.
 
 ### The reader
 
@@ -962,14 +965,17 @@ a run whose messages have aged out fails it as never read.
 The run's body is `rapidpipe/settings/foundation-thin.toml`, one table
 per stage, with `dev`'s values where `dev` hard-codes them: the import
 cap `max_sources` (-1, no cap, as `dev`; a non-negative value caps each sign, 0 keeping none); `associate.match_radius` (1.528e-05 degrees),
-`source_flags` (0) and `min_snr` (5); `packet.stamp_half_width` (64),
+`source_flags` (0) and `xsource_flags` (0), with `min_snr` (5), the
+rebuild's own S/N cut on the sources associated, which `dev` does not make; `packet.stamp_half_width` (64),
 `prv_window_days` (365.25), `forced_window_days` (30),
 `gaia_radius_arcsec` (1) with `gaia_max_matches` (3), and
-`refcat_radius_arcsec` (5) with `refcat_max_matches` (3). `[reference]`
+`refcat_radius_arcsec` (5) with `refcat_max_matches` (3). `[packet]` adds
+`max_alerts` (2000, `dev`'s cap per chip) and `alert_catalog`
+(`"xsources"`). `[reference]`
 and `[difference]` carry `dev`'s ini sections as subtables, one per
 section, with `dev`'s values (`min_frames` 2 and `max_frames` 25 among
 them); `[difference]` adds `max_sources` (-1, no cap, as `dev`; a
-non-negative value caps each sign, 0 keeping none), `skip_loading_sources_records` (false; see `xsources` below), and `[difference.statistics] clip_correction_seed` (0) makes
+non-negative value caps each sign, 0 keeping none), `skip_loading_sources_records` (false; see `xsources` below), splits `dev`'s one `[DATABASE_PREFILTER]` into `[difference.sources_database_prefilter]` and `[difference.xsources_database_prefilter]` ({ref}`ruling <decision-sources-prefilter>`), and `[difference.statistics] clip_correction_seed` (0) makes
 the stage's output the same on the same inputs. The paths in those tables are the pipeline image's; a run
 outside the image overrides them in its own body. Data locations are
 never in the shipped file: the import's source directory is its job's
@@ -1876,7 +1882,7 @@ cold queue.
   detections in their history; whether a loop should ever rebuild
   them is open. A campaign reruns from the replaced epoch.
 - Packet counts per chip in a dense field: GBTDS's 9,000 candidates
-  per epoch kept 500 sources and 169 to 173 packets.
+  per epoch kept 500 sources (the cap then in force) and 169 to 173 packets.
 - The meaning of `nDiaSources` in the 00.07 schema's own documentation,
   which is `dev`'s; changing it is a schema change for the team.
 - `packet.edge_pixels` is in the thin run's settings and read by no
