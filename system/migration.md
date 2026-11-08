@@ -9,7 +9,10 @@ counterpart. The [foundation](foundation) page states the design these
 rows summarise; this page states no rule of its own.
 
 The rows were read against `dev` at `c931b001` and `rebuild` at
-`a761ae23` (2026-10-24). A status is **changed** where a counterpart
+`a761ae23` (2026-10-24), those the week's ports changed (sources,
+xsources and the X tables, the prefilter, real/bogus, the caps, the
+import and alert production) against `rebuild` at `1f75f8e8`
+(2026-11-08). A status is **changed** where a counterpart
 exists and works differently, **partial** where part of it exists, and
 **same** where it carried over as it was. "No recorded reason" means no
 page or ruling states why.
@@ -77,14 +80,18 @@ page or ruling states why.
 | `Sources` child tables `sources_<date>_<sca>`, `loadPSFCatIntoDBSourcesTable.py` | `sources`, one source set per (dataset, expid, sca, fid) and job, declared by the difference job | changed | a source is official when its set is ([foundation](foundation.md#why-it-is-this-way)) |
 | `AstroObjects_<field>`, `Merges_<field>` | `objects` and `memberships`, append-only; `objects_official`, `memberships_official`; object ids are position hashes that never change | changed | {ref}`association in the difference job <decision-association-in-difference>` |
 | `AstroObjectsMeta_<field>` (means, spreads, `nsources`) | sufficient sums in `objects_official`, turned into means and spreads by `rapidpipe.science.statistics.sums` | changed | sums are additive, so the order of arrival does not matter ([foundation](foundation.md#why-it-is-this-way)) |
+| `XSources`, `XSources_<yyyymmdd>_<sca>` (SExtractor catalogs of the SFFT difference image, both signs, with `dev`'s extra columns and rb) | `xsources` and its children, loaded by the difference job and the `import`, uncapped, prefiltered by `[difference.xsources_database_prefilter]`; `[difference] skip_loading_sources_records` empties the source set only, xsources are always loaded | changed | {ref}`xsources <decision-xsources>`; {ref}`the separate prefilter <decision-sources-prefilter>` |
+| `XAstroObjects_<field>`, `XMerges_<field>`, `XAstroObjectsMeta_<field>`; `crossMatchXSources.py`, `pruneNotBestXMerges.py` | `xobjects` and `xmemberships`, split by field and built by the difference job from the xsources (`[associate] xsource_flags = 0`, both signs together); `xobjects_official`; statistics are sums on `xmemberships`, no meta table | changed | {ref}`xobjects <decision-xobjects>`; {ref}`field children <decision-field-children>` |
+| `RUBRAT` classifier (`[RUBRAT]`, `rb`, `rblabel`; TensorFlow) | scored in process on ONNX (`rubrat-onnx/2026-10-06_canonical9_seed42`), both signs of SFFT's PSF-fit catalogs and the xsources, never ZOGY's; loaded as `sources.rb`, `rblabel` and `xsources.rb`; a classifier failure fails the job | changed | {ref}`the score <decision-reliability-scored>` |
+| `loadPSFCatIntoDBSourcesTable.py` and `loadSECatIntoDBSourcesTable.py` over an epoch's existing products | the `import` stage: both signs of PSF-fit catalogs into `sources` (capped per sign by `[import] max_sources`, -1 none) and both SExtractor catalogs into `xsources`, each prefiltered by its own table; no objects or xobjects | changed | {ref}`both signs <decision-import-both-signs>` |
 | `crossMatchSources.py` (a per-field chain, exposures in time order) | association inside the difference job, in memory, against the source's own field and its neighbours | changed | {ref}`association in the difference job <decision-association-in-difference>`; {ref}`by the source's field <decision-association-by-source-field>` |
-| `[SOURCE_MATCHING] match_radius` | `[associate] match_radius` at `dev`'s 0.00001528 degrees, with `source_flags` and `min_snr = 5.0` | same | carried at `dev`'s value ([foundation](foundation.md#settings-of-the-thin-run)) |
+| `[SOURCE_MATCHING] match_radius`; `crossMatchSources.py`'s `flags = 0` | `[associate] match_radius` at `dev`'s 0.00001528 degrees and `source_flags` at `dev`'s 0; `min_snr = 5.0`, a PSF-fit S/N cut on the sources associated, has no `dev` counterpart (`dev` cuts no S/N there), and the xsources' association (`xsource_flags`, `dev`'s 0) has no S/N cut | partial | `match_radius` and the flags carried at `dev`'s values ([foundation](foundation.md#settings-of-the-thin-run)); no recorded reason for `min_snr` |
 
 ### Alerts and products
 
 | `dev` | `rebuild` | Status | Why |
 |---|---|---|---|
-| stage 18 (`produceAlertsForProcDate.py`, `alerts/`; Avro to S3, no Kafka) | the `packet` stage, one packet set per difference image, sent to Kafka as the job's last act, with `rapidpipe publish` as the sweep; schema 00.07, as `dev`, its Roman observation identifiers and `survey` filled from `exposures` and `surveys`, its three reliability fields from `dev`'s RuBR-AT score on SFFT's catalog | changed | a packet set is per difference image ([foundation](foundation.md#why-it-is-this-way)); {ref}`the producer in the packet job <decision-producer-last>`; {ref}`the score on SFFT's catalog <decision-reliability-scored>` |
+| stage 18 (`produceAlertsForProcDate.py`, `alerts/`; Avro to S3, no Kafka) | the `packet` stage, one packet set per difference image, sent to Kafka as the job's last act, with `rapidpipe publish` as the sweep; schema 00.07, as `dev`, its Roman observation identifiers and `survey` filled from `exposures` and `surveys`, its three reliability fields from the RuBR-AT score on the catalog the packets are made from; `[packet] alert_catalog = "xsources"` makes them from `xsources`, `xobjects` and `xmemberships`, where `dev` uses Sources, AstroObjects and Merges (a run body without the key keeps `"sources"`); `[packet] max_alerts` (2000) keeps the highest `|snr|` triggers | changed | a packet set is per difference image ([foundation](foundation.md#why-it-is-this-way)); {ref}`the producer in the packet job <decision-producer-last>`; {ref}`packets from xsources <decision-packets-from-xsources>`; {ref}`the score <decision-reliability-scored>` |
 | `alertnames`, `nalertpackets` | the `packets` index: file, byte offset and length per source | changed | an object's alert history is a query over the index ([foundation](foundation.md#why-it-is-this-way)) |
 | `forcedPhotometryForField.py` (a CSV of positions in one field) | forced photometry inside `packet`, rows in `forced`; the standalone script is not ported | partial | nothing outside packets needs it yet ([photometry](photometry)) |
 
@@ -107,8 +114,6 @@ that no stage, script or table on `rebuild` does today.
 | `dev` | What it did | Why the rebuild does not |
 |---|---|---|
 | `avid`, `archiveversions`, `archivestatus` | recorded each product's archive version and delivery state | retention and archive are deferred ([foundation](foundation.md#why-it-is-this-way)) |
-| `XSources`, `XMerges`, `XAstroObjects`, `XAstroObjectsMeta`; stages 11, 13, 15 and 17 | loaded SExtractor difference-image detections, cross-matched them and computed their statistics | no recorded reason; the SExtractor difference-image settings remain only for outcome bits |
-| `rb`, `rblabel`, the RUBRAT classifier (`[RUBRAT]`) | scored each source real or bogus | no score is computed; the alert fields are stubs marked "not run" ([difference](difference.md#not-decided-here)) |
 | redelivery detection (S3 modification time against `l2files.created`) | took in an L2 file again when it was redelivered | no recorded reason; the loop skips a file once the dataset has a published intake of it |
 | `socprocs` | recorded SOC deliveries | no recorded reason |
 | `generateSourceHATSCatalog.py`, `generateLightCurveHATSCatalog.py`, `[HATS_CATALOGS]` | built HATS catalogs of sources and light curves | the `export` stage is retired, and the light-curve HATS catalog is not ported ([specification](specification.md#sequencing)) |
@@ -144,7 +149,7 @@ files beside it.
 | `astroobjects_<field>` | `objects`, `objects_official` | one table for every field; dropped: `flux0`; added: `survey`, `field`, the founding job, `ra0` and `dec0` as the founding position; `aid` is a position hash | {ref}`association in the difference job <decision-association-in-difference>` |
 | `merges_<field>` | `memberships`, `memberships_official` | `(aid, sid)` becomes (`object_job`, `aid`, `source_job`, `sid`), with `dra`, `ddec` and `flux`, the source's share of the sums | as `astroobjects` |
 | `astroobjectsmeta_<field>` | columns of `objects_official` | means and spreads become `sumra`, `sumra2`, `sumdec`, `sumdec2`, `sumflux`, `sumflux2`; `nsources` kept | sums are additive ([foundation](foundation.md#why-it-is-this-way)) |
-| `xastroobjects`, `xmerges`, `xastroobjectsmeta` | none | not ported | no recorded reason |
+| `xastroobjects_<field>`, `xmerges_<field>`, `xastroobjectsmeta_<field>` | `xobjects`, `xobjects_official`; `xmemberships`, `xmemberships_official` | one parent per table for every field, split into children by field; `xaid` a position hash, `flux0` the founding xsource's `fluxap`; `(object_job, xaid, source_job, xsid)` with `dra`, `ddec`, `flux`; the meta statistics are sums in `xobjects_official` | {ref}`xobjects <decision-xobjects>` |
 | `jobs` | `jobs` | `rid`, `fid`, `expid`, `sca`, `field` move into `scope`; `awsbatchjobid` becomes `batch_job_id`, `reqid` becomes `run`, `status` becomes `state` (`launched`, `running`, `published`, `failed`); dropped: `ppid`, `machine`, `qwaited`, `elapsed`, `slurm`; added: `image_digest`, `instance_type`, `manifest`, `refusal`, `attempts`, the Kafka offsets | [foundation](foundation.md#jobs); {ref}`the instance type recorded <decision-instance-type>` |
 | `procreqs` | `runs` | `reqid` becomes `id`; dropped: `obsstarttime`, `obsendtime`, `started`, `ended`, `elapsed`, `status`; added: `who`, `why`, `revision`, `settings`, `layers`, `survey`, `dataset` | [foundation](foundation.md#runs) |
 | `pipelines`, `swversions` | none | replaced by the run's `revision` and `settings` and `jobs.image_digest` | the run records what they recorded ([foundation](foundation.md#why-it-is-this-way)) |
@@ -186,8 +191,9 @@ goes on [decisions](decisions) as a ruling.
 - **Real/bogus and the X tables.** Settled: real/bogus scoring is ported
   ({ref}`ruling <decision-reliability-scored>`), the XSources family is
   ported ({ref}`ruling <decision-xsources>`, {ref}`ruling <decision-xobjects>`),
-  and `dev`'s `rb` and S/N prefilter cuts apply to both `sources` and
-  `xsources`, each with its own thresholds
+  and `dev`'s `rb` cut applies to both `sources` and `xsources`, each
+  with its own thresholds, its S/N cut to `xsources` only (the
+  `sources`' S/N knob ships off)
   ({ref}`ruling <decision-sources-prefilter>`).
 - **HATS and positional forced photometry.** What replaces the HATS
   catalogs and forced photometry on a list of positions?
