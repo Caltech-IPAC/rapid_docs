@@ -492,8 +492,11 @@ side of a boundary from splitting into two objects.
 see no object at a new source and both found one. The publisher,
 serialised by transaction-scoped locks on every (run, field) that
 gained an object or a membership and on each such field's neighbours,
-taken in ascending field order so two jobs founding either side of a
-boundary share a lock and never deadlock, matches the job's founded
+taken all at once or none, without waiting (a job that finds one held
+rolls back, releasing its pooler connection, and tries again after a
+jittered wait), so two jobs founding either side of a boundary share a
+lock and never deadlock, and a lock waiter never holds a pool connection
+(run 177's 800 waiters filled the pipeline's pool, 2026-11-08), matches the job's founded
 objects against those founded since its recorded read in those fields,
 and attaches the duplicate's memberships to the existing object,
 rebased to its origin, instead of inserting a second. `dev`'s route,

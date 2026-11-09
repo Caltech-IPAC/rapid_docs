@@ -215,8 +215,9 @@ in `rapid` and are tested together by CI. A `rapid` release supplies the
 source commit; `rapid_systems` builds and publishes the image and records
 the resulting digest.
 
-The pipeline repository's development line is `main`. The `smdc` branch
-and the two-branch arrangement end with this rebuild.
+The pipeline repository's development line is `main`. The `smdc` branch,
+the first port (2026-08 to 2026-09), was retired and deleted on 2026-11-08;
+the two-branch arrangement ended with this rebuild.
 
 ## Releases
 
@@ -326,8 +327,10 @@ verified by CI and merged by a team member. Proposed order, earliest first:
 8. Slower pipelines and exports.
 
 Part 1 is partly done: the schema, glue and build recipe live in
-`rapid`; the `smdc` branch's inventory against `dev` and issue triage
-against this specification remain open. Parts 2 through 8 are prototypes
+`rapid`; the `smdc` inventory against `dev` closed on 2026-11-08 (the
+connection helper and the logging were already ported; three small
+carry-overs landed as rapid PRs 563 to 565; the branch is deleted); the
+issue triage against this specification remains open. Parts 2 through 8 are prototypes
 on the `rebuild` branch, documented here:
 
 | Part | Scope | Pages |

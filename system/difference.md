@@ -271,8 +271,9 @@ were detected. Under the field rule 0.97 of the detected are alerted.
 
 The manifest's `catalog` names `fields`: every field that gained an
 object or a membership, and each one's neighbours. At publish, under
-transaction-scoped locks on the run and each of those fields, taken in
-ascending field order in one statement, the publisher reads the objects
+transaction-scoped locks on the run and each of those fields, taken all
+at once or none in one statement that never waits (when one is held the
+publisher rolls back and tries again), the publisher reads the objects
 founded since the job's read in those fields, by jobs not in its
 recorded read. Two jobs founding either side of a boundary share a
 lock, so they serialise, and no lock cycle can form. A founded object within the radius of one of them is

@@ -32,7 +32,7 @@ nothing to submit, the selection is drained and the loop exits.
 
 Before the loop runs, a night needs four things: a run that names its
 source root and reference bound, that run made live for its survey and
-dataset, the dataset's Gaia catalog imported under it, and a job
+dataset, the dataset's catalog copies (Gaia, NED, NED-LVS) imported under it, and a job
 definition revision whose image runs the run's revision. The commands
 below run from the top of a checkout of `rebuild`, in the rapid conda
 environment, against the team's database. The environment is the
@@ -53,6 +53,7 @@ night uses a dataset name of its own.
    SOURCE_ROOT=s3://stpubdata/roman/nexus/soc_simulations/r00342/l2/
    BOUND=61591.4056                                  # the F146 bound, between its third and fourth passes
    GAIA_PREFIX=s3://roman-rapid-catalogs/gaia/DR3/          # the team's Gaia mirror (datasets page)
+   NED_PREFIX=s3://roman-rapid-catalogs/ned/36.1_20260527_v2/  # the team's NED copy; NED-LVS is its lvs/
    REV=<the 40-character sha of the image the job definition runs>
    JOBDEF=rapid-rebuild:<n>                          # the revision the deploy hook printed for that image
    ```
@@ -90,18 +91,24 @@ night uses a dataset name of its own.
    its binding as well: `{"close": <the old run's "live" from run show>,
    "open": {...}}`. `official undo <group>` reverses a group.
 
-4. **Register Gaia.** The packet stage names exactly one official Gaia
-   catalog of the dataset, so the import runs once per dataset, on this
-   host; it names the mirror's prefix and copies nothing:
+4. **Register the catalogs.** The packet stage names one official
+   catalog of the dataset per switched-on match, `[packet] gaia_match`,
+   `ned_match` and `lvs_match`, all three on as shipped, so one import
+   registers the three copies, once per dataset, on this host; it names
+   each copy's prefix and copies nothing (NED-LVS is under the NED
+   prefix):
 
    ```sh
    rp job local --run $RUN --stage import \
-     --scope '{"gaia": {"name": "gaia", "version": "DR3", "prefix": "'$GAIA_PREFIX'"}}' \
-     --expects '[{"product": "catalogs", "key": {"dataset": "'$D'", "name": "gaia", "version": "DR3"}, "binding": null}]'
+     --scope '{"gaia": {"version": "DR3", "prefix": "'$GAIA_PREFIX'"}, "ned": {"version": "36.1_20260527_v2", "prefix": "'$NED_PREFIX'"}, "lvs": {"version": "20260424", "prefix": "'$NED_PREFIX'"}}' \
+     --expects '[{"product": "catalogs", "key": {"dataset": "'$D'", "name": "gaia", "version": "DR3"}, "binding": null}, {"product": "catalogs", "key": {"dataset": "'$D'", "name": "ned", "version": "36.1_20260527_v2"}, "binding": null}, {"product": "catalogs", "key": {"dataset": "'$D'", "name": "lvs", "version": "20260424"}, "binding": null}]'
    ```
 
    It prints the job's result: `"published": true`, `"live": true`,
-   `"refusal": null`.
+   `"refusal": null`. Without a copy whose match is on, the loop exits 64
+   when the first packet job is due, printing `rapidpipe loop: the run
+   has no official catalogs binding named ned, lvs for the packet stage,
+   and [packet] ned_match, lvs_match is on`.
 
 5. **The loop**, under a timeout (which runs the module, since it cannot run the `rp` function), from this host:
 
@@ -143,7 +150,7 @@ night uses a dataset name of its own.
 |---|---|---|
 | 0 | the selection drained with no failed or refused job (or one `--once` pass saw none) | the job published; under a run that is not live, the refusal is on stderr and on its row |
 | 1 | it drained around failed jobs, or jobs published with their binding refused. Each is named on stderr and in the last pass's `failed`, and the rest of the selection drained around them. Read the row's `refusal` (`rp job show <id>`), fix the cause, rerun with `rp job submit --job <id> --job-definition $JOBDEF`, then start the loop again | the job published but its binding was refused under a live run |
-| 64 | a usage error: the run does not exist, the selection cannot be parsed, its first pass found no file of the selection under the source root, or the dataset has no single official Gaia catalog when a packet job is due | the run or an input does not exist, or the arguments are wrong |
+| 64 | a usage error: the run does not exist, the selection cannot be parsed, its first pass found no file of the selection under the source root, or the dataset lacks an official catalog for each switched-on catalog copy (Gaia, NED, NED-LVS) when a packet job is due | the run or an input does not exist, or the arguments are wrong |
 | 65 | not returned | the stage rejected a declared input (difference, reference or import), `CommandExit: <reason>` on the row |
 | 70 | an unexpected error, traceback on stderr | the stage failed: an exception (a stage's own `KeyError` among them, with its traceback), or a tool's nonzero exit (`ToolFailed`, with the tool's name, code and last 20 lines on the row) |
 | 75 | a transient failure: the database was unavailable, or an AWS call was throttled or timed out. Start the loop again | the same; Batch repeats such a job on its own |
@@ -188,8 +195,9 @@ and the same run can be drained one pointing, one SCA or one footprint
 at a time.
 
 The loop is for the live run of a survey and dataset. The run's
-settings name its source root, and the run holds exactly one open Gaia
-catalog binding, which every packet job names. The job definition is an
+settings name its source root, and the run holds exactly one open
+catalog binding per switched-on catalog copy (Gaia, NED, NED-LVS),
+which every packet job names. The job definition is an
 argument because the run records a code revision, not a job
 definition. The loop changes no stage code, so it may run from a newer
 checkout than the run's revision while the jobs run the run's image.
@@ -241,8 +249,8 @@ Its order:
    objects as they stand ([difference](difference), Association).
 5. **packet**: one job per official source set of the selection with
    no official packet set and no packet job of the run pending or
-   failed, in any order. It names the reference, the run's Gaia
-   catalog, the science PSF and the source set; the objects, their
+   failed, in any order. It names the reference, the run's
+   catalog copies, the science PSF and the source set; the objects, their
    members, the forced window's images and the official packet sets'
    forced rows it reads as they stand when it runs, and records.
 6. **Kafka**: the recovery sweep. A packet job sends its own set as its
@@ -306,7 +314,7 @@ pending and submitted nothing. The verb then exits 0. It exits 0 after
 one pass with `--once`, 1 once the selection has drained around a
 failed or refused job (or after a `--once` pass that saw one), naming each failed
 job's stage and scope in the last pass's `failed` and on stderr, and
-64 when the run's dataset has no single Gaia catalog or when its first
+64 when the run's dataset lacks each switched-on catalog copy (Gaia, NED, NED-LVS) or when its first
 pass admits no file: a selection that matches nothing under the source
 root (a mistyped root, filter or pass) is named on stderr with the
 root, filters, SCAs, pointings and passes, not read as a drain. A later
