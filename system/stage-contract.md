@@ -140,7 +140,13 @@ attempt's prefix, manifest last, before publication, and which is
 removed once the upload returns.
 Then it calls `publish`, records the end time and exit code, and
 returns the publisher's result with `peak_rss_kib`: the peak resident
-memory of the Python process and of its largest finished child. Batch
+memory of the Python process and of its largest finished child. The
+manifest's `metrics` also carry the container's cgroup v2 memory through
+the stage: `cgroup_anon_peak_bytes` and `cgroup_file_peak_bytes`, the
+largest `memory.stat` `anon` (the working set an ask must hold) and
+`file` (page cache, reclaimable under the limit) sampled once a second,
+and `cgroup_memory_peak_bytes`, the kernel's `memory.peak` as the stage
+ended; each is absent where its file is (cgroup v1, a laptop). Batch
 runs one attempt at a time; two concurrent attempts of one job are not
 supported on `s3://`. The [foundation](foundation) page states how the
 prefix functions behave and how a commit gets its image and job
