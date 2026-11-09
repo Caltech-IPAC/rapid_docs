@@ -242,6 +242,26 @@ the loop's earlier field rule; e4 is identical in both):
 The runbook's part 13 steps flight-first, ref-overlap and gaia-pm hold
 the numbers.
 
+**The injected copy, `flight-1049-inj1`** (2026-11-09, for reuse): the
+inputs bucket's `flight-1049-inj1/` holds the same four files under `l2/`.
+e1 to e3 are byte copies, and e4 carries 200 constant sources, AB 21 to 27
+(seed 20261109), drawn through the file's own ePSF (`roman_wfi_epsf_0239`)
+with gain 1.6879 e⁻/DN by `dev`'s injection function.
+`catalog/truth-flight-1049-inj1.parquet` beside it names every source.
+The prefix is create-once. A run reads it with
+`--set intake.source_root=".../flight-1049-inj1/l2/"`, the bound
+61337.4594 and `flight-1049.toml`, and `scripts/completeness.py --run`
+scores it. `scripts/inject_dataset.py` wrote it (rapid PR 571) once it
+could read the private root with a signed client and take the start MJD
+from each file's own ASDF tree, since flight files have no `_wcs.asdf`
+sidecar. Run 210 (`rapid-rebuild:112`) is CLEAN. Every source brighter
+than AB 24 that the reference covers is detected (88 of 88), but only 7
+of 12 at AB 24, 1 of 8 at 24.5 and none from 25: a 60 s F158 frame's
+depth falls between AB 24 and 24.5. The 21 brighter sources it missed
+all lie in the 22% of e4 that the reference does not cover. Of the
+2,000 packets, 77 are injected sources. The difference's core and ring
+(+0.0097, −0.0125) equal the uninjected run 178's (+0.0097, −0.0122).
+
 ## RimTimSim, 2026-06-22
 
 TRExS's Roman time-domain image simulator: one Galactic-bulge field
