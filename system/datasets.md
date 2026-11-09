@@ -123,6 +123,22 @@ passes 2, 4 and 5, every input of both tests among them. Overlay
 `gbtds-r00340-fakesrc.toml`; the source root and the bound come by
 `--set`.
 
+**The truth.** `dev`'s injection drew one JSON catalog per tessellation
+field (100 sources, 50 sinusoidal and 50 gaussian bursts, their light-curve
+parameters; IMSS `rapid-pipeline-files/injection_catalogs_20260811/`,
+written 2026-08-11 as the 08-11 to 08-18 injection generated them) and
+kept no record per exposure. The inputs bucket holds the 391 catalogs
+under `g0005-fits-20260821/catalog/injection_catalogs_20260811/` (a
+2026-11-09 copy, its `_manifest.json` beside them) and, beside them, the
+truth table `scripts/socsims_truth.py` evaluates from them for every file
+of the copy, `catalog/gbtds-r00340-fakesrc.parquet`, in
+`inject_dataset.py`'s shape (one row per source per epoch within `dev`'s
+50 px band, `mag_ab` the magnitude evaluated at the file's `MJD-OBS`,
+`dnps` through its `ZPTMAG`); `completeness.py` reads it from the run's
+source root, as it reads an injected dataset's. The rendered flux is
+romanisim's own conversion, not read back, so `dnps` is the convention,
+not the rendered count.
+
 | Quirk | Disposition |
 |---|---|
 | A FITS file: the image in DN in `SCI_ORIG`, no ERR or DQ, NaN present, a zero point per SCA in `ZPTMAG` (26.8266 WFI01, 26.8613 WFI08) | `[intake] reader = "socsims-lite"`, the RimTimSim reader taught the SOC stem: the SOC key and `expid`, the stem's observation identifiers, the file's own centre and WCS, inverse SIP carried; no DQ mask |
