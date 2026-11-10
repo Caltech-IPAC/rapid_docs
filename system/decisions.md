@@ -735,6 +735,16 @@ removes it here.
 - `export`'s catalog key hashes the full sorted set of source-set ids; a
   catalog labelled by one field may hold rows of another. (2026-09-24)
 - The per-stage log's final line reaches its S3 copy. (2026-09-26)
+- `difference` runs SFFT's subtraction pass without its two kernel-phase
+  stacks, a divergence from `dev`'s `modules/sfft/sfft_rapid_crowded.py`
+  where `dev` has no knob. sfft 1.7.3 fills `Kab_Wla` and `Kab_Wmb`,
+  19 full-frame complex128 planes each, 9,697 MiB on a 4089 x 4089 frame.
+  Each plane depends on the row or the column alone, so
+  `modules/sfft/sfft_lowmem.py` computes one column and one row and hands
+  the library's own compiled kernel zero-stride views. On run 212's
+  job 66156 the anon peak goes 15,014 → 6,238 MiB with every output equal
+  at full precision; across run 187's SCA 3 sample, runs 217 and 218
+  (rapid PR 576, merged `03f79e9c`; the exercise post's "Memory diet"). (2026-11-10)
 
 ### Products
 
