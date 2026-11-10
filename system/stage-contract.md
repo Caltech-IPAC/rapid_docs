@@ -146,8 +146,42 @@ the stage: `cgroup_anon_peak_bytes` and `cgroup_file_peak_bytes`, the
 largest `memory.stat` `anon` (the working set an ask must hold) and
 `file` (page cache, reclaimable under the limit) sampled once a second,
 and `cgroup_memory_peak_bytes`, the kernel's `memory.peak` as the stage
-ended; each is absent where its file is (cgroup v1, a laptop). Batch
-runs one attempt at a time; two concurrent attempts of one job are not
+ended; each is absent where its file is (cgroup v1, a laptop).
+
+Since rapid PR 575 every job also records where its seconds went, for
+the [throughput report](throughput):
+
+- `step_<name>_s`, the wall seconds of each named step the stage
+  marks (`rapidpipe.foundation.steps`). A second is counted once, in the
+  innermost step it was spent in, so the steps never sum past the job.
+  The difference job marks `read_inputs`, `rb_model_load`,
+  `stage_inputs`, `reformat`, `science_catalog`, `resample`,
+  `background`, `refpsf`, `registration`, `gainmatch`, `sfft_inputs`,
+  `sfft_solve`, `sfft_mask`, `sfft_catalogs`, `pixel_columns`, `rb`,
+  `xsources_fit`, `source_set`, `trim`, `xsources_set`,
+  `quality_metrics`, `associate` and `manifest`; the packet job `read`,
+  `write_set`, `forced`, `matching`, `cutouts`, `assembly`, `index` and
+  `manifest`; intake, reference, psf and import a few each.
+  What no step covers is the job's remainder: `container_seconds` less
+  its steps. The older timers (`rb_s`, `xsources_s`, `packet_*_s`) stay.
+- `step_s3_read_s` and `s3_read_bytes`, every download `get` makes
+  (a cached read is not counted); `step_s3_write_s` and
+  `s3_write_bytes`, the upload of the attempt's files before the
+  manifest, `s3://` only.
+- `startup_s`, the process's start to the job's start, from `/proc`:
+  the imports before the job, outside `container_seconds`.
+- `cgroup_cpu_s` and `cgroup_cpu_wall_s`, the container's `cpu.stat`
+  `usage_usec` from the stage's start to the manifest's upload and the
+  wall seconds of the same interval, every process in the container
+  counted; absent where `cpu.stat` is.
+- `host_vcpus`, the CPUs the process may run on. Batch sets no cpuset,
+  so these are the host's, not the job's reservation.
+
+The job's Batch attempt entry in `jobs.attempts` carries `instance_id`
+from the metadata service beside `instance_type`, the host the report
+groups co-tenants by.
+
+Batch runs one attempt at a time; two concurrent attempts of one job are not
 supported on `s3://`. The [foundation](foundation) page states how the
 prefix functions behave and how a commit gets its image and job
 definition.
