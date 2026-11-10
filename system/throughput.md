@@ -68,8 +68,11 @@ file on every later call. It prints, in Markdown:
 
 A field a run's jobs never wrote prints "absent", never zero. A
 published job whose row has no `ended`, and so no `container_seconds`,
-is named in the header and left out of the sums (run 188 has 30
-differences and 88 packets like that, from Spot).
+is named in the header and left out of the sums. Run 188 has 30
+differences and 88 packets like that, each reclaimed by Spot after its
+publish committed and before the job wrote its `ended`. Since rapid PR
+578 the publisher writes `ended` with the published state, so runs from
+then on have none.
 
 ## Run 187: the throughput baseline
 
