@@ -13,6 +13,14 @@ page where attribution matters.
 Questions no ruling has closed yet, one line each with why it is open.
 A ruling that closes one goes under Rulings and its line leaves.
 
+- **The reference's tie order**: whether a reference's frames tied on
+  `mjdobs` order by `dev`'s key, distance from the tile centre then the
+  file name, in place of the run's `rid`. `dev`'s key was chosen because
+  `dev`'s launcher orders by it (`order by b.mjdobs, dist`) and it decides
+  the `max_frames` cut by coverage. Two intakes of field 4686831 then give
+  byte-equal references. It moves outputs against run 219, so rapid PR 584
+  holds it until Ben rules on the move (the exercise page's Reference frame
+  order).
 - **GBTDS's gate bounds**: whether GBTDS gets core and ring bounds of its
   own. Replayed at `min_epochs`, the gate holds every run 139 epoch on
   the core (−0.036 to −0.048 against the HLWAS-derived ±0.025), so the
