@@ -85,6 +85,8 @@ existing `rapid_read` login.
 
 ## Where a job's time goes
 
+On `rebuild`, a job's steps, its S3 reads and writes, its CPU against wall and its host are `job_metrics` fields, and the [throughput report](throughput) ranks a run's hours from them; this section describes the run model's timings.
+
 The pipeline sees four timestamps in a Batch job's life: attempt
 allocation (`attempts.started`) and Batch's job creation, start and
 stop. When `reconcile` records the result, it stores Batch's three
