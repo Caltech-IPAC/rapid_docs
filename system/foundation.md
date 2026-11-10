@@ -191,11 +191,10 @@ schema. SQL reads a set's rows through `sources_of(jobs)` and
 `xsources_of(jobs)`, which read the named sets' children only. The
 packet job reads its own set from that child. It reads the triggers'
 members in two steps: their memberships first, then each member's row
-from the child that holds it. The publisher analyses the children it
-loaded and not the parents, since a parent's `ANALYZE` samples every
-child. A query by hand on a parent stays correct, and the children's
-`CHECK` constraints let one that filters on `mjdobs` or `sca` skip the
-children it excludes.
+from the child that holds it. Autovacuum keeps every child's statistics;
+the publisher runs no `ANALYZE`. A query by hand on a parent stays
+correct, and the children's `CHECK` constraints let one that filters on
+`mjdobs` or `sca` skip the children it excludes.
 
 **Object, membership, packet and forced rows are stored by field**
 ({ref}`ruling <decision-field-children>`). `objects`, `memberships`,
@@ -348,9 +347,14 @@ and returns. The publisher then, serialised on the job's row:
    names it: a difference's `sources`, a packet set with no triggers), it
    closes those and opens the job's; otherwise it rolls back to the
    savepoint and records the refusal on the job;
-5. commits, all of the above in one short transaction, then runs
-   `ANALYZE` on the tables it loaded, and on `official` when its
-   binding wrote there.
+5. commits, all of the above in one short transaction, and runs
+   nothing after it. Autovacuum keeps the tables' statistics: an
+   `ANALYZE` holds its table's self-conflicting lock to the end of its
+   transaction, so a publisher's post-commit `ANALYZE` serialised every
+   publisher behind the first table they shared (run 215, 2026-11-10:
+   794 sessions queued, 376 published differences held to the attempt
+   timeout), and the stages' reads of a child plan the same without its
+   statistics (publish-analyze).
 
 A refused job's rows stay published as an unbound candidate, visibly,
 and a later change group can bind them. A retry finds its job published
