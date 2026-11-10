@@ -1,6 +1,6 @@
 # Where a run's hours go: the throughput report
 
-**current** (2026-11-09). Rapid PR 575 (throughput-metrics).
+**Status: current** (2026-11-09). Rapid PR 575 (throughput-metrics).
 
 The question this page answers: for one run, where did the host-hours
 go, and what is the next thing to make faster? Each successive
