@@ -125,7 +125,9 @@ offsets, using the science image's own zero point and the reference's
 and zero offsets.
 
 NaNs in ZOGY's inputs are replaced, extreme artifact pixels are
-repaired, and the reference is shifted by the median offsets. ZOGY runs
+repaired when `[difference.sci_image] repair_extreme_artifact_pixels`
+is true (the base's value; flight 1049's overlay sets false), and the
+reference is shifted by the median offsets. ZOGY runs
 by subprocess, unless `[difference.zogy] run_zogy` is false, which skips
 everything of ZOGY's in this paragraph
 ({ref}`ruling <decision-run-zogy>`). Its difference and significance images are masked where
@@ -309,7 +311,7 @@ port or departs from `dev`:
 | `[difference.awaicgen] zprefimg` | empty | an override of the reference zero point; empty reads the reference's `MAGZP` |
 | `[difference.zogy] astrometric_sigma` | 0.0 | ZOGY's astrometric inputs, 0.0 as `dev` overrides them |
 | `[difference.zogy] run_zogy` | true | ZOGY runs, as `dev`'s `[ZOGY] run_zogy`; false skips its images and catalogs (bits 0 and 1 never set) ({ref}`ruling <decision-run-zogy>`) |
-| `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev`; `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own block, and HLWAS's is `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100; [datasets](datasets)) |
+| `[difference.sfft] run_sfft`, `crossconv_flag` | true, true | SFFT runs under `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100), the base's for every dataset ({ref}`ruling <decision-sfft-block-base>`); `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own values: GBTDS and RimTimSim carry `dev`'s socsims block ({ref}`GBTDS <decision-gbtds-sfft-socsims>`, {ref}`RimTimSim <decision-rimtimsim-sfft-socsims>`) and flight 1049 `crossconv_flag` false ({ref}`ruling <decision-flight-crossconv-off>`, [datasets](datasets)) |
 | `[difference.sumrat]` | `stamp_size` 5, `filter_size` 3, `lower_median` false | `dev`'s `[SUMRAT]`; `false` takes the mean of the two middle values of an even count, so pure noise's sumrat is about 0, where ZTF's median is biased to about −0.32 |
 | `[difference.extra_catalog_cols]` | `nneg_nbad_stamp_size` 5, `pixel_cols_bkg_box` 64, `pixel_cols_bkg_filter_size` 3 | `dev`'s `[EXTRA_CATALOG_COLS]`: the `nneg` and `nbad` stamp and the local background the three columns are measured after |
 | `[difference.sources_database_prefilter]` | `sumrat_prefilter_threshold` 0.4, `rb_prefilter_threshold` 0.0, `snr_prefilter_threshold` `""` | the `sources`' cuts, both signs, in this job and the import, kept apart from the `xsources`' ({ref}`ruling <decision-sources-prefilter>`): sumrat and the 2 px edge (`""` applies neither), a finite rb at or below 0.0, a PSF-fit S/N at or below the threshold when one is set; `""` is no such cut, and the S/N one ships off until a run has measured its cost |
