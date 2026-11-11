@@ -26,15 +26,26 @@ Frames are coadded in order of `mjdobs`. Fewer than `min_frames` fails
 the job; frames past `max_frames` are left out and named in the
 manifest as `not_coadded`. Every frame's `FILTER`, normalised to RAPID's
 spelling (`W146`, not `F146`) by the one map in
-`rapidpipe.products.filters`, must be the scope's filter.
+`rapidpipe.products.filters`, must be the scope's filter. An L2 file from
+the SOC reader carries the Roman spelling (`F146`), one from the
+OpenUniverse or RimTimSim reader, or published before that change, the
+RAPID one ([intake](intake)), so a field's frames may mix the two.
 
 ## What it runs
 
 Each step is a module of `rapidpipe.science.reference`:
 
 1. **Preparation.** Each frame's HDU 1 is divided by `EXPTIME` and
-   scaled to the filter's zero point, with an uncertainty image from the
-   gain and read-noise model.
+   scaled to the filter's zero point by `10 ** (0.4 * (zprefimg -
+   ZPTMAG))`, with an uncertainty image from the gain and read-noise
+   model. With `[reference.awaicgen] use_nominal_zptmag` true, the
+   `ZPTMAG` in that factor is the filter's value in the run's
+   `[intake.nominal_zptmag]` table, not the frame's header value, so
+   every frame of a filter gets the same scale factor; a filter missing
+   from the table fails the job. The header value still feeds the grade's
+   `zptmag_rms` (bit 10). This is commissioning's override (687c93b2,
+   8a4a172d), for flight data whose per-frame calibration is still
+   settling ({ref}`decisions <decision-nominal-zptmag>`).
 2. **awaicgen** coadds the prepared frames, tile-centred, at the
    `[mosaic]` geometry, into a mosaic with its coverage and uncertainty
    maps.
@@ -60,7 +71,8 @@ Each step is a module of `rapidpipe.science.reference`:
    `JDEND`, `MAGZP`, `TOTEXPTM`, `INFOBITS` (its comment listing the set
    bits), `STATUS`, the `BIT`*nn* definitions in use and one
    `INFIL`*nnn* per frame, then `RPRUN`, `RPJOB`, `RPATTMPT` and
-   `RPSTAGE` naming the run, job, attempt and stage.
+   `RPSTAGE` naming the run, job, attempt and stage. `ZPSOURCE`, after
+   `MAGZP`, says what scaled the inputs: `header` or `nominal`.
 
 `MAGZP` is the filter's zero point (26.863 for W146), which the
 [difference](difference) stage's gain matching reads from the file. The
@@ -91,7 +103,8 @@ The stage draws `rfid` from the `refimages` identity sequence while it
 reads its inputs, so the child rows carry it before publication. An
 imported reference keeps the source system's id as an import-only
 value. The manifest also records `dev`'s `refimmeta` measurements, the
-JD range, the total exposure time and the zero point.
+JD range, the total exposure time, the zero point and `zptmag_source`
+(`header` or `nominal`, as `ZPSOURCE`).
 
 ## Settings
 
@@ -103,8 +116,9 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 | `[reference.selection]` | `min_frames` 2, `max_frames` 25 |
 | `[reference.instrument]` | `sca_gain` 2.0, `sca_readout_noise` 9.4 |
 | `[reference.mosaic]` | `naxis1`, `naxis2` 9100 (`dev` 1518042b), `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
-| `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback |
+| `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback; `use_nominal_zptmag` false, commissioning's flag (8a4a172d): true scales each input by its filter's `[intake.nominal_zptmag]` value instead of its own `ZPTMAG` ([datasets](datasets): true for flight-1049); a run body stored before the flag has none and scales by `ZPTMAG` |
 | `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim; its `sextractor_mag_zeropoint` 0.0 is replaced in the job's copy by `MAGZP` at run time ({ref}`ruling <decision-catalog-ab-zeropoints>`) |
+
 | `[reference.paths]` | the repository and tool configuration paths of the pipeline image, the tools on `PATH`, and `work_subdirectory` `ref` |
 | `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |

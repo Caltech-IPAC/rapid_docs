@@ -45,7 +45,13 @@ the calibrated file carries the same gWCS, fit results and metadata.
    gWCS, every coefficient to fifth order present; the other arrays
    scaled by their exposure-time exponent, half-precision arrays
    widened; and the tables as binary tables. The uncompressed file is
-   made in a temporary directory and only the gzipped one is kept.
+   made in a temporary directory and only the gzipped one is kept. The
+   `FILTER` keyword is the file's Roman filter name (`F146`), where
+   `dev` writes RAPID's spelling (`W146`), so the reference stage's
+   nominal zero point table is keyed by it; the `openuniverse` and
+   `rimtimsim` readers keep RAPID's spelling. Every reader of `FILTER`
+   accepts either, and the `l2files` row's `fid` is the same
+   ({ref}`decisions <decision-roman-filter-names>`).
 4. Gzip at `[intake] gzip_level`.
 5. Check that the science PSF was made from this file's own ePSF
    reference: the basename of the file's `meta.ref_file.epsf` card must
@@ -109,7 +115,7 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 | `sip_max_pix_error` | 0.1 | the `to_fits_sip` argument |
 | `gzip_level` | 1 | `L2GZIPLEVEL`'s default |
 | `program_id` | -1 | the `SOCSIMS` program id |
-| `[intake.nominal_zptmag]` | `dev`'s fallback zeropoints | used only when the file has no photometry metadata |
+| `[intake.nominal_zptmag]` | `dev`'s nominal zeropoints, keyed by Roman filter name | intake's `ZPTMAG` when the file has no photometry metadata; the reference stage's input scaling when `[reference.awaicgen] use_nominal_zptmag` is true ([reference](reference)) |
 | `limmag_nsigma`, `limmag_clip_sigma` | 5.0, 3.0 | as `[import]` has them |
 | `dq_mask_bits` | `0x2110C03` | 0, nothing masked; the value is commissioning PR 238's default, DO_NOT_USE, SATURATED, DEAD, HOT, NONLINEAR, NO_LIN_CORR and UNRELIABLE_FLAT ({ref}`decisions <decision-dq-mask-base>`); a dataset's overlay may name other bits, and 0 masks nothing |
 | `crpix_shift` | `[0.0, 0.0]` | the file's WCS unchanged; a dataset's measured translation, in pixels, added to `CRPIX1` and `CRPIX2` |
