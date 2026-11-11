@@ -42,8 +42,11 @@ Each step is a module of `rapidpipe.science.reference`:
    uncertainty and the clipped image statistics, as `dev` computes them
    for `refimmeta`.
 4. **SExtractor** runs on the mosaic with the uncertainty map as weight,
-   and gives the catalog's FWHM statistics: the mode over point sources
-   and the `fwhm_percentile` percentile of the same sample.
+   its `MAG_ZEROPOINT` the `MAGZP` the coadd was scaled to, so the
+   catalog's magnitudes are AB where `dev`'s are instrumental
+   ({ref}`ruling <decision-catalog-ab-zeropoints>`), and gives the
+   catalog's FWHM statistics: the mode over point sources and the
+   `fwhm_percentile` percentile of the same sample.
 5. **The grade**: `dev`'s reference InfoBits and status (`dev` cb53d2c7,
    fdc7fa79), the bits defined in `cdf/infobitsref.txt` and their
    thresholds in `[reference.infobits]`. A bit is set when its condition
@@ -101,7 +104,7 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 | `[reference.instrument]` | `sca_gain` 2.0, `sca_readout_noise` 9.4 |
 | `[reference.mosaic]` | `naxis1`, `naxis2` 9100 (`dev` 1518042b), `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
 | `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback |
-| `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim |
+| `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim; its `sextractor_mag_zeropoint` 0.0 is replaced in the job's copy by `MAGZP` at run time ({ref}`ruling <decision-catalog-ab-zeropoints>`) |
 | `[reference.paths]` | the repository and tool configuration paths of the pipeline image, the tools on `PATH`, and `work_subdirectory` `ref` |
 | `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |

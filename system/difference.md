@@ -115,14 +115,17 @@ work directory with `dev`'s file names and command lines.
 
 The L2 image is moved to the primary HDU and converted to DN/s, with a
 simple-model uncertainty image. SExtractor catalogs it for the FWHM of
-its point sources. Its SIP distortion is rewritten as PV, and SWarp
+its point sources, with `MAG_ZEROPOINT` the image's `ZPTMAG`, its AB
+zero point for DN/s ({ref}`ruling <decision-catalog-ab-zeropoints>`). Its SIP distortion is rewritten as PV, and SWarp
 resamples the reference, its coverage and its uncertainty onto the
 science grid. bkgest subtracts the background of the science image and
 of the resampled reference. Gain matching compares the two images'
 SExtractor catalogs for the reference's scale factor and the median
 offsets, using the science image's own zero point and the reference's
 `MAGZP`; with too few matched sources it falls back to the zero points
-and zero offsets.
+and zero offsets. Its two SExtractor runs keep `MAG_ZEROPOINT` 0, as
+`dev`'s do, because gain matching adds the reference's zero point to
+their magnitudes itself.
 
 NaNs in ZOGY's inputs are replaced, extreme artifact pixels are
 repaired, and the reference is shifted by the median offsets. ZOGY runs
@@ -132,7 +135,9 @@ everything of ZOGY's in this paragraph
 the reference coverage is below threshold, the NaNs are restored, and
 negative copies are made. The stage then makes the difference's
 uncertainty image and the positive and negative SExtractor and
-Photutils PSF-fit catalogs. SFFT follows with its own; the naive
+Photutils PSF-fit catalogs, the SExtractor magnitudes on the science
+image's `ZPTMAG`, since every difference image is on the science image's
+flux scale. SFFT follows with its own; the naive
 subtraction follows with its image, uncertainty and SExtractor catalogs
 and no PSF-fit catalog, so its two catalog-outcome bits (4 and 5) are
 never set.
@@ -297,8 +302,13 @@ brightest that many per sign, 0 none, and anything below -1 is refused), `dev`'s
 subtable per `dev` ini section with `dev`'s values. The tool tables
 (`[difference.sextractor_sciimage]`, `_gainmatch`, `_diffimage`,
 `_diffimage_sfft`, `_diffimage_naive` and `[difference.swarp]`) copy
-`dev`'s sections verbatim. The others, where a value is new with the
-port or departs from `dev`:
+`dev`'s sections verbatim, `sextractor_mag_zeropoint` 0.0 included. At
+run time the job's copies of `_sciimage` and `_diffimage` take the
+science image's `ZPTMAG` instead, which every difference-image catalog,
+SFFT's and the naive subtraction's included, starts from; `_gainmatch`
+stays 0 and the run's stored body is unchanged
+({ref}`ruling <decision-catalog-ab-zeropoints>`). The others, where a
+value is new with the port or departs from `dev`:
 
 | Setting | Value | Meaning |
 |---|---|---|
