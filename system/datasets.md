@@ -245,6 +245,18 @@ the loop's earlier field rule; e4 is identical in both):
 The runbook's part 13 steps flight-first, ref-overlap and gaia-pm hold
 the numbers.
 
+**The difference stage's flight values** (2026-11-10): the overlay sets
+five difference keys to the values the commissioning pipeline runs on
+flight data (its commit a7778505), where the base keeps `dev`'s
+simulation values. They are not measured on the rebuild.
+
+| Setting | Flight (base) | Reason |
+|---|---|---|
+| `[difference.psfcat_diffimage] sharphi` | 1.8 (1.0) | DAOStarFinder's sharpness ceiling: 1.8 admits more extended detections into the difference sources, set from analysis of on-orbit data (Azalee, 2026-11-10) |
+| `[difference.gainmatch] magrefthresmin`, `magrefthresmax`, `refmagkeep` | 10, 30, 30.0 (19.0, 24.0, 23.5) | gain matching's magnitude window and keep limit, widened until they cut nothing; the magnitudes are AB, the gain-match catalogs' zero point 0 plus the reference's added once |
+| `[difference.sci_image] repair_extreme_artifact_pixels` | false (true) | the repair is meant off for in-flight data (Azalee, 2026-11-10); the commissioning ini's comment still says to enable it for real data, and this decision supersedes it |
+| `[difference.sfft] crossconv_flag` | false (true) | SFFT without cross-convolution, its difference PSF the science PSF; the commissioning value, `dev`'s socsims setting, not a flight measurement ({ref}`ruling <decision-flight-crossconv-off>`) |
+
 **The injected copy, `flight-1049-inj1`** (2026-11-09, for reuse): the
 inputs bucket's `flight-1049-inj1/` holds the same four files under `l2/`.
 e1 to e3 are byte copies, and e4 carries 200 constant sources, AB 21 to 27
