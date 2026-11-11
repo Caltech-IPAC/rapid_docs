@@ -148,7 +148,7 @@ night uses a dataset name of its own.
 
 | Code | `loop` | `job local` |
 |---|---|---|
-| 0 | the selection drained with no failed or refused job (or one `--once` pass saw none) | the job published; under a run that is not live, the refusal is on stderr and on its row |
+| 0 | the selection drained with no failed or refused job (or one `--once` pass saw none); a declined job is not a failure | the job published; under a run that is not live, the refusal is on stderr and on its row; or it declined, publishing nothing, its reason on its row |
 | 1 | it drained around failed jobs, or jobs published with their binding refused. Each is named on stderr and in the last pass's `failed`, and the rest of the selection drained around them. Read the row's `refusal` (`rp job show <id>`), fix the cause, rerun with `rp job submit --job <id> --job-definition $JOBDEF`, then start the loop again | the job published but its binding was refused under a live run |
 | 64 | a usage error: the run does not exist, the selection cannot be parsed, its first pass found no file of the selection under the source root, or the dataset lacks an official catalog for each switched-on catalog copy (Gaia, NED, NED-LVS) when a packet job is due | the run or an input does not exist, or the arguments are wrong |
 | 65 | not returned | the stage rejected a declared input (difference, reference or import), `CommandExit: <reason>` on the row |
@@ -239,6 +239,20 @@ Its order:
    `[reference.selection] min_frames` of them, as `dev` selects them
    ({ref}`ruling <decision-reference-by-field>`). The job's scope records
    the first SCA among the rows it serves.
+   With `[reference.selection] selection_type = "coverage"` the frames
+   are chosen by how much of the reference they cover instead
+   ({ref}`ruling <decision-reference-coverage>`). The candidates are the
+   selected official rows of the filter whose `overlapfields` meet any
+   tile under the reference's 9100 px footprint, so a frame that covers
+   only the reference's margin counts too. The pass walks them in
+   `mjdobs` order, then by distance from the reference's centre, then by
+   L2 key, skips a frame whose footprint misses the reference, and stops
+   once `max_coverage_fraction` of the reference's pixels reach
+   `max_coverage_depth` or at `max_frames`. The job names exactly the
+   frames chosen, and `min_frames` is not used. A field whose estimated
+   fraction of pixels at `min_coverage_depth` falls below
+   `min_coverage_fraction` less `coverage_estimate_tolerance` gets no job
+   and is held ([The reference bound](#the-reference-bound)).
    With a reference bound set, the rules change as described under
    [The reference bound](#the-reference-bound).
 4. **difference**: one job per official L2 row whose field has an
@@ -290,6 +304,9 @@ on from it. `job submit --job` marks a failed row `launched` as it
 records the new Batch id, so a loop restarted at once counts it
 pending. A failed job holds only the work that depends on it: the loop
 keeps passing until the rest of the selection drains around it. A
+`declined` job, a reference whose coverage map fell short of the
+minimum, is neither pending nor failed: it published nothing, and its
+field is held ([The reference bound](#the-reference-bound)). A
 job whose Batch request itself raises (throttled, a queue that does not
 exist) is marked `failed` with that error in its `refusal`, never left
 `launched` with nothing on Batch, and the error ends the verb (75 when
@@ -350,6 +367,21 @@ official rows before the bound that overlap it, none at all included, gets no
 reference. The pass reports it under `held`, with the field and the
 reason, on every pass. A held field does not keep the loop from
 draining, and the verb exits 0: the gap is recorded, with no timeout.
+
+Under coverage selection a field is also held for coverage, with or
+without a bound: when the frames the pass would choose give an
+estimated coverage below the minimum less the tolerance, the pass
+reports the field under `held` with `estimated coverage X < Z` and
+plans no job ({ref}`ruling <decision-coverage-held>`). The estimate is
+made again on every pass, so the field is planned once enough frames
+arrive; with a bound its frames are fixed once the intake drains, so it
+stays held for that run and a new run estimates it again. A reference
+job that coadds its frames and measures its coverage map below
+`min_coverage_fraction` declines ([reference](reference), What it
+runs): nothing is published and the job is `declined`, not failed. The
+pass then reports its field under `held` with the declined job's reason,
+and plans it again only when the frames it would choose differ from the
+declined job's recorded inputs, so the same coadd is never rebuilt.
 
 ## No chain (2026-10-24)
 
@@ -421,7 +453,9 @@ dataset and one loop each, all six at once:
   as soon as chain work ends or by running `associate` and `packet` in
   one Batch job. At GBTDS depth this is the loop's latency.
 - An unbounded run's field with fewer than `min_frames` rows still
-  waits without a `held` report; only a bounded run reports it.
+  waits without a `held` report under `"nframes"`; only a bounded run
+  reports it. Under `"coverage"` a field short of coverage is reported
+  either way.
 - Where the bound goes in general. On the HLWAS simulation each
   filter's bound is the midpoint of its own third and fourth passes at
   the first pointing, a run setting per filter; a survey without passes
