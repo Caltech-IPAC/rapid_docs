@@ -193,6 +193,13 @@ Verify: "Verify determines if the backups and archives in a repository
 are valid."). It checked what the repository held then, and the WAL
 archived since has not been re-read. Continuity of the WAL across the
 range rests on the segment names being complete, which shows that
-every segment is present but not that each is readable. The restore
-drill on the database verification plan is what turns this into a
-demonstrated number.
+every segment is present but not that each is readable.
+
+The weekly restore drill now gives the demonstrated number. On
+2026-11-11 it restored diff `20261108-073044F_20261111-073056D` (320 GB)
+onto empty volumes matching rapid-db's in 24 minutes with eight workers,
+replayed 3,180 archived WAL segments to the end of the archive in 22
+minutes, and read every page with `pg_checksums --check`, clean, in 35
+minutes. The same drill restored that morning's snapshot set and had it
+serving in 150 seconds; that leg does not read every page
+({ref}`the ruling <decision-drill-checks>`).
