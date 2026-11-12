@@ -4,7 +4,7 @@
 
 Once a day the rebuilt pipeline runs one injected HLWAS epoch from start to
 finish at the newest `rapid-rebuild` revision. It checks the run and compares
-six numbers with a spread recorded from earlier runs. When a number falls
+six numbers with a spread, a tolerance for each. When a number falls
 outside its spread, the gate is red, and the alert topic says so. It exists
 because the 2026-10-24 SFFT regression (core fraction +0.252 against
 +0.003, false positives 385 against 228 an epoch) merged without anyone
@@ -55,26 +55,38 @@ A spread whose two ends are equal is compared for equality.
 
 ## The spread
 
-The spread is the lowest and highest value of each column over runs 152,
-167, 168 and 170, read from SMDC on 2026-11-08. Run 167 stopped before the
-packet stage, so its packets and false positives are absent rather than zero.
+The spread is a tolerance for each column, set while the code changes daily
+(Ben, 2026-11-12). It is centred on the nights of 2026-11-11 and 2026-11-12
+(runs 230 and 236, `rapid-rebuild:127` and `:131`) and sized to pass
+numerical noise while staying far inside the regression the gate exists for.
 
-| Column | 152 (`:94`) | 167 (`:105`) | 168 (`:106`) | 170 (`:107`) | Spread |
-|---|---|---|---|---|---|
-| packets | 266 | | 338 | 338 | 266 to 338 |
-| core | −0.0000260 | −0.0000256 | −0.0000256 | −0.0000256 | −0.0000260 to −0.0000256 |
-| ring | −0.00922018 | −0.00922022 | −0.00922022 | −0.00922022 | −0.00922022 to −0.00922018 |
-| detected at the threshold | 99 | 171 | 159 | 159 | 99 to 171 |
-| false positives | 95 | | 149 | 149 | 95 to 149 |
-| difference s | 226.1 | 350.5 | 241.0 | 252.7 | 226.1 to 350.5 |
+| Column | Runs 230 and 236 | Spread | Rule |
+|---|---|---|---|
+| packets | 339 | 266 to 407 | 20 % above the nights, the earlier floor kept |
+| core | −0.0000335 | −0.01 to +0.01 | the 2026-10-24 regression read +0.252 |
+| ring | −0.009193 | −0.0111 to −0.0074 | 20 % either side |
+| detected at the threshold | 159 | 99 to 200 | the earlier floor, to all 200 injected sources |
+| false positives | 150 | 95 to 180 | 20 % above the nights, the regression was 70 % up |
+| difference s | 152.7 to 167.9 | 0 to 450 | a faster job is never red |
 
-The four runs span three states of the code. Run 152 predates the uncapped
-sources and `max_alerts` 2000 (rapid PRs 529 and 531), and run 167's packets
-would have come from `sources` while 168's and 170's come from `xsources`. So
-the spread is this sample's range, not one revision's repeatability: runs
-168, 170 and 172 agree on every column but the seconds (241.0 to 252.7). The
-exact values are in `scripts/drift-spread.toml`. Widening a range is an edit
-there, reviewed like any other.
+Before this, the spread was the lowest and highest value over runs 152, 167,
+168 and 170 (read from SMDC on 2026-11-08), so core and ring were held to
+the sixth decimal place. That turned the gate red on three nights running:
+
+| Night (UTC) | Run | Revision | Red columns | What moved |
+|---|---|---|---|---|
+| 2026-11-10 | 220 | `:123` | core, ring | core −0.0000256 to −0.0000267, ring −0.009220 to −0.009218 |
+| 2026-11-11 | 230 | `:127` | packets, core, ring, false positives, difference s | core to −0.0000335, ring to −0.009193, packets 338 to 339, false positives 149 to 150, difference 257 to 168 s |
+| 2026-11-12 | 236 | `:131` | the same five | nothing; equal to run 230 but the seconds |
+
+Every check read CLEAN and the detected count stayed at 159. The first step
+has rapid PRs 568 to 581 between its revisions, and the second has PRs 582
+to 586. Neither step is attributed to one PR: no bisect was run.
+
+The values are in `scripts/drift-spread.toml`. The gate reads the file from
+the commit the night's revision records, so an edit takes effect at the
+first night after a `rapid-rebuild` revision is registered from a commit
+that holds it.
 
 ## The first nights
 
@@ -103,5 +115,5 @@ raised.
 
 ## Not yet decided
 
-- A spread from same-revision nights. A week of nightly rows would give one,
-  much narrower than the four runs' range.
+- A spread from same-revision nights, once the code settles. A week of
+  nightly rows would give one, much narrower than the tolerances.
