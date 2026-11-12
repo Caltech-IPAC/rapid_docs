@@ -5,12 +5,13 @@
 The module this page describes was retired from the `rebuild` branch with
 the run model. Its replacement is the difference job's association, on
 the [difference](difference) page (Association): each difference job
-matches its own sources, in memory, against the run's objects in its
-sources' fields and their neighbours, and under SFFT does the same for
-its xsources against the run's xobjects
+matches its own sources, in memory, against its dataset's objects of
+every run in its sources' fields and their neighbours, and under SFFT
+does the same for its xsources against the dataset's xobjects
 ({ref}`association in the difference job <decision-association-in-difference>`,
 {ref}`association by the source's field <decision-association-by-source-field>`,
-{ref}`xobjects <decision-xobjects>`). The [foundation](foundation) page
+{ref}`xobjects <decision-xobjects>`,
+{ref}`objects across runs <decision-objects-across-runs>`). The [foundation](foundation) page
 states the tables. This page stays as the record of the port.
 
 `crossmatch` assigns newly loaded sources to astronomical objects and
