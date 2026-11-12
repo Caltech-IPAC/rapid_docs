@@ -252,9 +252,10 @@ field ({ref}`ruling <decision-association-by-source-field>`). After the
 catalog, it groups the sources the run's `[associate]` table accepts
 (fit flags zero once the informational bright-footprint bit is cleared,
 S/N at least `min_snr`) by the tessellation field each falls in,
-wherever on the image that is. It reads the run's objects in those
+wherever on the image that is. It reads the dataset's objects in those
 fields and their neighbours in one short query, the objects every
-published difference job of the run has founded there, and records that
+published difference job of the dataset has founded there, of any run
+({ref}`ruling <decision-objects-across-runs>`), and records that
 read exactly: one `objects` input per (field, founding job) it saw, in
 the manifest's `reads`, which the publisher writes to `job_inputs`.
 This is the one input read at execution rather than named at launch.
@@ -271,12 +272,12 @@ were detected. Under the field rule 0.97 of the detected are alerted.
 
 The manifest's `catalog` names `fields`: every field that gained an
 object or a membership, and each one's neighbours. At publish, under
-transaction-scoped locks on the run and each of those fields, taken all
+transaction-scoped locks on the dataset and each of those fields, taken all
 at once or none in one statement that never waits (when one is held the
 publisher rolls back and tries again), the publisher reads the objects
 founded since the job's read in those fields, by jobs not in its
-recorded read. Two jobs founding either side of a boundary share a
-lock, so they serialise, and no lock cycle can form. A founded object within the radius of one of them is
+recorded read, of any run. Two jobs founding either side of a boundary,
+or of two runs at one star, share a lock, so they serialise, and no lock cycle can form. A founded object within the radius of one of them is
 not inserted; its memberships go to that object, each one whose source
 is within the radius of it, rebased to its origin. The manifest records
 the outcome as `reconcile`. Two epochs of one field in flight at once
