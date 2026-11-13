@@ -6,7 +6,8 @@
 of a dataset, from the CRDS ePSF reference the dataset's own L2 file
 names, and declares it as the science PSF. The reference image's PSF is
 not this stage's: the difference job measures it from the resampled
-reference it makes ({ref}`ruling <decision-reference-psf-measured>`).
+reference it makes ({ref}`ruling <decision-reference-psf-measured>`), or
+reads an imported set's ({ref}`ruling <decision-reference-psf-precomputed>`).
 Each image's PSF comes from that reference because it is
 the calibration's PSF and what flight data will carry
 ({ref}`ruling <decision-psf-from-epsf>`); a simulation's rendering PSF
@@ -170,10 +171,12 @@ reference per filter and SCA.
   wider than that (second-moment width 1.10 pixels against the science
   image's 0.96 on F146 SCA 8), which left the core-and-ring residual at
   every star, so the difference job now measures the reference PSF
-  itself ([difference](difference)).
-- **A reference-file part in the `psfs` key.** The key is (dataset,
-  fid, sca, kind), with no reference name, because the simulation names
-  one ePSF per filter and SCA. A dataset whose files name two
+  itself, or reads an imported set's ([difference](difference)).
+- **A reference-file part in the science `psfs` key.** The science key is
+  (dataset, fid, sca, kind), with no reference name, because the
+  simulation names one ePSF per filter and SCA. A reference PSF's key
+  carries its set's name instead
+  ({ref}`ruling <decision-reference-psf-precomputed>`). A dataset whose files name two
   references for one filter and SCA would see its first intake refused
   on `EPSFREF`, and that refusal is what would earn the key change.
 - **The fetch.** Each job fetches the whole 178.6 MB reference for a
