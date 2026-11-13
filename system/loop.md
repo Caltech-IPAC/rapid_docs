@@ -346,6 +346,18 @@ Its order:
    fraction of pixels at `min_coverage_depth` falls below
    `min_coverage_fraction` less `coverage_estimate_tolerance` gets no job
    and is held ([The reference bound](#the-reference-bound)).
+   With `[reference.psfcat] enabled` the job also names the PSF rows its
+   catalog needs at its filter and scope SCA, as `[difference]
+   reference_psf` says: the science row under `"measured"` and
+   `"science"`, the run's set's row under `"precomputed"` and under
+   `"measured"` with a set named. A missing set row stops the pass and
+   names it, as for a difference. A missing science row gets one psf job
+   for the pair, named by one of the reference's files unless a psf job of
+   the run already serves it, and the reference waits under `held` until
+   the row is official. Under `"measured"` the job also expects the 18
+   `psfs` keys of its own set, `refimage-<field>-<filter>`, each naming
+   the binding it replaces, so its measured PSF binds with it
+   ({ref}`ruling <decision-reference-psf-stored>`).
    With a reference bound set, the rules change as described under
    [The reference bound](#the-reference-bound).
 4. **difference**: one job per official L2 row whose field has an
@@ -402,7 +414,15 @@ the host or `job submit --job <id>` on Batch, and the loop then carries
 on from it. `job submit --job` marks a failed row `launched` as it
 records the new Batch id, so a loop restarted at once counts it
 pending. A failed job holds only the work that depends on it: the loop
-keeps passing until the rest of the selection drains around it. A
+keeps passing until the rest of the selection drains around it. A job
+published with its binding refused counts as failed the same way. A
+reference graded status 0 is one: its rows are published, its binding
+refused with its fatal bits as the reason, so it is listed under
+`failed`, holds its field and filter for the run, gets no difference,
+and makes the verb exit 1 once the rest drains
+({ref}`ruling <decision-reference-status-0>`). A new run plans it again
+from the frames it has then; whether it should is open
+({ref}`decision-open-questions`). A
 job whose Batch request itself raises (throttled, a queue that does not
 exist) is marked `failed` with that error in its `refusal`, never left
 `launched` with nothing on Batch, and the error ends the verb (75 when

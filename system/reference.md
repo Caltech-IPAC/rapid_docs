@@ -3,8 +3,9 @@
 **Status: current**
 
 `reference` coadds the L2 images its job names into one reference image
-for a field, filter and SCA, catalogs the mosaic with SExtractor, and
-declares three tables for the publisher. It runs `dev`'s reference
+for a field, filter and SCA, catalogs the mosaic with SExtractor and,
+when the run turns it on, with Photutils, and declares its tables for the
+publisher. It runs `dev`'s reference
 pipeline (`ppid` 12, `pipeline/referenceImageSubs.py`) in `dev`'s order
 under the foundation's `run(job)` contract: `rapidpipe/stages/reference.py`
 and `rapidpipe/science/reference/` on the pipeline repository's
@@ -15,12 +16,18 @@ stage is.
 ## Scope and inputs
 
 The scope is `{"field", "fid", "sca"}`: the Roman tessellation tile,
-the filter id and the first SCA among the frames. Every input is an
-`input` row of product `l2files` whose key has the scope's filter, of
-any SCA, each row read by its own key's SCA; any other product or
-filter fails the job. The launcher chooses the frames and records them; the
-stage reads exactly those rows and their files through
-`prefix.get`, and never selects frames itself.
+the filter id and the first SCA among the frames. The frames are `input`
+rows of product `l2files` whose key has the scope's filter, of any SCA,
+each row read by its own key's SCA. With `[reference.psfcat] enabled` the
+job also names the `psfs` rows of its filter and scope SCA that
+`[difference] reference_psf` calls for: the science row under
+`"measured"` and `"science"`, the run's set's reference row under
+`"precomputed"`, and both under `"measured"` with a `reference_psf_set`
+named, the set's row being the measurement's fallback. Any other product,
+filter or SCA, or a PSF the settings do not call for, fails the job. The
+launcher chooses the frames and the rows and records them; the stage reads
+exactly those rows and their files through `prefix.get`, and never
+selects frames itself.
 
 Frames are coadded in order of `mjdobs`. Fewer than `min_frames` fails
 the job; frames past `max_frames` are left out and named in the
@@ -65,15 +72,41 @@ Each step is a module of `rapidpipe.science.reference`:
    ({ref}`ruling <decision-catalog-ab-zeropoints>`), and gives the
    catalog's FWHM statistics: the mode over point sources and the
    `fwhm_percentile` percentile of the same sample.
-5. **The grade**: `dev`'s reference InfoBits and status (`dev` cb53d2c7,
+5. **The reference PSF and the PSF-fit catalog**, with
+   `[reference.psfcat] enabled` only. The PSF follows `[difference]
+   reference_psf`, so the catalog uses the same kind of reference PSF as
+   differencing ({ref}`ruling <decision-reference-psf-stored>`).
+   `"precomputed"` takes the set's row, its MD5 checked against the row,
+   its stamp an odd square with a positive sum; a per-filter set is
+   computed for any orientation, so it fits awaicgen's north-up mosaic.
+   `"science"` takes the science row. `"measured"` measures the PSF on the
+   mosaic's covered pixels with the difference stage's measurement, the
+   science row giving the stamp's size, the floor of a star's width and
+   the wings; any measurement error falls back to the set's row when the
+   run names one, and otherwise leaves no PSF and so no catalog. The
+   science PSF is in the detector frame and the mosaic north up, and it is
+   not rotated: under `"measured"` its width floor does not depend on the
+   roll, but its wings do, and under `"science"` the whole stamp does. A
+   set file that fails its checks, or a fallback that does, fails the job
+   with exit 65. The catalog is `dev`'s Photutils PSF-fit catalog, the
+   difference stage's catalog code run on the mosaic with its uncertainty
+   map under `[reference.psfcat]`: a text catalog, its finder catalog, the
+   joined Parquet and the fit's residual. With the PSF the stage also
+   computes the two limiting magnitudes at `maglim_snr` on the mosaic's
+   zero point, one from the median `flux_err` of the catalog's sources and
+   one from the mosaic's clipped background noise and the PSF's noise
+   pixels.
+6. **The grade**: `dev`'s reference InfoBits and status (`dev` cb53d2c7,
    fdc7fa79), the bits defined in `cdf/infobitsref.txt` and their
    thresholds in `[reference.infobits]`. A bit is set when its condition
    holds; a metric that could not be computed sets none. Status is 0
-   when a fatal bit (2, 5, 7, 8, 16) is set, else 1. The bits of the
-   Photutils catalog and the PSF (5, 6, 7, 16) are never set, because
-   this build makes neither: a catalog not attempted is not one that
-   failed.
-6. **The header stamp** on the mosaic and its uncertainty map: `dev`'s
+   when a fatal bit (2, 5, 7, 8, 16) is set, else 1. With the catalog
+   attempted, its bits are live: 5 and 6 the two limiting magnitudes, 7
+   its source count, which is 0 when it was not made, and 16 a catalog not
+   made, because there was no PSF or no source survived its finder. With
+   `[reference.psfcat] enabled` false the four bits are never set: a
+   catalog not attempted is not one that failed.
+7. **The header stamp** on the mosaic and its uncertainty map: `dev`'s
    `BUNIT`, `FIELD`, `FILTER`, `COV5PERC`, `NFRAMES`, `JDSTART`,
    `JDEND`, `MAGZP`, `TOTEXPTM`, `INFOBITS` (its comment listing the set
    bits), `STATUS`, the `BIT`*nn* definitions in use and one
@@ -104,25 +137,40 @@ job fails when awaicgen or SExtractor leaves no output, or when the
 catalog has no source with a usable FWHM, where `dev` checks no exit
 code.
 
-A status-0 reference is published and differenced against. `dev`'s
-science pipeline differences against the reference it has just built,
-whatever its status, and never reuses a status-0 reference
-(`get_best_reference_image` selects `status > 0`); the loop builds a
-field's reference once, so here the status is a recorded verdict, not a
-gate.
+A status 0 reference is published with its grade but not made
+official: its rows load, the stage refuses its own binding, and the job
+fails with its fatal bits as the reason. No difference is made against
+it, as `dev` and commissioning never use a status 0 reference
+(`get_best_reference_image` selects `status > 0`). A person may still
+accept it with `official change`, without a rerun
+({ref}`ruling <decision-reference-status-0>`). Whether a later run
+builds it again is open; today a new run plans it again from the frames
+it has then ({ref}`decision-open-questions`).
 
 ## Declared outputs
 
 The files go under `ref/` in the attempt's prefix: the mosaic, its
 coverage and uncertainty maps under awaicgen's names, and the
-SExtractor catalog. The manifest declares four tables:
+SExtractor catalog. With the PSF-fit catalog on, they also hold the PSF
+the catalog used, `refimage_psf.fits`, and the catalog's
+`refimage_psfcat.txt`, `refimage_psfcat_finder.txt`,
+`refimage_psfcat.parquet` and `refimage_psfcat_residual.fits`. The
+manifest declares these tables:
 
 | Table | Rows |
 |---|---|
 | `refimages` | one, keyed (dataset, field, fid); `nframes`, `cov5percent`, the grade's `status` and `infobits`, and the stamped mosaic's MD5 |
 | `refimimages` | one per coadded L2 row, (`rfid`, `rid`) |
-| `refimcatalogs` | one, the mosaic catalog, `cattype` 1, which `packet` reads for reference-star matches |
-| `refimmeta` | one, keyed by `rfid`: `dev`'s quality measurements under `dev`'s names, `hp6` and `hp9` of the reference's centre, `mjdobsmin` and `mjdobsmax` of the coadded frames, the mosaic's statistics, the catalog's FWHM and source count; `npucatsources` null, since no Photutils catalog of the reference is made ({ref}`ruling <decision-refimmeta>`) |
+| `refimcatalogs` | the mosaic catalog, `cattype` 1, which `packet` reads for reference-star matches; and the PSF-fit catalog, `cattype` 2, when it was made |
+| `refimmeta` | one, keyed by `rfid`: `dev`'s quality measurements under `dev`'s names, `hp6` and `hp9` of the reference's centre, `mjdobsmin` and `mjdobsmax` of the coadded frames, the mosaic's statistics, the catalog's FWHM and source count; `npucatsources` the PSF-fit catalog's source count, 0 when it could not be made and null with the catalog off ({ref}`ruling <decision-refimmeta>`) |
+| `psfs` | under `"measured"`, when the measurement succeeded: 18 `reference` rows, one per SCA, sharing `refimage_psf.fits` and its MD5, with `psf_set` `refimage-<field>-<filter>` in Roman's filter spelling ({ref}`ruling <decision-reference-psf-stored>`) |
+
+The `psfs` rows bind with the reference in one change group. The loop
+expects their 18 keys of every `"measured"` reference, so a measurement
+that fell back to the set writes none and the manifest's `unbound`
+leaves those keys out of the binding. A status 0 reference's manifest
+carries `refused` with its fatal bits, and its whole binding, `psfs` keys
+included, is refused.
 
 The stage draws `rfid` from the `refimages` identity sequence while it
 reads its inputs, so the child rows carry it before publication. An
@@ -131,7 +179,11 @@ value, and no `refimmeta` row. The manifest also records `dev`'s `refimmeta` mea
 JD range, the total exposure time, the zero point and `zptmag_source`
 (`header` or `nominal`, as `ZPSOURCE`), and under coverage
 selection `coverage`: the selected and skipped `rid`s, the estimate, its
-decision and the measured fraction.
+decision and the measured fraction. With the catalog on it also records
+the catalog's source count, `npsfcatsources`, its `psfcat_flag`, and the
+reference PSF's record `refpsf`: the mode, the set and row it read, and
+under `"measured"` the stars it was built from, whether it fell back and
+the measurement's error.
 
 ## Settings
 
@@ -146,7 +198,7 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 | `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback; `use_nominal_zptmag` false, commissioning's flag (8a4a172d): true scales each input by its filter's `[intake.nominal_zptmag]` value instead of its own `ZPTMAG` ([datasets](datasets): true in `flight.toml`); a run body stored before the flag has none and scales by `ZPTMAG` |
 | `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim; its `sextractor_mag_zeropoint` 0.0 is replaced in the job's copy by `MAGZP` at run time ({ref}`ruling <decision-catalog-ab-zeropoints>`) |
 | `[reference.paths]` | the repository and tool configuration paths of the pipeline image, the tools on `PATH`, and `work_subdirectory` `ref` |
-| `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
+| `[reference.psfcat]` | `enabled` false in the base, so the simulations' references are unchanged; true makes the PSF-fit catalog with the PSF `[difference] reference_psf` chooses. The finder's values are `dev`'s `PSFCAT_REFIMAGE`, `min_separation` 1.5 as the difference stage's; the flight overlay turns it on with `sharphi` 1.8 ({ref}`ruling <decision-reference-psfcat-sharphi>`) |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |
 | `[reference.infobits]` | `dev`'s `REFIMAGE_INFOBITS` thresholds `t00` to `t10` (provisional, "loose enough that a normal reference image raises no bit"), `fwhm_percentile` 90, `maglim_snr` 5, `fatalinfobits` 2, 5, 7, 8, 16 |
 | `[reference.statistics]` | `clip_correction_seed` 0, pinned as the difference stage's so the same frames give the same catalog; a negative value reproduces `dev`'s unseeded draw for the clipped-statistics correction |
@@ -192,8 +244,10 @@ all-source median under `fwhmmedpix`, status 1 and infobits 0.
 - When a reference is rebuilt. The loop never rebuilds a published one,
   and a reference job that failed, a coadd short of its coverage among
   them, holds its field's key until a person reruns it.
-- The Photutils reference catalog, and where its PSF would come from.
-  `dev`'s reference pipeline makes one from a per-filter reference PSF
-  file; without it the grade's bits 5, 6, 7 and 16 stay unset.
+- Whether a status 0 reference is built again, and when
+  ({ref}`decision-open-questions`).
+- A reference PSF for a mosaic at a fixed position angle (a GBTDS
+  reference with a per-SCA set at that angle): the `psfs` rows per set,
+  filter and SCA allow it, but no overlay or set builds one.
 - The imported reference has no `refimimages` rows, since the source
   system's rows do not name its members.
