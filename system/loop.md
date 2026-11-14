@@ -159,7 +159,7 @@ night uses a dataset name of its own.
 
 ```
 rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    [--passes 1,2,3] [--expids LO-HI,...] --job-definition <name:revision> [--job-queue <queue>] \
+    [--passes 1,2,3] [--expids LO-HI,...] [--programs 1049,...] --job-definition <name:revision> [--job-queue <queue>] \
     [--max-intake 100] [--interval 120] [--once]
 ```
 
@@ -185,6 +185,19 @@ pass, observation, visit and exposure in that order, so one range is a
 contiguous stretch of a pass's observations (Russ Laher's 10/20/2026
 subset with its reference frames is `--passes 2,5 --expids
 2000000-2999999,5036101-5036401`).
+`--programs` selects programs within the dataset, comma-separated
+program numbers (`1049,1018`, or `-2`), all by default. A listed stem's
+program is the one intake will write for it: the run's `[intake]
+program_id` when its dataset sets one, else the SOC stem's own five
+digits, and a stem with neither is not admitted. An official L2 row's
+program is its official `exposures` row's `program_id`, and a row whose
+exposure has no official row yet is not selected until it has one. So
+references are built only from the selected programs' frames, and only
+their images are differenced and packeted; an official reference of the
+field, built from frames of any program, is reused, and a difference
+job matches its sources against the dataset's objects of every run,
+whatever program founded them. Per-program work on flight is a
+selection within the one dataset, never a dataset of its own.
 A selection admits only its own reader's stems. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
