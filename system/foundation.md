@@ -1871,9 +1871,12 @@ cold queue.
   set sent twice reaches the topic twice.
 - The Spot interruption warning's capture, which waits on a logs
   resource policy, and what a reclaim costs, since none has been seen.
-- Cross-band association. Each filter is a dataset of its own, so a
-  source seen in two filters is two objects. Whether an object is per
-  band or across bands is open, and with it forced photometry in the
+- Cross-band association. An object carries no filter, and a
+  difference job matches its dataset's objects in its fields whatever
+  their filter, so within one dataset a source seen in two filters is
+  one object; the breadth runs, which gave each HLWAS filter a dataset
+  of its own, hold it as two. Whether an object should be per band or
+  across bands is open, and with it forced photometry in the
   other bands at a source's position.
 - The cause of the bright-star residual (about 20 per epoch above S/N
   20 on SCA 8, two to three times that on SCAs 4 and 5), now flagged

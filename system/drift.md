@@ -17,8 +17,8 @@ The run is epoch 4040101 of the injected footprint `r00342-inj1` (pointing
 `001_0001`, SCA 8, F146, 200 injected sources from AB 21 to 27), with the
 reference built from passes 1 to 3. That is runs 170 and 172's shape: the
 HLWAS overlay with the injected source root, the reference bound 61591.4056,
-and the NED and NED-LVS matches off. Each night gets a dataset and run of its
-own, `nightly-drift-<UTC stamp>`, and follows [Starting a night](loop) step
+and the NED and NED-LVS matches off. Each night's drift is a test,
+so it gets a dataset name and run of its own, `nightly-drift-<UTC stamp>`, and follows [Starting a night](loop) step
 for step: the run, made live, the Gaia import of the team's mirror, the
 loop, the check, the compare, and the live binding closed.
 

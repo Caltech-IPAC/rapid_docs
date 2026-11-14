@@ -2,16 +2,23 @@
 
 **Status: DRAFT**
 
-A dataset is one body of input the pipeline takes in, with its own
-live run and its own products, since dataset is in every scientific
-key ([foundation](foundation)). This page states the simulations
+A dataset is the set of inputs whose objects are shared: flight is one
+dataset, each simulation is one, each injected variant is one, and a
+trial or a test takes a dataset name of its own (Ben, 2026-11-14 07:17
+UTC). Dataset is in every scientific key ([foundation](foundation)), so
+a difference job matches the objects of every run of its dataset and
+no other's. A night of flight processing is the live run of `flight`
+admitting new files; a new run starts when the settings or the image
+change, and per-program work is a selection within the dataset
+(`--programs`, [loop](loop)). This page states the simulations
 the rebuild has read and the flight data it holds, what each one's data are, the quirks met in
 them, and what each quirk became: a key in the dataset's settings
 overlay, a reader, or a line recorded and moved past. A quirk is fixed
 on the overlay and not debugged to its root in every dataset. The
 overlays live in the pipeline repository under
-`rapidpipe/settings/datasets/`, one TOML file per dataset with a
-comment per key naming the measurement that earned it; the
+`rapidpipe/settings/datasets/`, one TOML file per data source with a
+comment per key naming the measurement that earned it, and several
+dataset names may use one (every flight trial uses flight's); the
 [foundation](foundation) page states how a run resolves them.
 
 | Dataset | Overlay | Survey | Read since |
@@ -205,9 +212,11 @@ Measured), so ZOGY under the field rule is not measured here. It is a different 
 detects 0.94 to 0.98 to AB 25 on sources placed at will. The runbook's
 part 12 step 3 holds the numbers.
 
-## Flight data, program 1049
+## Flight data
 
-The first flight images held and read: program 1049, "RAPID CAR-198
+Flight is one dataset, `flight`, for every program; a trial on flight
+data takes a dataset name of its own (`flight-trial-<n>`) under the same
+overlay. The first flight images held and read: program 1049, "RAPID CAR-198
 Implementation" (observed 2026-10-24 10:40 to 11:10 UTC, F062 and F158,
 288 L2 rows at MAST). The sample is four dithered F158 epochs of WFI02,
 observation 2 visit 1, 10:56 to 11:02 UTC, 60 s each, over COSMOS

@@ -41,8 +41,11 @@ commented block of the
 Getting started section,
 with `RAPIDPIPE_OUTPUTS_ROOT` an `s3://` prefix the Batch job role
 writes. The example is HLWAS F146, pointing `001_0001`, SCA 8, with
-passes 1 to 3 for the reference and pass 4's epoch differenced. Each
-night uses a dataset name of its own.
+passes 1 to 3 for the reference and pass 4's epoch differenced. It is
+a test, so it takes a dataset name of its own, as every trial and test
+does. Flight is the one dataset `flight`: a night of flight processing
+is its live run admitting new files, and a new run starts only when
+the settings or the image change ([datasets](datasets)).
 
 1. **The environment and the names.**
 
@@ -131,8 +134,8 @@ night uses a dataset name of its own.
    The script prints one line, `Check run N: CLEAN validate 6/6 reader
    1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
    and exits non-zero.
-7. **Close the night.** A dataset is live only while its night is in
-   flight (Ben, 2026-10-30): once the run is checked, close its live
+7. **Close the test.** A test's dataset is live only while it runs
+   (Ben, 2026-10-30): once the run is checked, close its live
    binding, the `live` id `run show` prints, so a loop started on it by
    mistake submits nothing and the live list names what is running.
    ```sh
@@ -142,7 +145,9 @@ night uses a dataset name of its own.
    ```
    `official undo <group>` reopens it. The bindings of the 113 finished
    nights of 2026-10-21 to 10-27 were closed in one group (30820) on
-   2026-10-30, leaving runs 158 and 159 live.
+   2026-10-30, leaving runs 158 and 159 live. `flight`'s live run is not
+   closed at a night's end: it stays live, admitting new files, until a
+   new run of `flight` takes its place (Ben, 2026-11-14 07:17 UTC).
 
 **What the exit codes mean**, as on `rebuild` at `efc03fc6`:
 
