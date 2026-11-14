@@ -70,7 +70,7 @@ so intake does not.
 |---|---|---|
 | the gzipped FITS | | under the attempt's prefix; the `l2files` row's `filename` is its URL |
 | `l2files` | dataset, expid, sca, fid | the file's footprint, field, overlapping fields, HEALPix indexes, WCS columns and limiting magnitude |
-| `exposures` | dataset, expid | one per exposure: `exptime`, `program_id` (the setting below) and the converted header's Roman observation identifiers, `dev`'s columns (`execution_plan`, `pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`), null for a reader whose files carry none |
+| `exposures` | dataset, expid | one per exposure: `exptime`, `program_id` (the setting below, or the file's own `PROGRAM` where the setting is `""`) and the converted header's Roman observation identifiers, `dev`'s columns (`execution_plan`, `pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`), null for a reader whose files carry none |
 
 The manifest records the file's provenance: its observation
 identifiers, romancal's version and the summary of its Gaia WCS fit
@@ -108,7 +108,7 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 | `sip_degree` | 5 | `SIPDISTORTIONDEGREE`'s default |
 | `sip_max_pix_error` | 0.1 | the `to_fits_sip` argument |
 | `gzip_level` | 1 | `L2GZIPLEVEL`'s default |
-| `program_id` | -1 | the `SOCSIMS` program id |
+| `program_id` | -1 | the `SOCSIMS` program id (`RAPIDDATASOURCE`); a set value is a simulation's negative id in `surveys`: -1 GBTDS (the base's, which the GBTDS overlays keep), -2 OpenUniverse, -3 RimTimSim, -4 HLWAS. `""`, flight's overlay, reads each file's own `PROGRAM`, so one dataset holds several programs. The sign tells a simulation from flight: a set value of 0 or more, or a file's `PROGRAM` of 0 or less, fails the intake |
 | `[intake.nominal_zptmag]` | `dev`'s nominal zeropoints, keyed by Roman filter name | intake's `ZPTMAG` when the file has no photometry metadata; the reference stage's input scaling when `[reference.awaicgen] use_nominal_zptmag` is true ([reference](reference)) |
 | `limmag_nsigma`, `limmag_clip_sigma` | 5.0, 3.0 | as `[import]` has them |
 | `dq_mask_bits` | 0 | nothing masked, `dev`'s behaviour; a dataset's overlay names the bits whose pixels become NaN, in decimal, and flight's names commissioning PR 238's default with SATURATED ({ref}`decisions <decision-dq-mask-base>`) |

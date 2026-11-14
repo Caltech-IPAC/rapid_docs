@@ -57,7 +57,7 @@ page or ruling states why.
 | `dev` | `rebuild` | Status | Why |
 |---|---|---|---|
 | `ingestL2Files.py` | the `intake` stage: `dev`'s `build_fits_file` conversion, writing under the outputs prefix and declaring `l2files` and `exposures` rows | changed | stages read, compute in memory, and the publisher writes ([foundation](foundation.md#why-it-is-this-way)); [intake](intake) |
-| `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader` | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
+| `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader`; `program_id` is a simulation's negative id (the base's -1 is `dev`'s `SOCSIMS`, HLWAS's overlay -4) or, on flight's overlay, `""`, each file's own `PROGRAM` ([intake](intake.md#settings)) | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
 | `db_register_socsim_files.py`, `db_register_rimtimsim_files.py`, `db_register_troxel_sim_files.py` | intake readers `soc-l2`, `openuniverse` and `rimtimsim`; no Troxel reader | partial | [datasets](datasets.md#rimtimsim-2026-06-22) for the RimTimSim reader; no recorded reason for Troxel |
 | `db_backfill_*` (limmag, overlapfields, hp6, hp9) | computed by the intake before publish | changed | a later correction is a new job's row, rebound ([foundation](foundation.md#why-it-is-this-way)) |
 | `db_register_sciimg_psfs.py` (a copied WebbPSF in `PSFs`) | the `psf` stage from the file's CRDS ePSF reference, kind `science` or `reference` in the key; `import` can still bring `dev`'s | changed | {ref}`the PSF from the ePSF reference <decision-psf-from-epsf>`; {ref}`the PSF kind <decision-psf-kind>` |
@@ -132,7 +132,7 @@ files beside it.
 |---|---|---|---|
 | `filters` | `filters` | the same (`fid`, `filter`) | the static tables stay plain tables ([foundation](foundation.md#why-it-is-this-way)) |
 | `scas` | `scas` | the same, with a check of 1 to 18 | as `filters` |
-| `surveys` | `surveys` | the same; rows -1, -2 and -3 for SOCSIMS, OpenUniverse and RimTimSims | as `filters` |
+| `surveys` | `surveys` | the same; rows -1 to -4 for the simulations (SOCSIMS GBTDS, OpenUniverse, RimTimSims, SOCSIMS HLWAS) and the twelve commissioning programs, 1049 among them, carried in `schema.sql` | as `filters` |
 | `fields` | `fields` | the same | as `filters` |
 | `exposures` | `exposures`, `exposures_official` | kept: `expid`, `dateobs`, `exptime`, `program_id`, `execution_plan` and the observation-id columns (`pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`; null on rows written before 2026-10-26, no backfill); dropped: `field`, `hp6`, `hp9`, `fid`, `mjdobs`, `status`, `infobits`, `created` | the columns kept are the ones the team's queries read ([foundation](foundation.md#why-it-is-this-way)); the `expid` ([intake](intake.md#declared-outputs)) |
 | `l2files` | `l2files`, `l2files_official` | dropped: `version`, `vbest`, `ctype1/2`, `cunit1/2`, the SIP orders and coefficients (the SIP stays in the FITS header), `equinox`, `paobsy`, `pafpa`, `skymean`; `l2filemeta`'s centre and corners folded in; `limmag` and `overlapfields` computed before publish; unique on (dataset, expid, sca, fid, job) | as `exposures`; backfilled columns are computed before publish ([foundation](foundation.md#why-it-is-this-way)) |
