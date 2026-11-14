@@ -22,7 +22,10 @@ A job's scope is one file of one dataset: `{"dataset": ..., "file":
 <stem>}`, where the stem is the SOC file name without its
 `_cal.asdf` suffix. The file itself is read from the run's source
 root, `[intake] source_root`, a URL prefix given in the run's settings
-overlay at `run create` and never in the shipped settings. A public
+overlay at `run create` and never in the shipped settings. Flight's L2
+reaches its source root from MAST by `scripts/stream_l2_files.py`, one
+conditional write per file that never overwrites
+([datasets](datasets.md#flight-data-program-1049)). A public
 source root is read anonymously when `[intake] unsigned` is true; a
 signed read is not tried after an anonymous one fails.
 
@@ -102,7 +105,7 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 
 | Key | Value | `dev` |
 |---|---|---|
-| `source_root` | the run's overlay only | |
+| `source_root` | the run's overlay only | `RAPIDL2INPUTBUCKET`; flight's is filled from MAST by `scripts/stream_l2_files.py` |
 | `unsigned` | false | |
 | `reader` | `"soc-l2"` | the only format `dev` reads; `"openuniverse"` reads OpenUniverse 2024's `simple_model` ASDF through the same conversion; `"rimtimsim"` reads RimTimSim's `<stem>.fits.gz`, `dev`'s converted lite files, into the same layout with `dev`'s converter's headers, the image in DN with the file's WCS and zero point, no uncertainty or DQ HDU ([datasets](datasets)) |
 | `sip_degree` | 5 | `SIPDISTORTIONDEGREE`'s default |

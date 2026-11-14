@@ -57,7 +57,8 @@ page or ruling states why.
 | `dev` | `rebuild` | Status | Why |
 |---|---|---|---|
 | `ingestL2Files.py` | the `intake` stage: `dev`'s `build_fits_file` conversion, writing under the outputs prefix and declaring `l2files` and `exposures` rows | changed | stages read, compute in memory, and the publisher writes ([foundation](foundation.md#why-it-is-this-way)); [intake](intake) |
-| `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader`; `program_id` is a simulation's negative id (the base's -1 is `dev`'s `SOCSIMS`, HLWAS's overlay -4) or, on flight's overlay, `""`, each file's own `PROGRAM` ([intake](intake.md#settings)) | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
+| `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader`; `program_id` is a simulation's negative id (the base's -1 is `dev`'s `SOCSIMS`, HLWAS's overlay -4) or, on flight's overlay, `""`, each file's own `PROGRAM` ([intake](intake.md#settings)); flight's source root is filled from MAST by `scripts/stream_l2_files.py` | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
+| commissioning's `stream_l2_files.py` | `scripts/stream_l2_files.py`, outside the pipeline and before any run: a program's guided WFI L2 files from MAST under a source root, each by one conditional write that never overwrites, with no `--force` | changed | the inputs bucket accepts only a create-once write ([datasets](datasets.md#flight-data-program-1049)) |
 | `db_register_socsim_files.py`, `db_register_rimtimsim_files.py`, `db_register_troxel_sim_files.py` | intake readers `soc-l2`, `openuniverse` and `rimtimsim`; no Troxel reader | partial | [datasets](datasets.md#rimtimsim-2026-06-22) for the RimTimSim reader; no recorded reason for Troxel |
 | `db_backfill_*` (limmag, overlapfields, hp6, hp9) | computed by the intake before publish | changed | a later correction is a new job's row, rebound ([foundation](foundation.md#why-it-is-this-way)) |
 | `db_register_sciimg_psfs.py` (a copied WebbPSF in `PSFs`) | the `psf` stage from the file's CRDS ePSF reference, kind `science` or `reference` in the key; `import` can still bring `dev`'s | changed | {ref}`the PSF from the ePSF reference <decision-psf-from-epsf>`; {ref}`the PSF kind <decision-psf-kind>` |
@@ -118,7 +119,6 @@ that no stage, script or table on `rebuild` does today.
 | `socprocs` | recorded SOC deliveries | no recorded reason |
 | `generateSourceHATSCatalog.py`, `generateLightCurveHATSCatalog.py`, `[HATS_CATALOGS]` | built HATS catalogs of sources and light curves | the `export` stage is retired, and the light-curve HATS catalog is not ported ([specification](specification.md#sequencing)) |
 | `prod/rapid-product-files_*.txt`, `download_files.py`, `download_reqid_products.sh`, `reqid_products_to_csv.sh` | listed and fetched a request's products | no recorded reason; a job's products are in `job show`'s manifest, fetched with `aws s3` |
-| commissioning's `stream_l2_files.py` | downloaded a program's L2 files from MAST into the ingest bucket | no recorded reason; the intake reads a source root only, and the flight files held were copied there outside the pipeline ([datasets](datasets.md#flight-data-program-1049)) |
 
 ## Schema
 

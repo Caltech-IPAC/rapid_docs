@@ -216,6 +216,18 @@ bucket under `flight-1049/` with a manifest (the source prefix is the
 run's `intake.source_root`). WFI02 was taken because every WFI01 row of
 the program names a placeholder guide star.
 
+Flight L2 reaches its source root from MAST by
+`scripts/stream_l2_files.py`, outside the pipeline and before any run.
+It lists a program's guided WFI imaging L2 files through MAST's Roman
+mission search, cut by filter, detector, pass, segment, visit or MJD
+when asked, and writes each, `<fileSetName>_cal.asdf`, under the source
+root by one conditional write, so nothing there is ever overwritten: a
+file already present is skipped, and one that appears meanwhile counts
+as present. The inputs bucket accepts only such create-once writes.
+Flight's source root is the inputs bucket's `flight/`, every program
+under the one prefix (2026-11-14); `flight-1049/` keeps the four files
+above and their manifest, which the bucket will not let anyone update.
+
 **In the inputs bucket** (every input of the live run, 2026-10-25): L2 `flight-1049/` (4 files, 833.6 MB), held there already; no truth; Gaia `g0008-selfcontained/host/…/gaia-dr3-flight-1049-box.parquet` (355 kB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
 | Quirk | Disposition |
