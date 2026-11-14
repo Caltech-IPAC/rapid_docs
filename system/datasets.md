@@ -58,7 +58,7 @@ read.
 
 | Quirk | Disposition |
 |---|---|
-| The L2 data-quality flags mark defects the difference stage otherwise detects | the overlay: `dq_mask_bits = 0x2110C01`, commissioning's rule without SATURATED, in place of the base's `0x2110C03` |
+| The L2 data-quality flags mark defects the difference stage otherwise detects | the overlay: `dq_mask_bits = 34671617`, commissioning's rule without SATURATED |
 | The L2 WCS sits (+0.12, −0.99) px from the simulation's own input-catalog stars, on every file | the overlay: `crpix_shift = [0.12, -0.99]`; the intake's Gaia-offset metric reads +0.127 / −0.986 px without it and +0.007 / +0.003 with it |
 | Each filter's passes differ in timing | the reference bound is the midpoint of the filter's third and fourth passes, set per run |
 | The last two passes' exposures are 107.5 s against 294.1 s | recorded ([foundation](foundation), Not decided here) |
@@ -89,7 +89,7 @@ simulation's key grammar, with a preview and a thumbnail PNG and a
 | STScI's recipe reads the L1 header, but the L2 files carry the L1 values unchanged (12 of 12 sampled) | recorded; the L1 file is not read |
 | The sidecar's `wcs_l1` is the L2 gWCS moved by the 4 px reference border | recorded |
 | A pointing is the visit modulo 6, so a pointing selection does not bound the epochs | recorded; a sample is a source root of chosen files |
-| The data-quality flags are HLWAS's | the overlay: HLWAS's mask, without SATURATED (0.51% of pixels, the bulge's bright cores), in place of the base's |
+| The data-quality flags are HLWAS's | the overlay: HLWAS's mask, `34671617`, without SATURATED (0.51% of pixels, the bulge's bright cores) |
 | The bulge is confusion-limited, so the reference PSF cannot be measured from its stars (none passes) | the overlay: `[difference] reference_psf = "science"`, the science PSF for both images |
 | With the science PSF on the reference, 346 to 418 core-and-ring residuals per epoch above S/N 20 | recorded with its gallery; this dataset's next measurement |
 | The difference job takes 820 to 1,036 s, 3.5 to 4.5 times HLWAS's, on 9,000 to 13,500 candidates per epoch | recorded |
@@ -141,7 +141,7 @@ not the rendered count.
 
 | Quirk | Disposition |
 |---|---|
-| A FITS file: the image in DN in `SCI_ORIG`, no ERR or DQ, NaN present, a zero point per SCA in `ZPTMAG` (26.8266 WFI01, 26.8613 WFI08) | `[intake] reader = "socsims-lite"`, the RimTimSim reader taught the SOC stem: the SOC key and `expid`, the stem's observation identifiers, the file's own centre and WCS, inverse SIP carried; the reader refuses a DQ mask, so the overlay sets `dq_mask_bits = 0` |
+| A FITS file: the image in DN in `SCI_ORIG`, no ERR or DQ, NaN present, a zero point per SCA in `ZPTMAG` (26.8266 WFI01, 26.8613 WFI08) | `[intake] reader = "socsims-lite"`, the RimTimSim reader taught the SOC stem: the SOC key and `expid`, the stem's observation identifiers, the file's own centre and WCS, inverse SIP carried; no DQ mask |
 | The file names no ePSF reference, and each detector has its own | the overlay's `[psf.epsf] F146`, a list of the 18 references Jacob's science PSFs for these runs were built from (each file's `EPSFREF`) |
 | The WCS | right as converted: Gaia DR3 at (−0.028, −0.017) px on 1,640 stars (pass 2, WFI01) and (+0.028, −0.024) on 996 (pass 5, WFI08); median (−0.004, −0.004) over 2,549 frames; no `rederive_wcs`, no `crpix_shift` |
 | A confusion-limited bulge | gbtds-r00340's `reference_psf = "science"` |
@@ -175,7 +175,7 @@ whole sequence as FITS, 2.06 million files.
 
 | Quirk | Disposition |
 |---|---|
-| The tree is a plain mapping, not a data model; `data` is float64 counts per exposure, `dq` all zero | a reader of its own: `[intake] reader = "openuniverse"`, an adapter onto the SOC reader's conversion; the overlay sets `dq_mask_bits = 0`, nothing masked, as before the base's mask changed |
+| The tree is a plain mapping, not a data model; `data` is float64 counts per exposure, `dq` all zero | a reader of its own: `[intake] reader = "openuniverse"`, an adapter onto the SOC reader's conversion |
 | The WCS takes one-based pixels: stars sit at (−1.16, −1.06) px through it | the overlay: `crpix_shift = [-1, -1]`; the truth then sits within 0.0016 px |
 | The file's zero point is photons to counts, not AB | the overlay: the AB zero points for counts per second per filter |
 | `err` equals `data` on 90% of pixels | recorded; nothing reads it |
@@ -220,7 +220,7 @@ the program names a placeholder guide star.
 | Quirk | Disposition |
 |---|---|
 | romancal 1.0.2's `wfi_image-2.0.0`, with `chisq`, `dumo`, `amp33` and border reference pixels and no `var_rnoise` or `var_flat` | the `soc-l2` reader, unchanged: the same stem grammar, meta tree and pixel flags; the extra arrays become extra HDUs |
-| The data-quality flags are roman_datamodels' pixel flags, as in the simulations | the base's mask `0x2110C03`, no key on the overlay: SATURATED is on 0.001% to 0.002% of each frame, real saturated cores, not every star's core as in HLWAS, so it is masked ({ref}`decisions <decision-dq-mask-base>`); the other bits cover 0.231%; 1.36% carry any flag, the largest unmasked GW_AFFECTED_DATA (the guide window) 0.37% |
+| The data-quality flags are roman_datamodels' pixel flags, as in the simulations | the overlay: `dq_mask_bits = 34671619`, commissioning's default with SATURATED, where the base masks nothing: SATURATED is on 0.001% to 0.002% of each frame, real saturated cores, not every star's core as in HLWAS, so it is masked ({ref}`decisions <decision-dq-mask-base>`); the other bits cover 0.231%; 1.36% carry any flag, the largest unmasked GW_AFFECTED_DATA (the guide window) 0.37% |
 | The file names its ePSF, `roman_wfi_epsf_0239` (CRDS `roman_0077`), on all four files: stpsf 2.0.0's pre-flight simulation, pedigree SIMULATION, no jitter | the psf stage reduces it by name, as for the SOC files; the ePSF per file is met |
 | `meta.photometry` is present | the zero point is the file's, ZPTMAG 25.801 |
 | The per-frame zero point moves with the calibration context: commissioning's files under an older CRDS context run up to 0.29 mag off the rest | the overlay: `[reference.awaicgen] use_nominal_zptmag = true` scales each reference input by its filter's on-orbit `[intake.nominal_zptmag]` value, commissioning 687c93b2's table (the median over the 18 SCAs of the files' own zero points, 7,283 of 8,453 commissioning files; F062 26.04, F087 25.73, F106 25.78, F129 25.77, F146 27.01, F158 25.80, F184 25.34, F213 25.29); `ZPTMAG` and `zptmag_rms` stay the file's ({ref}`decisions <decision-nominal-zptmag>`) |
@@ -292,7 +292,7 @@ tables and time series per filter.
 
 | Quirk | Disposition |
 |---|---|
-| A FITS file, not ASDF: the image in DN at gain 1, no ERR or DQ, NaN present, a zero point in `ZPTMAG` (25.8573 F213, 26.2982 F087) | a reader of its own: `[intake] reader = "rimtimsim"`, `dev`'s header builders onto the SOC layout; a DQ mask is refused, so the overlay sets `dq_mask_bits = 0`, and NaN stay NaN; a file not in DN, without `ZPTMAG`, or whose filter or SCA contradicts its name is refused |
+| A FITS file, not ASDF: the image in DN at gain 1, no ERR or DQ, NaN present, a zero point in `ZPTMAG` (25.8573 F213, 26.2982 F087) | a reader of its own: `[intake] reader = "rimtimsim"`, `dev`'s header builders onto the SOC layout; a DQ mask is refused, NaN stay NaN; a file not in DN, without `ZPTMAG`, or whose filter or SCA contradicts its name is refused |
 | The file name is the exposure, with no visit or pass | the loop lists the flat prefix; a pointing is the exposure number, the `expid`; no passes |
 | The file names no ePSF reference | the overlay's `[psf.epsf]`: CRDS's answer under `roman_0077` for WFI02 per filter, `roman_wfi_epsf_0280` (F213) and `0266` (F087) ({ref}`decisions <decision-rimtimsim-epsf>`) |
 | The reference stars measure (100 used of 160 passing, σ 1.32 px) | `reference_psf` stays `"measured"` |
