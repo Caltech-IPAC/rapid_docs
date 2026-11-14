@@ -26,10 +26,7 @@ Frames are coadded in order of `mjdobs`. Fewer than `min_frames` fails
 the job; frames past `max_frames` are left out and named in the
 manifest as `not_coadded`. Every frame's `FILTER`, normalised to RAPID's
 spelling (`W146`, not `F146`) by the one map in
-`rapidpipe.products.filters`, must be the scope's filter. An L2 file from
-the SOC reader carries the Roman spelling (`F146`), one from the
-OpenUniverse or RimTimSim reader, or published before that change, the
-RAPID one ([intake](intake)), so a field's frames may mix the two.
+`rapidpipe.products.filters`, must be the scope's filter.
 
 Under `[reference.selection] selection_type = "coverage"` the loop
 chooses the frames by how much of the reference they cover
