@@ -88,6 +88,18 @@ intake packs the identifiers that vary within a program and plan:
 observation, visit and exposure below 100. The 18 SCAs of one exposure
 share it, as they share `dev`'s one `Exposures` row.
 
+The packing leaves out the program, the execution plan and the
+segment, so two exposures of one dataset that differ only in those
+share an `expid`: MAST's listings share 188 of program 1043's 250
+packed `expid`s and all 48 of 1062's between plans, and program 1049's
+share none. A `soc-l2` intake therefore reads the dataset's official
+`exposures` row of the file's `expid`, and when that row's program,
+plan or segment differ from the file's it fails with exit 65, before
+any row is declared, naming the file and the file that row came from.
+A rerun of the row's own file passes. The other readers do not check,
+since their stems share one program, plan and segment (Ben,
+2026-11-14 07:14 UTC).
+
 **The shared `exposures` key.** Because the 18 SCAs share an
 `exposures` key, only one job may expect it with no open binding. The
 loop has the first intake of an exposure expect it and every other
