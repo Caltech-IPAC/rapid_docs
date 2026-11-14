@@ -751,7 +751,11 @@ copy under the job's prefix; every file is reached through its row.
 A PSF's `psf` scope declares its kind; the stage reads the file's
 `PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
 before any manifest if it names the other kind. A file with no keyword
-imports under the declared kind, and the manifest says so.
+imports under the declared kind, and the manifest says so. A PSF's SCA
+is its file's `SCA` card, else its `DETECTOR` card (`WFI08` is 8), the
+only one commissioning's `phavg` science PSFs carry; flight's science
+PSF is that library, imported one file at a time, until CRDS delivers
+flight ePSFs (Ben, 2026-11-14 06:58 UTC).
 
 ### intake
 
