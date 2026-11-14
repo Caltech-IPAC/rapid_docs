@@ -59,6 +59,7 @@ read.
 | Quirk | Disposition |
 |---|---|
 | The L2 data-quality flags mark defects the difference stage otherwise detects | the overlay: `dq_mask_bits = 34671617`, commissioning's rule without SATURATED |
+| The files carry the SOC's simulation program, 342, which is not a Roman program | the overlay: `program_id = -4`, `surveys`' `SOCSIMS HLWAS` ([intake](intake), Settings) |
 | The L2 WCS sits (+0.12, −0.99) px from the simulation's own input-catalog stars, on every file | the overlay: `crpix_shift = [0.12, -0.99]`; the intake's Gaia-offset metric reads +0.127 / −0.986 px without it and +0.007 / +0.003 with it |
 | Each filter's passes differ in timing | the reference bound is the midpoint of the filter's third and fourth passes, set per run |
 | The last two passes' exposures are 107.5 s against 294.1 s | recorded ([foundation](foundation), Not decided here) |
@@ -225,7 +226,7 @@ the program names a placeholder guide star.
 | `meta.photometry` is present | the zero point is the file's, ZPTMAG 25.801 |
 | The per-frame zero point moves with the calibration context: commissioning's files under an older CRDS context run up to 0.29 mag off the rest | the overlay: `[reference.awaicgen] use_nominal_zptmag = true` scales each reference input by its filter's on-orbit `[intake.nominal_zptmag]` value, commissioning 687c93b2's table (the median over the 18 SCAs of the files' own zero points, 7,283 of 8,453 commissioning files; F062 26.04, F087 25.73, F106 25.78, F129 25.77, F146 27.01, F158 25.80, F184 25.34, F213 25.29); `ZPTMAG` and `zptmag_rms` stay the file's ({ref}`decisions <decision-nominal-zptmag>`) |
 | At Gaia DR3's epoch 2016.0 the intake's Gaia offset reads (−0.08 to +0.16, −0.56 to −0.35) px, proper motion and not WCS | the overlay: `[intake] gaia_proper_motion = true` carries each star to the frame's mid-exposure; the offset reads dx −0.091 to −0.045, dy −0.060 to −0.038 px; no WCS key |
-| The program number is real | the overlay: `program_id = 1049` |
+| The program number is real, and one flight dataset holds every program | the overlay: `program_id = ""`, so each file's own `PROGRAM` (1049 here), which must be positive, is its `exposures` row's `program_id` ([intake](intake), Settings) |
 | The dithers, 0.04 deg apart, put the four centres in three tessellation fields | the loop builds e4's field reference from e1 to e3, every row before the bound whose `overlapfields` list the field, as `dev` ({ref}`decisions <decision-reference-by-field>`) |
 | The reference covers 78.4% of the differenced frame | recorded; usable fraction 0.781, which the gate holds once judged |
 | **Hot pixels**: 3,116 pixels sit above 10 sigma of their local background at the same detector position in all four frames; 341 carry no flag | the mask without SATURATED removes 2,644; no single extra bit removes more than 72 of the other 472 (WARM), so not fixed; the ramp's JUMP_DET fires on 1,235 of them every exposure |
