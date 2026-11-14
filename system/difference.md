@@ -129,7 +129,7 @@ their magnitudes itself.
 
 NaNs in ZOGY's inputs are replaced, extreme artifact pixels are
 repaired when `[difference.sci_image] repair_extreme_artifact_pixels`
-is true (the base's value; flight 1049's overlay sets false), and the
+is true (the base's value; the flight overlay sets false), and the
 reference is shifted by the median offsets. ZOGY runs
 by subprocess, unless `[difference.zogy] run_zogy` is false, which skips
 everything of ZOGY's in this paragraph
@@ -331,7 +331,7 @@ value is new with the port or departs from `dev`:
 | `[difference.awaicgen] zprefimg` | empty | an override of the reference zero point; empty reads the reference's `MAGZP` |
 | `[difference.zogy] astrometric_sigma` | 0.0 | ZOGY's astrometric inputs, 0.0 as `dev` overrides them |
 | `[difference.zogy] run_zogy` | true | ZOGY runs, as `dev`'s `[ZOGY] run_zogy`; false skips its images and catalogs (bits 0 and 1 never set) ({ref}`ruling <decision-run-zogy>`) |
-| `[difference.sfft] run_sfft`, `crossconv_flag` | true, true | SFFT runs under `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100), the base's for every dataset ({ref}`ruling <decision-sfft-block-base>`); `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own values: GBTDS and RimTimSim carry `dev`'s socsims block ({ref}`GBTDS <decision-gbtds-sfft-socsims>`, {ref}`RimTimSim <decision-rimtimsim-sfft-socsims>`) and flight 1049 `crossconv_flag` false ({ref}`ruling <decision-flight-crossconv-off>`, [datasets](datasets)) |
+| `[difference.sfft] run_sfft`, `crossconv_flag` | true, true | SFFT runs under `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100), the base's for every dataset ({ref}`ruling <decision-sfft-block-base>`); `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own values: GBTDS and RimTimSim carry `dev`'s socsims block ({ref}`GBTDS <decision-gbtds-sfft-socsims>`, {ref}`RimTimSim <decision-rimtimsim-sfft-socsims>`) and the flight overlay `crossconv_flag` false ({ref}`ruling <decision-flight-crossconv-off>`, [datasets](datasets)) |
 | `[difference.sfft] sfft_zero_margin` | empty; flight 2 | commissioning's kernel-fit masking, not in `dev`: pixels that are 0 in either image (the stage's NaN fill) and those within this many pixels of one are left out of SFFT's kernel fit; empty leaves the option off the command ({ref}`ruling <decision-sfft-kernel-masking>`) |
 | `[difference.sfft] sfft_bsmask_isoarea`, `sfft_bsmask_isofactor` | empty, empty; flight 2000, 2.0 | commissioning's: catalog sources with `ISOAREA_IMAGE` at or above the area are also masked, radius the larger of the bsmask radius and the factor times `sqrt(ISOAREA_IMAGE / pi)`, for a star whose missing saturated core leaves `FLUX_MAX` low; the factor is passed only with the area ({ref}`ruling <decision-sfft-kernel-masking>`) |
 | `[difference.sumrat]` | `stamp_size` 5, `filter_size` 3, `lower_median` false | `dev`'s `[SUMRAT]`; `false` takes the mean of the two middle values of an even count, so pure noise's sumrat is about 0, where ZTF's median is biased to about −0.32 |
