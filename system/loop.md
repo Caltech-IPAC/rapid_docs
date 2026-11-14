@@ -114,10 +114,12 @@ the settings or the image change ([datasets](datasets)).
    `"refusal": null`. Without a copy whose match is on, the loop exits 64
    when the first packet job is due, printing `rapidpipe loop: the run
    has no official catalogs binding named ss for the packet stage, and
-   [packet] ss_match is on` (naming each missing one). An exposure older
-   than the `ss` root's oldest day still gets its packets: its set is
-   published with `ss` matching not run, `catalogs_failed` naming `ss`
-   and `ssMatches` null in every packet.
+   [packet] ss_match is on` (naming each missing one). A packet job reads
+   the newest `ss` day at or before its exposure, and for an exposure
+   older than the root's oldest day it reads that oldest day and moves
+   it back, so no day is ingested for the past; the set's manifest
+   records the day read and `gap_days`, the days from the day's noon to
+   the observation (rapid PR 627).
 
 5. **The loop**, under a timeout (which runs the module, since it cannot run the `rp` function), from this host:
 
