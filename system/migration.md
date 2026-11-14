@@ -58,7 +58,7 @@ page or ruling states why.
 |---|---|---|---|
 | `ingestL2Files.py` | the `intake` stage: `dev`'s `build_fits_file` conversion, writing under the outputs prefix and declaring `l2files` and `exposures` rows | changed | stages read, compute in memory, and the publisher writes ([foundation](foundation.md#why-it-is-this-way)); [intake](intake) |
 | `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader`; `program_id` is a simulation's negative id (the base's -1 is `dev`'s `SOCSIMS`, HLWAS's overlay -4) or, on flight's overlay, `""`, each file's own `PROGRAM` ([intake](intake.md#settings)); flight's source root is filled from MAST by `scripts/stream_l2_files.py` | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
-| commissioning's `stream_l2_files.py` | `scripts/stream_l2_files.py`, outside the pipeline and before any run: a program's guided WFI L2 files from MAST under a source root, each by one conditional write that never overwrites, with no `--force` | changed | the inputs bucket accepts only a create-once write ([datasets](datasets.md#flight-data-program-1049)) |
+| commissioning's `stream_l2_files.py` | `scripts/stream_l2_files.py`, outside the pipeline and before any run: a program's guided WFI L2 files from MAST under a source root, each by one conditional write that never overwrites, with no `--force` | changed | the inputs bucket accepts only a create-once write ([datasets](datasets.md#flight-data)) |
 | `db_register_socsim_files.py`, `db_register_rimtimsim_files.py`, `db_register_troxel_sim_files.py` | intake readers `soc-l2`, `openuniverse` and `rimtimsim`; no Troxel reader | partial | [datasets](datasets.md#rimtimsim-2026-06-22) for the RimTimSim reader; no recorded reason for Troxel |
 | `db_backfill_*` (limmag, overlapfields, hp6, hp9) | computed by the intake before publish | changed | a later correction is a new job's row, rebound ([foundation](foundation.md#why-it-is-this-way)) |
 | `db_register_sciimg_psfs.py` (a copied WebbPSF in `PSFs`) | the `psf` stage from the file's CRDS ePSF reference, kind `science` or `reference` in the key; `import` can still bring `dev`'s | changed | {ref}`the PSF from the ePSF reference <decision-psf-from-epsf>`; {ref}`the PSF kind <decision-psf-kind>` |
@@ -181,7 +181,7 @@ goes on [decisions](decisions) as a ruling.
   the rebuild, with which reader and which overlay, and does the IMSS
   comparison named on [difference](difference) come first? Program
   1049's files are held and no run has read them
-  ([datasets](datasets.md#flight-data-program-1049)).
+  ([datasets](datasets.md#flight-data)).
 - **The differencer.** The published differencer is SFFT with `dev`'s
   prefilter, as `dev` ({ref}`ruling <decision-sfft-default>`); is
   source-level parity with `dev`, not yet verified, required before

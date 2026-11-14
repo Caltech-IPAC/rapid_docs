@@ -25,7 +25,7 @@ root, `[intake] source_root`, a URL prefix given in the run's settings
 overlay at `run create` and never in the shipped settings. Flight's L2
 reaches its source root from MAST by `scripts/stream_l2_files.py`, one
 conditional write per file that never overwrites
-([datasets](datasets.md#flight-data-program-1049)). A public
+([datasets](datasets.md#flight-data)). A public
 source root is read anonymously when `[intake] unsigned` is true; a
 signed read is not tried after an anonymous one fails.
 
