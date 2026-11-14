@@ -27,7 +27,8 @@ in this repository's history.
 | `official change --group FILE --who --why` | Applies one change group (a JSON list of items, each with `close` and/or `open`) in one transaction and prints its id |
 | `official undo <group-id> --who --why` | Applies the inverse of a change group and prints the new group's id |
 | `publish --run N [--settings FILE]` | Produces every official packet set of the run not yet stamped to the Kafka topic, stamping each once acknowledged; prints the counts |
-| `loop --run --filters --scas --pointings [--passes] [--expids] --job-definition D [--job-queue Q] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit ([loop](loop)) |
+| `loop --run --filters --scas --pointings [--passes] [--exposures] [--programs] --job-definition D [--job-queue Q] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit ([loop](loop)) |
+| `exposure id --dataset D --name N` | Prints the `expid` the dataset holds for the exposure's name (the stem without its detector and file-kind suffix), assigning one when it has none: what the loop does for every file it takes in, for a hand-run `intake` or an `import` of an epoch ([exposure id](exposure-id)) |
 
 The stages the loop submits (`psf`, `intake`, `reference`, `difference`,
 `packet`) and `import`, which a person runs by hand before the loop, are
