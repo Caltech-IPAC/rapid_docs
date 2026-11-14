@@ -19,7 +19,8 @@ reference built from passes 1 to 3. That is runs 170 and 172's shape: the
 HLWAS overlay with the injected source root, the reference bound 61591.4056,
 and the NED and NED-LVS matches off. Each night's drift is a test,
 so it gets a dataset name and run of its own, `nightly-drift-<UTC stamp>`, and follows [Starting a night](loop) step
-for step: the run, made live, the Gaia import of the team's mirror, the
+for step: the run, made live, the import of the team's Gaia mirror and the
+solar-system predictions' root (`ss`, whose match the base switches on), the
 loop, the check, the compare, and the live binding closed.
 
 The revision is the highest ACTIVE `rapid-rebuild` revision when the night
