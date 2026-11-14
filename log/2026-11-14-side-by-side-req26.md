@@ -23,8 +23,8 @@ median ratio of 1.000, the matched positions agree to 0.0001 px at the
 median, and at least 99.6% of the rebuild's xsources carry a real-bogus
 score on every image. Each of the 196 references the two runs share was
 built from the same frames in the same order. The gate held 140 of the
-286 packet sets, and 5 of them were judged on another exposure's
-difference, a known defect of this image.
+286 packet sets. Of the 286, 5 (3 held, 2 sent) were judged on another
+exposure's difference, a known defect of this image.
 
 ## The bars
 
@@ -160,7 +160,7 @@ their schema and byte-equal to the sets written. `check_run.sh` read validate 5 
 two refused references), the reader 286 of 286 sets CLEAN and the
 consumer CLEAN.
 
-The gate's metrics over the 286 differences, under `reference_psf =
+The gate's metrics over the 266 compared differences, under `reference_psf =
 "science"` with the `phavg` PSFs: core fraction median +0.0108 (−0.0085
 to +0.0467), ring −0.0112 (−0.0379 to +0.0023), usable fraction 0.9966
 (0.760 to 0.999), registration offset 0.041 px (0.001 to 0.123). The
@@ -198,8 +198,8 @@ recorded answers stand; `gate-audit.csv` lists every set.
   Avro files were not copied from IMSS, so the two alert streams are not
   compared.
 - **Recomputed extra columns.** The rebuild computes rb and sumrat
-  itself, which moves the loader rule's kept rows by up to half a per
-  cent per image.
+  itself, which moves the loader rule's kept rows by up to 0.6 per cent
+  per image.
 - **The `ss` catalog.** No day of it precedes plan 02 (above).
 - **The gate's source set.** Above.
 
