@@ -41,7 +41,7 @@ image.
 | At least 95% of xsources scored by real-bogus | lowest image 99.63%, pooled 99.96% | lowest 99.73%, pooled 99.95% | 0 images under 95% | met, 266 of 266 |
 | Each field's reference built from the frames IMSS selected | 98 of 98 shared references equal as sets and in order | 98 of 98 | 196 of 196 | met |
 | Every held field, flagged reference and failed job with its reason | below | below | below | met |
-| HLWAS's injected sample, alongside | from the records, not re-run on this image | | | not evaluable on this image |
+| HLWAS's injected sample, alongside | run 252 on `rapid-rebuild:136`: 193 of 200 recovered, as run 238; drift columns inside the spread 4 of 6, ring −0.003628 and false positives 187 outside (both outside on run 238 too) | | | not met: ring and false positives outside the drift tolerances |
 | The team's eyes on a gallery, alongside | the panels are named below | | | not claimed |
 
 The counts are the rebuild's difference manifests'
@@ -66,10 +66,31 @@ The real-bogus share is the rebuild's loaded `xsources` with a finite
 `rb` over all its loaded `xsources`. IMSS's own catalogs score the same
 share under the loader rule (lowest image 99.63%).
 
-HLWAS's injected sample stands on the record only: run 240 on the
-ports-only image `rapid-rebuild:134`, before the recreate, recovered 193
-of 200, as the nightly drift's run 238 did. It was not re-run on
-`rapid-rebuild:136`, so it says nothing about this image.
+HLWAS's injected sample was run once on `rapid-rebuild:136` as run 252
+(dataset `hlwas-injected-136`), in the nightly drift's shape: the
+injected epoch 4040101 of pointing 001_0001, SCA 8, F146, with Gaia and
+`ss` registered, through packets. `check_run.sh` reads it CLEAN. It
+recovers 193 of 200 injected sources, every AB bin as run 238 (26.5: 13
+of 20), and 189 are alerted and sent, as on run 238. The six drift
+columns, judged by `scripts/compare_runs.py` against
+`scripts/drift-spread.toml`, beside runs 238 and 240 as their record
+gives them (neither is in the database since the recreate):
+
+| Column | Spread | Run 252 | Run 238 | Run 240 |
+|---|---|---|---|---|
+| packets | 266 to 407 | 376, inside | 380, inside | 0, outside |
+| core | −0.01 to +0.01 | −0.003909, inside | −0.003865, inside | −0.003909, inside |
+| ring | −0.0111 to −0.0074 | −0.003628, outside | −0.003673, outside | −0.003628, outside |
+| detected at the threshold | 99 to 200 | 156, inside | 156, inside | 156, inside |
+| false positives | 95 to 180 | 187, outside | 191, outside | 0, outside |
+| difference s | 0 to 450 | 106.7, inside | 137.9, inside | 106.5, inside |
+
+Run 240 made no packet job, so its zeros are absences, not measurements.
+The bar is met when recovery is not below run 238's 193 of 200 and all
+six columns are inside the spread. Recovery holds; ring and false
+positives are outside, so the bar is not met. Both were outside on run
+238 too, before the ports: they stood before this image and are not a
+move it made.
 
 ## What was tested
 
@@ -224,7 +245,8 @@ inputs bucket's `g0010-imss-req26/`, whose `jid10117`, `jid10249`,
 
 - **The gallery.** The inspect panels exist; the team has not looked at
   them, and this post claims nothing for that bar.
-- **HLWAS on this image.** Not re-run.
+- **HLWAS on this image.** Measured, not met: ring and false positives
+  are outside the drift tolerances on run 252, as on run 238.
 - **The alert streams.** Not compared (above).
 - **PSF-fit flux.** Left out of the bar.
 - **Pixel identity.** The catalogs agree; the difference images were not
