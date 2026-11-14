@@ -251,7 +251,7 @@ simulation values. They are not measured on the rebuild.
 
 | Setting | Flight (base) | Reason |
 |---|---|---|
-| `[difference.psfcat_diffimage] sharphi` | 1.8 (1.0) | DAOStarFinder's sharpness ceiling: 1.8 admits more extended detections into the difference sources, set from analysis of on-orbit data (Azalee, 2026-11-10) |
+| `[difference.psfcat_diffimage] sharphi` | 1.8 (1.0) | DAOStarFinder's sharpness ceiling: 1.8 admits more extended detections into the difference sources, set from the OpenUniverse sharpness distribution, which 1.0 cut a significant fraction of (Azalee, 2026-11-11); IMSS runs 1.8 |
 | `[difference.gainmatch] magrefthresmin`, `magrefthresmax`, `refmagkeep` | 10, 30, 30.0 (19.0, 24.0, 23.5) | gain matching's magnitude window and keep limit, widened until they cut nothing; the magnitudes are AB, the gain-match catalogs' zero point 0 plus the reference's added once |
 | `[difference.sci_image] repair_extreme_artifact_pixels` | false (true) | the repair is meant off for in-flight data (Azalee, 2026-11-10); the commissioning ini's comment still says to enable it for real data, and this decision supersedes it |
 | `[difference.sfft] crossconv_flag` | false (true) | SFFT without cross-convolution, its difference PSF the science PSF; the commissioning value, `dev`'s socsims setting, not a flight measurement ({ref}`ruling <decision-flight-crossconv-off>`) |
