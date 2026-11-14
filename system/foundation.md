@@ -1004,7 +1004,7 @@ before_mjd`, the reference bound, is documented in the shipped file and
 absent there: a run sets it in its overlay, and a run without it
 coadds every epoch of a field ([loop](loop), the reference bound).
 `[reference.selection] selection_type` is `"nframes"`, `dev`'s rule; a
-dataset that sets `"coverage"` (flight-1049) chooses a reference's frames
+dataset that sets `"coverage"` (flight) chooses a reference's frames
 by their coverage of it ([reference](reference), Settings).
 
 ## The queries

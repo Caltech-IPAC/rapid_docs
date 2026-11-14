@@ -27,7 +27,7 @@ dataset names may use one (every flight trial uses flight's); the
 | SOC simulation r00340, the Galactic Bulge Time Domain Survey | `gbtds-r00340.toml` | GBTDS | 2026-10-24 |
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
 | RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
-| Flight, program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight-1049.toml` | CAR198 | 2026-10-25 |
+| Flight, every program; first program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight.toml` | CAR198 | 2026-10-25 |
 | SOC simulation r00340 with `dev`'s fake sources, as `dev`'s socsims lite FITS (Russ Laher's 10/20 and 10/21/2026 tests) | `gbtds-r00340-fakesrc.toml` | GBTDS | 2026-10-27 |
 
 ## HLWAS, r00342
@@ -286,7 +286,7 @@ with gain 1.6879 e⁻/DN by `dev`'s injection function.
 `catalog/truth-flight-1049-inj1.parquet` beside it names every source.
 The prefix is create-once. A run reads it with
 `--set intake.source_root=".../flight-1049-inj1/l2/"`, the bound
-61337.4594 and `flight-1049.toml`, and `scripts/completeness.py --run`
+61337.4594 and `flight.toml`, and `scripts/completeness.py --run`
 scores it. `scripts/inject_dataset.py` wrote it (rapid PR 571) once it
 could read the private root with a signed client and take the start MJD
 from each file's own ASDF tree, since flight files have no `_wcs.asdf`
