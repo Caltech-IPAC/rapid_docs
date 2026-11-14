@@ -1,6 +1,9 @@
 # The exposure id
 
-**Status: DRAFT** (a design: nothing on this page is built yet)
+**Status: current** (built on the pipeline repository's `expid-serial`
+branch from `ports/commissioning` b0d9bae1, draft pull request 622, base `rebuild`;
+it lands as the Landing section says, and until then the live database
+carries the packed id)
 
 An exposure's `expid` becomes an integer handed out by the database that
 carries no meaning, and the producer's own name for the exposure is
@@ -10,14 +13,16 @@ one reader function and no key. Ben ruled the shape on 2026-11-14; a key
 packed from Roman's identifiers, wider or not, was rejected for that
 reason.
 
-This page is the design the build implements. It answers six questions,
-each in one sentence followed by its reason and the place in the code it
-binds, and ends with the changes by file, the contracts the tests assert
-and what a landing needs. The code was read on the pipeline repository
-at `rebuild` 745d3d81 with the commissioning ports that touch the id
-(the program selection, 3f21016e, which carries the program from the
-file, 8a040c08; the MAST stream, 3ed3e36b), and `dev`'s serial at
-`dev` 7e75f711.
+This page is the design the build implements, and the record of what
+was built. It answers six questions, each in one sentence followed by its
+reason and the place in the code it binds, and ends with the changes by
+file, the contracts the tests assert and what a landing needs. The design
+was read on the pipeline repository at `rebuild` 745d3d81 with the
+commissioning ports that touch the id (the program selection, 3f21016e,
+which carries the program from the file, 8a040c08; the MAST stream,
+3ed3e36b), and `dev`'s serial at `dev` 7e75f711; the build started from
+`ports/commissioning` b0d9bae1, which holds the ports with 601, the
+refusal below (ca855226) and the flight overlay as `flight.toml`.
 
 ## Why the key changes
 
@@ -73,14 +78,20 @@ share an `expid`; the same exposure taken into two datasets has two.
 ### How the 18 SCAs of one exposure agree on one id
 
 **The 18 SCAs never assign an id: the loop resolves their one shared
-name to one id in one statement before it submits any of them, and the
+name to one id in one operation before it submits any of them, and the
 `UNIQUE (dataset, name)` constraint makes any two resolutions of that
 name return the same row.** The 18 stems of an exposure arrive in one
 listing and reduce to one name, so one pass sees one name; a second loop
 of another run on the dataset, or the hand verb below, racing on that
-name, waits on the uncommitted insert and then reads the row it made
-(`INSERT … ON CONFLICT (dataset, name) DO NOTHING`, then `SELECT`, in
-`READ COMMITTED`). It binds `rapidpipe/foundation/loop.py`, a new
+name, waits on the uncommitted insert and then reads the row it made.
+The operation is two SQL commands under `READ COMMITTED`: `INSERT …
+ON CONFLICT (dataset, name) DO NOTHING` for every name, then a `SELECT`
+of the names' rows, committed before the pass submits anything, since
+the intake's own check reads the row on another connection. It is never
+one statement that inserts and returns: a conflicting row not yet
+visible to that statement's snapshot would return nothing, while the
+second command's snapshot, taken after the first's wait, sees the row
+the other transaction committed. It binds `rapidpipe/foundation/loop.py`,
 `exposure_ids(conn, dataset, names)` called from `run_pass`. `dev`'s
 answer, an insert that first looks the exposure up by `dateobs`, lost:
 the lookup and the insert are two statements, so two SCAs racing both
@@ -150,11 +161,11 @@ into it, or met it before a run existed, change. In detail:
 | Output prefixes | `<outputs root>/<run>/<stage>/<job>/<attempt>/` (`foundation/local.py`) has no id in it. Inside, intake's `<stem>_cal.fits.gz` keeps the stem and the packet's `packets/<expid>-<sca>-<fid>.avro` (`stages/packet.py`) the serial, unique within its job's prefix: unchanged. |
 | `import` | An epoch's scope still names `expid`, now the destination dataset's id, which the operator gets from `rapidpipe exposure id` for the `soc-l2` name of `dev`'s L2 file (`dev`'s converted L2 file keeps the SOC file's stem, `output_fits_basename` in `pipeline/ingestL2Files.py`); `dev`'s own serial is no longer kept, while `rid` and `pid` stay `dev`'s (`stages/import_products.py`, docstring and README). An imported and a pipeline exposure of one name in one dataset so share one id, where `dev`'s serial would have collided with the identity. |
 | Packet fields | `expId` (`science/alerts/param_registry.py`, `DIA_SOURCE_PARAMS` and the forced-photometry params) carries `sources.expid` and `diffimages.expid`, already described as "RAPID-assigned exposure identifier (pipeline database serial, not a Roman SOC identifier)"; it now is one. `segment`, `observation`, `visit` and `exposure` keep carrying the `exposures` row's Roman identifiers. No field is added or changes meaning. |
-| `completeness.py` | The truth's `expid` column becomes `exposure`, the name; the script maps names to the run's ids through `exposure_ids` of the run's dataset, then joins by `(expid, sca)` as now. A truth written before the change (the injected footprint's) still carries packed ids, so the script keeps the old packing as one function used only to map such a truth: it packs each run exposure's intake stem and joins on that. |
+| `completeness.py` | The truth's `expid` column becomes `exposure`, the name; the script maps names to the run's ids through `exposure_ids` of the run's dataset, then joins by `(expid, sca)` as now; a name the dataset has no id for is unprocessed. A truth written before the change (the injected footprint's) still carries packed ids, so the script keeps the old packing as one function used only to map such a truth: it packs each SOC exposure name of the dataset (the name holds the stem's pass, observation, visit and exposure) and joins on that, and only when each packed id of the truth names exactly one exposure of the dataset; when two exposures pack alike (two execution plans, two programs) it refuses, naming both, and maps nothing by guess. |
 | `completeness_ou.py` | The OpenUniverse truth index is found by pointing, which it read as the `expid`; it reads the pointing from the difference's L2 row's intake stem through `stem_ids`. |
-| `inspect_run.py` | The gallery's first and last epoch are by `mjdobs` (the difference's `jd`), not by id, and a label shows the name beside the id. |
+| `inspect_run.py` | The gallery's first and last epoch are by `mjdobs` (the difference's `jd`, joined to `job_metrics`), not by id, and the gallery's title shows the name beside the id; an intake job's row, whose scope now carries the id too, keeps its file as its label. |
 | `compare_runs.py` | Two runs' epochs pair by `(name, sca)`, the name from `exposure_ids` of each run's dataset, since two datasets give one exposure two ids. |
-| `inject_dataset.py` | The truth carries `exposure`, the name, for `expid`; each file's noise seed takes the name's SHA-256 digest where it took the packed id, so a new injection with an old seed differs from the old one (the footprint already written is not rewritten). |
+| `inject_dataset.py` | The truth carries `exposure`, the name, for `expid`; each file's noise seed takes the name's SHA-256 digest where it took the packed id, so a new injection with an old seed differs from the old one (the footprint already written, `r00342-inj1`, is not rewritten, and its truth is read through the legacy mapping). |
 | `socsims_truth.py` | The truth carries `exposure` for `expid`; `--exposures` for `--expids`. |
 
 `difference.py`, `packet.py`, `validate_run.py`, the association
@@ -191,29 +202,33 @@ no longer feeds a key.
 
 **It is removed with the build, and the intake's one check becomes that
 its scope's `expid` is the id `exposure_ids` holds for its stem's name
-in its dataset (exit 65 otherwise).** The refusal exits 65 when a SOC
-file's program, plan or segment differ from the official `exposures` row
-of the same `expid`; once the id is the name's, one id means one name,
-and the name contains program, plan and segment, so the condition cannot
-arise, while `_check_key` already holds the file's metadata to its name.
-The new check guards the one way two exposures could still meet under
-one id, a hand-typed scope. It binds `rapidpipe/stages/intake.py` `run`
-(the refusal, where `ports-plus-601` puts it, and the new check, a read
-of `exposure_ids` through `job.connect()`). Keeping the refusal beside
-the new check lost: it compares three fields where the name compares
-all of them, and it tests a state the key makes impossible.
+in its dataset (exit 65 otherwise, before any fetch).** The refusal,
+`ports-plus-601`'s ca855226 (`_check_expid` on `exposures_official`, its
+db test of two stems that pack to one id), exits 65 when a SOC file's
+program, plan or segment differ from the official `exposures` row of the
+same `expid`; once the id is the name's, one id means one name, and the
+name contains program, plan and segment, so the condition cannot arise,
+while `_check_key` already holds the file's metadata to its name. The
+new check guards the one way two exposures could still meet under one
+id, a hand-typed scope, and a name no id was resolved for. It binds
+`rapidpipe/stages/intake.py` `run` (the refusal removed, and the new
+check, a read of `exposure_ids` through `job.connect()`, for every
+reader). Keeping the refusal beside the new check lost: it compares
+three fields where the name compares all of them, and it tests a state
+the key makes impossible.
 
 ## Changes
 
-Every file that changes, at `rebuild` with the commissioning ports:
+Every file that changes, at `ports/commissioning` b0d9bae1:
 
 | File | What changes |
 |---|---|
 | `database/schema.sql` | `exposure_ids` (above); the key comment at the top names it; `exposures.expid`'s comment says the id is `exposure_ids`'s for the producer's name. No other column changes type or name. |
-| `database/schema.dot` | Regenerated by `scripts/schema_diagram.py` with the new table. |
-| `rapidpipe/foundation/loop.py` | `exposure_ids(conn, dataset, names)`; `run_pass` resolves the names of the listing's admitted stems no published intake holds, then plans; `plan` takes the mapping, puts `expid` in each intake's scope and counts claimed exposures from pending intakes' scopes; `stem_ids` returns `name` for `expid`, one branch per reader; `stem_expid` deleted; `snapshot` reads each L2 row's intake stem; `Selection.admits_row` takes the stem; `--exposures` prefixes for `--expids` ranges in `Selection`; the module docstring. |
+| `database/schema.dot`, `database/schema.svg` | Regenerated by `scripts/schema_diagram.py` with the new table, grouped with the bookkeeping. |
+| `scripts/schema_diagram.py`, `tests/db/test_schema.py`, `tests/db/conftest.py` | `exposure_ids` among the bookkeeping tables; the db fixture truncates it between tests. |
+| `rapidpipe/foundation/loop.py` | `exposure_ids(conn, dataset, names)`, the two commands above; `run_pass` resolves the names of the listing's admitted stems no published intake holds, then plans; `plan` takes the mapping, puts `expid` in each intake's scope and counts claimed exposures from pending intakes' scopes; `stem_ids` returns `name` for `expid`, one branch per reader; `stem_expid` deleted; `snapshot` reads each L2 row's intake stem; `Selection.admits_row` takes the stem; `--exposures` prefixes for `--expids` ranges in `Selection`; the module docstring. |
 | `rapidpipe/cli/main.py` | `loop --exposures` for `--expids`; the verb `exposure id --dataset --name`; the verb list in the docstring. |
-| `rapidpipe/stages/intake.py` | The key's `expid` from the scope; `expid` and the `READERS` `expid` entries deleted; the check of the scope's id against the stem's name; the `ports-plus-601` refusal deleted if it landed; the docstring's paragraph on the packing. |
+| `rapidpipe/stages/intake.py` | The key's `expid` from the scope; `expid` and the `READERS` `expid` entries deleted; the check of the scope's id against the stem's name, first, for every reader; the `ports-plus-601` refusal (ca855226) deleted; the docstring's paragraph on the packing. |
 | `rapidpipe/stages/import_products.py` | The docstring: an epoch's `expid` is the destination's, from `exposure id`; `dev`'s is not kept. |
 | `README.md` | The hand-run block: `exposure id` before each `intake` and the `import` of an epoch. |
 | `scripts/completeness.py` | The truth's `exposure` names mapped to the run's ids; the legacy packed-truth mapping. |
@@ -223,8 +238,9 @@ Every file that changes, at `rebuild` with the commissioning ports:
 | `scripts/inject_dataset.py` | Truth column `exposure`; the seed from the name's digest. |
 | `scripts/socsims_truth.py` | Truth column `exposure`; `--exposures`. |
 | `tests/db/test_exposure_ids.py` | New: the concurrency and uniqueness contracts below. |
-| `tests/db/test_intake_job.py` | The scope's `expid` for the packed literal; the check's refusal. |
-| `tests/db/test_loop_snapshot.py` | A row's intake stem in the snapshot. |
+| `tests/db/test_intake_job.py` | The scope's `expid` for the packed literal; program 1043's two plans publish two exposures with two ids, in place of the refusal's test; the check's refusal. |
+| `tests/db/test_loop_snapshot.py` | A row's intake stem in the snapshot, and a pass selection through it. |
+| `tests/cli/test_foundation_verbs.py` | The verb `exposure id`. |
 | `tests/unit/test_loop.py` | The selection, plan and naming contracts below; the packed literals go. |
 | `tests/unit/test_intake.py` | The packing tests go; the scope's `expid` keys the rows. |
 | `tests/unit/test_intake_openuniverse.py`, `tests/unit/test_intake_rimtimsim.py` | The scope carries `expid`. |
@@ -240,9 +256,12 @@ The contracts the build asserts, one behaviour each:
 
 1. Two stems of one exposure get one id under concurrent intake: two
    connections resolving the same `(dataset, name)` at once both get
-   the same id (`tests/db`), and a pass over the 18 SCA stems of one
-   exposure gives every intake the same scope `expid` and exactly one of
-   them the `exposures` expectation (`tests/unit`).
+   the same id, their transactions made to overlap (the first inserts
+   and holds its transaction open, the second is shown waiting on it,
+   the first commits, and both then read one id; `tests/db`), and a
+   pass over the 18 SCA stems of one exposure gives every intake the
+   same scope `expid` and exactly one of them the `exposures`
+   expectation (`tests/unit`).
 2. Two exposures whose stems pack alike get two ids: two stems that
    differ only in execution plan, as program 1043's do
    (`r0104301001001001001_0001_wfi01_f158` and
@@ -264,7 +283,8 @@ The contracts the build asserts, one behaviour each:
    prefix and no other.
 8. A truth written with names is matched to the run's ids, and a truth
    written with packed ids is matched through the legacy mapping, with
-   the same counts.
+   the same counts; a truth whose packed id names two exposures of the
+   dataset is refused, naming both.
 9. `compare_runs.py` pairs two runs' epochs by name and SCA when their
    datasets give one exposure two ids.
 
@@ -276,3 +296,11 @@ not started when the build is green, otherwise at a recreate of its own
 with program 1049 reprocessed. Either way it lands before any flight
 program other than 1049 is loaded and before any packet leaves SMDC,
 since every row and every sent packet before it carries a packed id.
+Whatever the git operation, at the merge the ports' two pull requests
+are merged first, both of this build's heads contain them and are green
+there, and each diff is the build alone; the nightly drift's
+`loop --expids` in `rapid_systems` (`cloudformation/op-nightly-drift.sh`
+and its rendered copy in `rapid-fleet-maintenance.yaml`) changes to
+`--exposures` in the same landing. A run created before the landing
+names the packed ids in its bindings and cannot continue on an image
+built after it; the recreate drops those runs.

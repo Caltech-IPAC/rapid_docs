@@ -164,32 +164,38 @@ the settings or the image change ([datasets](datasets)).
 
 ```
 rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    [--passes 1,2,3] [--expids LO-HI,...] [--programs 1049,...] --job-definition <name:revision> [--job-queue <queue>] \
+    [--passes 1,2,3] [--exposures PREFIX,...] [--programs 1049,...] --job-definition <name:revision> [--job-queue <queue>] \
     [--max-intake 100] [--interval 120] [--once]
 ```
 
 The selection is three arguments and an optional fourth: filters, SCAs,
 pointings, either `all` or a list of `VVV_EEEE`, a visit and an
 exposure, and the survey's passes, applied to the listed files and the
-L2 rows alike. A GBTDS pointing is the visit modulo six, so it does not
+L2 rows alike: a row is read by the stem its intake job took the file
+from (`jobs.scope ->> 'file'`), never by its `expid`, which is a serial
+that carries no meaning ([exposure id](exposure-id)); an imported row
+has no stem and is selected only when no pass, pointing or exposure
+term is set. A GBTDS pointing is the visit modulo six, so it does not
 bound that survey's epochs; a sample there is a source root of chosen
 files ([datasets](datasets)). Under an OpenUniverse run
 (`[intake] reader = "openuniverse"`) a pointing is the observing
-sequence's row, which is the intake's `expid`; the loop lists each
+sequence's row; the loop lists each
 selected filter's prefix in the simulation's legacy spelling
 (`--filters F158` lists `H158/`), and `--passes` is refused. Under a
 RimTimSim run (`[intake] reader = "rimtimsim"`) the loop lists the
 source root's flat prefix of `_lite.fits.gz` files, a pointing is the
-file's exposure number, the intake's `expid`, and there are no passes.
+file's exposure number, and there are no passes.
 Under a socsims lite run (`[intake] reader = "socsims-lite"`, `dev`'s
 converted socsims files) the loop lists the SOC observations' flat
 `_cal_lite.fits.gz` files and selects them as SOC stems.
-`--expids` bounds any selection by inclusive ranges of the intake's
-`expid`, comma separated, with the other terms; a SOC `expid` packs
-pass, observation, visit and exposure in that order, so one range is a
-contiguous stretch of a pass's observations (Russ Laher's 10/20/2026
-subset with its reference frames is `--passes 2,5 --expids
-2000000-2999999,5036101-5036401`).
+`--exposures` bounds any selection by the exposure's name, the stem
+with its detector and file-kind suffix removed: comma-separated
+prefixes, a file or row admitted when its name starts with any of
+them, with the other terms. A SOC name runs program, plan, pass,
+segment, observation, visit and exposure in that order, so a prefix is
+a stretch of that hierarchy (Russ Laher's 10/20/2026 subset with its
+reference frames, pass 2 whole and pass 5 observation 3 visits 61 to
+64 of r00340, is `--passes 2,5 --exposures r0034001002,r0034001005001003061,r0034001005001003062,r0034001005001003063,r0034001005001003064`).
 `--programs` selects programs within the dataset, comma-separated
 program numbers (`1049,1018`, or `-2`), all by default. A listed stem's
 program is the one intake will write for it: the run's `[intake]
@@ -245,7 +251,11 @@ Its order:
    imported: its first pass derives what is missing.
 2. **intake**: one job per listed file the selection admits that no
    published intake of the dataset and no intake job of this run has
-   taken, at most `--max-intake` per pass. Each names its filter's and
+   taken, at most `--max-intake` per pass. Before it plans, the pass
+   resolves the exposure id of every such file's name in `exposure_ids`
+   (inserting the names it has not seen, in one committed operation)
+   and puts it in the intake's scope, so the 18 SCAs of an exposure
+   carry one id ([exposure id](exposure-id)). Each names its filter's and
    SCA's science PSF. The first intake of an exposure expects the
    shared `exposures` key; the others leave it out.
 3. **reference**: one job per field and filter that a selected L2 row
