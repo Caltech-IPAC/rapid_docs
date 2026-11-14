@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="230" viewBox="0 0 760 230" role="img" aria-labelledby="title">
+  <title id="title">Publish-last: files first, then rows and an eligible official binding</title>
+  <rect width="760" height="230" fill="white"/>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#334155"/></marker>
+  </defs>
+  <g font-family="sans-serif" font-size="16" fill="#172b43" text-anchor="middle">
+    <rect x="18" y="55" width="112" height="95" rx="8" fill="#e9f2fa" stroke="#466580"/>
+    <text x="74" y="93">Stage</text><text x="74" y="120">computes</text>
+    <rect x="165" y="40" width="188" height="125" rx="8" fill="#e9f2fa" stroke="#466580"/>
+    <text x="259" y="69">Immutable prefix</text><text x="259" y="97">run / stage /</text><text x="259" y="120">job / attempt</text><text x="259" y="147">Files + Parquet</text>
+    <rect x="388" y="55" width="143" height="95" rx="8" fill="#e9f2fa" stroke="#466580"/>
+    <text x="459" y="88">Publisher</text><text x="459" y="115">checks files</text>
+    <rect x="566" y="40" width="176" height="125" rx="8" fill="#e7f2eb" stroke="#3b6950"/>
+    <text x="654" y="69">Transaction</text><text x="654" y="99">Product rows</text><text x="654" y="124">+ official binding</text><text x="654" y="147">when eligible</text>
+    <text x="380" y="207">Files are complete before their rows become visible.</text>
+  </g>
+  <g fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M130 102 H159"/><path d="M353 102 H382"/><path d="M531 102 H560"/>
+  </g>
+</svg>
