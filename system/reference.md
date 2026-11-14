@@ -88,16 +88,15 @@ Under coverage selection two checks bracket awaicgen, each a timed step
 in `job_metrics`. Before it, `coverage_estimate` judges the named frames'
 estimate against `min_coverage_fraction` with
 `coverage_estimate_tolerance` (0.05) either side: below the band the job
-declines at once. After it, `verify` measures the fraction of the
+fails at once. After it, `verify` measures the fraction of the
 coverage map's pixels at `min_coverage_depth` or deeper; below
-`min_coverage_fraction` the job declines. Commissioning makes the same
+`min_coverage_fraction` the job fails. Commissioning makes the same
 check on every coadd, so the stage does too; an estimate above the band
-is expected to pass it. A declined job ends normally,
-exit 0, with no table declared and the reason (`measured coverage Y < Z`)
-in its manifest's `declined`; the publisher loads and binds nothing and
-marks the job `declined` ([foundation](foundation), Publish last). Its
-files stay under its prefix. Commissioning ends such a job with exit 33;
-the rebuild adds no exit code ({ref}`ruling <decision-coverage-held>`).
+is expected to pass it. Either failure exits 65 before a manifest, the
+fraction its reason, as a rejected declared input does; nothing is
+published and the job's files stay under its prefix. Commissioning ends
+such a job with exit 33, which the rebuild does not carry
+({ref}`ruling <decision-coverage-held>`).
 
 `MAGZP` is the filter's zero point (26.863 for W146), which the
 [difference](difference) stage's gain matching reads from the file. The
@@ -120,7 +119,7 @@ SExtractor catalog. The manifest declares three tables:
 
 | Table | Rows |
 |---|---|
-| `refimages` | one, keyed (dataset, field, fid); `nframes`, `cov5percent`, the grade's `status` and `infobits`, the stamped mosaic's MD5, and under coverage selection `covfrac` (the measured fraction) and `covdepth` (`min_coverage_depth`), null otherwise |
+| `refimages` | one, keyed (dataset, field, fid); `nframes`, `cov5percent`, the grade's `status` and `infobits`, and the stamped mosaic's MD5 |
 | `refimimages` | one per coadded L2 row, (`rfid`, `rid`) |
 | `refimcatalogs` | one, the mosaic catalog, `cattype` 1, which `packet` reads for reference-star matches |
 
@@ -131,8 +130,7 @@ value. The manifest also records `dev`'s `refimmeta` measurements, the
 JD range, the total exposure time, the zero point and `zptmag_source`
 (`header` or `nominal`, as `ZPSOURCE`), and under coverage
 selection `coverage`: the selected and skipped `rid`s, the estimate, its
-decision and the measured fraction. A declined job's manifest declares
-no table and carries the same record with its reason.
+decision and the measured fraction.
 
 ## Settings
 
@@ -141,7 +139,7 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 
 | Table | Holds |
 |---|---|
-| `[reference.selection]` | `min_frames` 2, `max_frames` 25; `selection_type` `"nframes"` (`dev`'s rule) or `"coverage"`, with commissioning's `min_coverage_depth` 1, `min_coverage_fraction` 0.5, `max_coverage_depth` 4, `max_coverage_fraction` 1.0 and `coverage_estimate_tolerance` 0.05, which `"nframes"` ignores. flight-1049 sets `"coverage"` and `max_frames` 50 ({ref}`ruling <decision-reference-coverage>`) |
+| `[reference.selection]` | `min_frames` 2, `max_frames` 25; `selection_type` `"nframes"` (`dev`'s rule) or `"coverage"`, with commissioning's `min_coverage_depth` 1, `min_coverage_fraction` 0.5, `max_coverage_depth` 4, `max_coverage_fraction` 1.0 and `coverage_estimate_tolerance` 0.05, which `"nframes"` ignores. flight-1049 sets `"coverage"` and `max_frames` 50 and keeps commissioning's committed 0.5; IMSS's req26 ran 0.4, which the side-by-side sets by `--set` ({ref}`ruling <decision-reference-coverage>`) |
 | `[reference.instrument]` | `sca_gain` 2.0, `sca_readout_noise` 9.4 |
 | `[reference.mosaic]` | `naxis1`, `naxis2` 9100 (`dev` 1518042b), `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
 | `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback; `use_nominal_zptmag` false, commissioning's flag (8a4a172d): true scales each input by its filter's `[intake.nominal_zptmag]` value instead of its own `ZPTMAG` ([datasets](datasets): true for flight-1049); a run body stored before the flag has none and scales by `ZPTMAG` |
@@ -190,9 +188,9 @@ all-source median under `fwhmmedpix`, status 1 and infobits 0.
   by `mjdobs` because none of `dev`'s 25 frames was in the night. Under
   `"coverage"` the frames are chosen by coverage
   ({ref}`ruling <decision-reference-coverage>`).
-- When a published reference is rebuilt. A declined one is planned again
-  only when new frames change its selection; a published one is never
-  rebuilt by the loop.
+- When a reference is rebuilt. The loop never rebuilds a published one,
+  and a reference job that failed, a coadd short of its coverage among
+  them, holds its field's key until a person reruns it.
 - The Photutils reference catalog, and where its PSF would come from.
   `dev`'s reference pipeline makes one from a per-filter reference PSF
   file; without it the grade's bits 5, 6, 7 and 16 stay unset.
