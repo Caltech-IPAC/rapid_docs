@@ -168,14 +168,14 @@ correlated noise raises detections at a fixed per-pixel threshold.
 
 Measured 2026-10-23 on pass 4's L2 data quality array (4088², 1.52% of
 pixels with a bit) and the three reference frames. It is the measurement
-behind the HLWAS overlay's `[intake] dq_mask_bits = 0x2110C01`.
+behind the HLWAS overlay's `[intake] dq_mask_bits = 34671617`.
 
 - The four reference-only spikes are wild values in all three reference
   frames, every one flagged UNRELIABLE_FLAT (0x2000000), so no median or
   clip over three frames rejects them; the mask does.
 - Isolated pixels above 1,000 DN/s: 70 in pass 4 (63 to 70 in passes 1
   to 3), every one with a bit of commissioning PR 238's default mask
-  0x2110C03; above 10,000 DN/s, 21, all UNRELIABLE_FLAT.
+  34671619; above 10,000 DN/s, 21, all UNRELIABLE_FLAT.
 - SATURATED (0x2) is set on the core of every star with a reference peak
   above about 100 DN/s. With it in the mask, 15 of 30 compact stars kept
   0.23 to 0.83 of their aperture flux, so the overlay's mask is PR 238's

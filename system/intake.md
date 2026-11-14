@@ -117,7 +117,7 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 | `program_id` | -1 | the `SOCSIMS` program id |
 | `[intake.nominal_zptmag]` | `dev`'s nominal zeropoints, keyed by Roman filter name | intake's `ZPTMAG` when the file has no photometry metadata; the reference stage's input scaling when `[reference.awaicgen] use_nominal_zptmag` is true ([reference](reference)) |
 | `limmag_nsigma`, `limmag_clip_sigma` | 5.0, 3.0 | as `[import]` has them |
-| `dq_mask_bits` | `0x2110C03` | 0, nothing masked; the value is commissioning PR 238's default, DO_NOT_USE, SATURATED, DEAD, HOT, NONLINEAR, NO_LIN_CORR and UNRELIABLE_FLAT ({ref}`decisions <decision-dq-mask-base>`); a dataset's overlay may name other bits, and 0 masks nothing |
+| `dq_mask_bits` | 0 | nothing masked, `dev`'s behaviour; a dataset's overlay names the bits whose pixels become NaN, in decimal, and flight's names commissioning PR 238's default with SATURATED ({ref}`decisions <decision-dq-mask-base>`) |
 | `crpix_shift` | `[0.0, 0.0]` | the file's WCS unchanged; a dataset's measured translation, in pixels, added to `CRPIX1` and `CRPIX2` |
 | `rederive_wcs` | false | the file's gWCS; true re-derives it from the file's `wcsinfo` and the distortion reference it names, before the SIP fit |
 | `gaia_proper_motion` | false | the Gaia offset's stars at the catalog's `ref_epoch`, where the SOC simulations place them; true carries each star by its `pmra` and `pmdec` to the frame's mid-exposure (`MJD-OBS` plus half `EXPTIME`) with the packet stage's propagation, as flight data needs; `dev` has no such metric |
