@@ -57,11 +57,12 @@ page or ruling states why.
 | `dev` | `rebuild` | Status | Why |
 |---|---|---|---|
 | `ingestL2Files.py` | the `intake` stage: `dev`'s `build_fits_file` conversion, writing under the outputs prefix and declaring `l2files` and `exposures` rows | changed | stages read, compute in memory, and the publisher writes ([foundation](foundation.md#why-it-is-this-way)); [intake](intake) |
-| `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader` | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
+| `RAPIDL2INPUTBUCKET`, `RAPIDL2OUTPUTBUCKET`, `RAPIDDATASOURCE` | `[intake] source_root` (a `--set` at `run create`), `RAPIDPIPE_OUTPUTS_ROOT`, `[intake] program_id` and `reader`; `program_id` is a simulation's negative id (the base's -1 is `dev`'s `SOCSIMS`, HLWAS's overlay -4) or, on flight's overlay, `""`, each file's own `PROGRAM` ([intake](intake.md#settings)); flight's source root is filled from MAST by `scripts/stream_l2_files.py` | changed | no recorded reason; [where outputs live](foundation.md#where-outputs-live) |
+| commissioning's `stream_l2_files.py` | `scripts/stream_l2_files.py`, outside the pipeline and before any run: a program's guided WFI L2 files from MAST under a source root, each by one conditional write that never overwrites, with no `--force` | changed | the inputs bucket accepts only a create-once write ([datasets](datasets.md#flight-data)) |
 | `db_register_socsim_files.py`, `db_register_rimtimsim_files.py`, `db_register_troxel_sim_files.py` | intake readers `soc-l2`, `openuniverse` and `rimtimsim`; no Troxel reader | partial | [datasets](datasets.md#rimtimsim-2026-06-22) for the RimTimSim reader; no recorded reason for Troxel |
 | `db_backfill_*` (limmag, overlapfields, hp6, hp9) | computed by the intake before publish | changed | a later correction is a new job's row, rebound ([foundation](foundation.md#why-it-is-this-way)) |
 | `db_register_sciimg_psfs.py` (a copied WebbPSF in `PSFs`) | the `psf` stage from the file's CRDS ePSF reference, kind `science` or `reference` in the key; `import` can still bring `dev`'s | changed | {ref}`the PSF from the ePSF reference <decision-psf-from-epsf>`; {ref}`the PSF kind <decision-psf-kind>` |
-| commissioning's DQ mask (`dqMaskSubs.py`, `DQMASKBITS`) | `[intake] dq_mask_bits`, default 0 as `dev`; the overlays set `0x2110C01` | changed | the measurement is in the overlay's comment ([intake](intake.md#settings)) |
+| commissioning's DQ mask (`dqMaskSubs.py`, `DQMASKBITS`) | `[intake] dq_mask_bits`, default 0 as `dev`; the flight overlay sets commissioning's 34671619, SATURATED included, and the SOC simulation overlays 34671617, without it | changed | {ref}`the flight DQ mask <decision-dq-mask-base>`; the measurements are in the overlays' comments ([intake](intake.md#settings)) |
 | the `Exposures` observation-id columns (`pass`, `segment`, `observation`, `visit`, `exposure`, ...) | the same columns, `dev`'s names and types, written by intake from the converted header and carried into every packet; a packed `expid` parsed from the stem and checked against the file; `program_id` kept; `--pointings VVV_EEEE` | changed | the `expid` and the packet fields ([intake](intake.md#declared-outputs)) |
 | the `Fields` table and the `romantessellation` sqlite file | the `fields` table; the tessellation in closed form | changed | the static tables stay plain tables; the tessellation is computed ([foundation](foundation.md#why-it-is-this-way)) |
 | in-pipeline fake-source injection (`[FAKE_SOURCES]`, `inject_fake_sources_into_l2_asdf_files.py`) | `scripts/inject_dataset.py` writes an injected dataset; the in-pipeline flag is refused | changed | {ref}`injection outside the pipeline <decision-injection-outside>` |
@@ -118,7 +119,6 @@ that no stage, script or table on `rebuild` does today.
 | `socprocs` | recorded SOC deliveries | no recorded reason |
 | `generateSourceHATSCatalog.py`, `generateLightCurveHATSCatalog.py`, `[HATS_CATALOGS]` | built HATS catalogs of sources and light curves | the `export` stage is retired, and the light-curve HATS catalog is not ported ([specification](specification.md#sequencing)) |
 | `prod/rapid-product-files_*.txt`, `download_files.py`, `download_reqid_products.sh`, `reqid_products_to_csv.sh` | listed and fetched a request's products | no recorded reason; a job's products are in `job show`'s manifest, fetched with `aws s3` |
-| commissioning's `stream_l2_files.py` | downloaded a program's L2 files from MAST into the ingest bucket | no recorded reason; the intake reads a source root only, and the flight files held were copied there outside the pipeline ([datasets](datasets.md#flight-data-program-1049)) |
 
 ## Schema
 
@@ -132,7 +132,7 @@ files beside it.
 |---|---|---|---|
 | `filters` | `filters` | the same (`fid`, `filter`) | the static tables stay plain tables ([foundation](foundation.md#why-it-is-this-way)) |
 | `scas` | `scas` | the same, with a check of 1 to 18 | as `filters` |
-| `surveys` | `surveys` | the same; rows -1, -2 and -3 for SOCSIMS, OpenUniverse and RimTimSims | as `filters` |
+| `surveys` | `surveys` | the same; rows -1 to -4 for the simulations (SOCSIMS GBTDS, OpenUniverse, RimTimSims, SOCSIMS HLWAS) and the twelve commissioning programs, 1049 among them, carried in `schema.sql` | as `filters` |
 | `fields` | `fields` | the same | as `filters` |
 | `exposures` | `exposures`, `exposures_official` | kept: `expid`, `dateobs`, `exptime`, `program_id`, `execution_plan` and the observation-id columns (`pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`; null on rows written before 2026-10-26, no backfill); dropped: `field`, `hp6`, `hp9`, `fid`, `mjdobs`, `status`, `infobits`, `created` | the columns kept are the ones the team's queries read ([foundation](foundation.md#why-it-is-this-way)); the `expid` ([intake](intake.md#declared-outputs)) |
 | `l2files` | `l2files`, `l2files_official` | dropped: `version`, `vbest`, `ctype1/2`, `cunit1/2`, the SIP orders and coefficients (the SIP stays in the FITS header), `equinox`, `paobsy`, `pafpa`, `skymean`; `l2filemeta`'s centre and corners folded in; `limmag` and `overlapfields` computed before publish; unique on (dataset, expid, sca, fid, job) | as `exposures`; backfilled columns are computed before publish ([foundation](foundation.md#why-it-is-this-way)) |
@@ -146,7 +146,7 @@ files beside it.
 | `psfs` | `psfs`, `psfs_official` | dropped: `version`, `vbest`; added: `kind` (`science` or `reference`) in the key | {ref}`the PSF kind <decision-psf-kind>` |
 | `sources` and its children `sources_<yyyymmdd>_<sca>` | `sources`, `sources_official` | `sid` numbered within the source set, keyed (job, sid), where `dev` draws it from `sources_sid_seq` ({ref}`ruling <decision-per-set-source-ids>`); dropped: `npix`; `rb`, `rblabel`, `sumrat`, `nneg`, `nbad` kept, nullable; position, fit and flag columns kept; `flags` bit 14 (16384) marks the bright-star footprint | a source is official when its set is ([foundation](foundation.md#why-it-is-this-way)); {ref}`dev's pixel columns <decision-pixel-columns-background>`; {ref}`the bright-star flag <decision-bright-star-flag>` |
 | `xsources` and its children | `xsources` and its children `xsources_<yyyymmdd>_<sca>` | `xsid` numbered within the source set, keyed (job, xsid), where `dev` draws it from `xsources_xsid_seq` ({ref}`ruling <decision-per-set-source-ids>`) | {ref}`xsources <decision-xsources>` |
-| `astroobjects_<field>` | `objects`, `objects_official` | one table for every field; dropped: `flux0`; added: `survey`, `field`, the founding job, `ra0` and `dec0` as the founding position; `aid` is a position hash | {ref}`association in the difference job <decision-association-in-difference>` |
+| `astroobjects_<field>` | `objects`, `objects_official` | one table for every field; dropped: `flux0`; added: `field`, the founding job, `ra0` and `dec0` as the founding position; `aid` is a position hash; no survey, as `dev` | {ref}`association in the difference job <decision-association-in-difference>`; {ref}`no survey <decision-objects-without-survey>` |
 | `merges_<field>` | `memberships`, `memberships_official` | `(aid, sid)` becomes (`object_job`, `aid`, `source_job`, `sid`), with `dra`, `ddec` and `flux`, the source's share of the sums | as `astroobjects` |
 | `astroobjectsmeta_<field>` | columns of `objects_official` | means and spreads become `sumra`, `sumra2`, `sumdec`, `sumdec2`, `sumflux`, `sumflux2`; `nsources` kept | sums are additive ([foundation](foundation.md#why-it-is-this-way)) |
 | `xastroobjects_<field>`, `xmerges_<field>`, `xastroobjectsmeta_<field>` | `xobjects`, `xobjects_official`; `xmemberships`, `xmemberships_official` | one parent per table for every field, split into children by field; `xaid` a position hash, `flux0` the founding xsource's `fluxap`; `(object_job, xaid, source_job, xsid)` with `dra`, `ddec`, `flux`; the meta statistics are sums in `xobjects_official` | {ref}`xobjects <decision-xobjects>` |
@@ -181,7 +181,7 @@ goes on [decisions](decisions) as a ruling.
   the rebuild, with which reader and which overlay, and does the IMSS
   comparison named on [difference](difference) come first? Program
   1049's files are held and no run has read them
-  ([datasets](datasets.md#flight-data-program-1049)).
+  ([datasets](datasets.md#flight-data)).
 - **The differencer.** The published differencer is SFFT with `dev`'s
   prefilter, as `dev` ({ref}`ruling <decision-sfft-default>`); is
   source-level parity with `dev`, not yet verified, required before

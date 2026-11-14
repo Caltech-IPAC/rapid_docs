@@ -22,7 +22,10 @@ A job's scope is one file of one dataset: `{"dataset": ..., "file":
 <stem>}`, where the stem is the SOC file name without its
 `_cal.asdf` suffix. The file itself is read from the run's source
 root, `[intake] source_root`, a URL prefix given in the run's settings
-overlay at `run create` and never in the shipped settings. A public
+overlay at `run create` and never in the shipped settings. Flight's L2
+reaches its source root from MAST by `scripts/stream_l2_files.py`, one
+conditional write per file that never overwrites
+([datasets](datasets.md#flight-data)). A public
 source root is read anonymously when `[intake] unsigned` is true; a
 signed read is not tried after an anonymous one fails.
 
@@ -70,7 +73,7 @@ so intake does not.
 |---|---|---|
 | the gzipped FITS | | under the attempt's prefix; the `l2files` row's `filename` is its URL |
 | `l2files` | dataset, expid, sca, fid | the file's footprint, field, overlapping fields, HEALPix indexes, WCS columns and limiting magnitude |
-| `exposures` | dataset, expid | one per exposure: `exptime`, `program_id` (the setting below) and the converted header's Roman observation identifiers, `dev`'s columns (`execution_plan`, `pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`), null for a reader whose files carry none |
+| `exposures` | dataset, expid | one per exposure: `exptime`, `program_id` (the setting below, or the file's own `PROGRAM` where the setting is `""`) and the converted header's Roman observation identifiers, `dev`'s columns (`execution_plan`, `pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`), null for a reader whose files carry none |
 
 The manifest records the file's provenance: its observation
 identifiers, romancal's version and the summary of its Gaia WCS fit
@@ -84,6 +87,18 @@ intake packs the identifiers that vary within a program and plan:
 `pass * 10**6 + observation * 10**4 + visit * 10**2 + exposure`, each of
 observation, visit and exposure below 100. The 18 SCAs of one exposure
 share it, as they share `dev`'s one `Exposures` row.
+
+The packing leaves out the program, the execution plan and the
+segment, so two exposures of one dataset that differ only in those
+share an `expid`: MAST's listings share 188 of program 1043's 250
+packed `expid`s and all 48 of 1062's between plans, and program 1049's
+share none. A `soc-l2` intake therefore reads the dataset's official
+`exposures` row of the file's `expid`, and when that row's program,
+plan or segment differ from the file's it fails with exit 65, before
+any row is declared, naming the file and the file that row came from.
+A rerun of the row's own file passes. The other readers do not check,
+since their stems share one program, plan and segment (Ben,
+2026-11-14 07:14 UTC).
 
 **The shared `exposures` key.** Because the 18 SCAs share an
 `exposures` key, only one job may expect it with no open binding. The
@@ -102,16 +117,16 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 
 | Key | Value | `dev` |
 |---|---|---|
-| `source_root` | the run's overlay only | |
+| `source_root` | the run's overlay only | `RAPIDL2INPUTBUCKET`; flight's is filled from MAST by `scripts/stream_l2_files.py` |
 | `unsigned` | false | |
 | `reader` | `"soc-l2"` | the only format `dev` reads; `"openuniverse"` reads OpenUniverse 2024's `simple_model` ASDF through the same conversion; `"rimtimsim"` reads RimTimSim's `<stem>.fits.gz`, `dev`'s converted lite files, into the same layout with `dev`'s converter's headers, the image in DN with the file's WCS and zero point, no uncertainty or DQ HDU ([datasets](datasets)) |
 | `sip_degree` | 5 | `SIPDISTORTIONDEGREE`'s default |
 | `sip_max_pix_error` | 0.1 | the `to_fits_sip` argument |
 | `gzip_level` | 1 | `L2GZIPLEVEL`'s default |
-| `program_id` | -1 | the `SOCSIMS` program id |
-| `[intake.nominal_zptmag]` | `dev`'s fallback zeropoints | used only when the file has no photometry metadata |
+| `program_id` | -1 | the `SOCSIMS` program id (`RAPIDDATASOURCE`); a set value is a simulation's negative id in `surveys`: -1 GBTDS (the base's, which the GBTDS overlays keep), -2 OpenUniverse, -3 RimTimSim, -4 HLWAS. `""`, flight's overlay, reads each file's own `PROGRAM`, so one dataset holds several programs. The sign tells a simulation from flight: a set value of 0 or more, or a file's `PROGRAM` of 0 or less, fails the intake |
+| `[intake.nominal_zptmag]` | `dev`'s nominal zeropoints, keyed by Roman filter name | intake's `ZPTMAG` when the file has no photometry metadata; the reference stage's input scaling when `[reference.awaicgen] use_nominal_zptmag` is true ([reference](reference)) |
 | `limmag_nsigma`, `limmag_clip_sigma` | 5.0, 3.0 | as `[import]` has them |
-| `dq_mask_bits` | 0 | nothing masked, `dev`'s behaviour; a dataset's overlay names the bits whose pixels become NaN |
+| `dq_mask_bits` | 0 | nothing masked, `dev`'s behaviour; a dataset's overlay names the bits whose pixels become NaN, in decimal, and flight's names commissioning PR 238's default with SATURATED ({ref}`decisions <decision-dq-mask-base>`) |
 | `crpix_shift` | `[0.0, 0.0]` | the file's WCS unchanged; a dataset's measured translation, in pixels, added to `CRPIX1` and `CRPIX2` |
 | `rederive_wcs` | false | the file's gWCS; true re-derives it from the file's `wcsinfo` and the distortion reference it names, before the SIP fit |
 | `gaia_proper_motion` | false | the Gaia offset's stars at the catalog's `ref_epoch`, where the SOC simulations place them; true carries each star by its `pmra` and `pmdec` to the frame's mid-exposure (`MJD-OBS` plus half `EXPTIME`) with the packet stage's propagation, as flight data needs; `dev` has no such metric |

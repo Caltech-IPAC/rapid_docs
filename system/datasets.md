@@ -2,16 +2,23 @@
 
 **Status: DRAFT**
 
-A dataset is one body of input the pipeline takes in, with its own
-live run and its own products, since dataset is in every scientific
-key ([foundation](foundation)). This page states the simulations
+A dataset is the set of inputs whose objects are shared: flight is one
+dataset, each simulation is one, each injected variant is one, and a
+trial or a test takes a dataset name of its own (Ben, 2026-11-14 07:17
+UTC). Dataset is in every scientific key ([foundation](foundation)), so
+a difference job matches the objects of every run of its dataset and
+no other's. A night of flight processing is the live run of `flight`
+admitting new files; a new run starts when the settings or the image
+change, and per-program work is a selection within the dataset
+(`--programs`, [loop](loop)). This page states the simulations
 the rebuild has read and the flight data it holds, what each one's data are, the quirks met in
 them, and what each quirk became: a key in the dataset's settings
 overlay, a reader, or a line recorded and moved past. A quirk is fixed
 on the overlay and not debugged to its root in every dataset. The
 overlays live in the pipeline repository under
-`rapidpipe/settings/datasets/`, one TOML file per dataset with a
-comment per key naming the measurement that earned it; the
+`rapidpipe/settings/datasets/`, one TOML file per data source with a
+comment per key naming the measurement that earned it, and several
+dataset names may use one (every flight trial uses flight's); the
 [foundation](foundation) page states how a run resolves them.
 
 | Dataset | Overlay | Survey | Read since |
@@ -20,7 +27,7 @@ comment per key naming the measurement that earned it; the
 | SOC simulation r00340, the Galactic Bulge Time Domain Survey | `gbtds-r00340.toml` | GBTDS | 2026-10-24 |
 | OpenUniverse 2024, the time-domain set (TDS) | `openuniverse-tds.toml` | HLTDS | 2026-10-24 |
 | RimTimSim, the 2026-06-22 delivery (one bulge field, SCA 2, F087 and F213) | `rimtimsim-260622.toml` | RimTimSims | 2026-10-24 |
-| Flight, program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight-1049.toml` | CAR198 | 2026-10-25 |
+| Flight, every program; first program 1049 ('RAPID CAR-198 Implementation'), F158 WFI02 | `flight.toml` | CAR198 | 2026-10-25 |
 | SOC simulation r00340 with `dev`'s fake sources, as `dev`'s socsims lite FITS (Russ Laher's 10/20 and 10/21/2026 tests) | `gbtds-r00340-fakesrc.toml` | GBTDS | 2026-10-27 |
 
 ## HLWAS, r00342
@@ -58,7 +65,8 @@ read.
 
 | Quirk | Disposition |
 |---|---|
-| The L2 data-quality flags mark defects the difference stage otherwise detects | the overlay: `dq_mask_bits = 0x2110C01`, commissioning's rule without SATURATED |
+| The L2 data-quality flags mark defects the difference stage otherwise detects | the overlay: `dq_mask_bits = 34671617`, commissioning's rule without SATURATED |
+| The files carry the SOC's simulation program, 342, which is not a Roman program | the overlay: `program_id = -4`, `surveys`' `SOCSIMS HLWAS` ([intake](intake), Settings) |
 | The L2 WCS sits (+0.12, −0.99) px from the simulation's own input-catalog stars, on every file | the overlay: `crpix_shift = [0.12, -0.99]`; the intake's Gaia-offset metric reads +0.127 / −0.986 px without it and +0.007 / +0.003 with it |
 | Each filter's passes differ in timing | the reference bound is the midpoint of the filter's third and fourth passes, set per run |
 | The last two passes' exposures are 107.5 s against 294.1 s | recorded ([foundation](foundation), Not decided here) |
@@ -89,7 +97,7 @@ simulation's key grammar, with a preview and a thumbnail PNG and a
 | STScI's recipe reads the L1 header, but the L2 files carry the L1 values unchanged (12 of 12 sampled) | recorded; the L1 file is not read |
 | The sidecar's `wcs_l1` is the L2 gWCS moved by the 4 px reference border | recorded |
 | A pointing is the visit modulo 6, so a pointing selection does not bound the epochs | recorded; a sample is a source root of chosen files |
-| The data-quality flags are HLWAS's | the overlay: HLWAS's mask |
+| The data-quality flags are HLWAS's | the overlay: HLWAS's mask, `34671617`, without SATURATED (0.51% of pixels, the bulge's bright cores) |
 | The bulge is confusion-limited, so the reference PSF cannot be measured from its stars (none passes) | the overlay: `[difference] reference_psf = "science"`, the science PSF for both images |
 | With the science PSF on the reference, 346 to 418 core-and-ring residuals per epoch above S/N 20 | recorded with its gallery; this dataset's next measurement |
 | The difference job takes 820 to 1,036 s, 3.5 to 4.5 times HLWAS's, on 9,000 to 13,500 candidates per epoch | recorded |
@@ -204,9 +212,11 @@ Measured), so ZOGY under the field rule is not measured here. It is a different 
 detects 0.94 to 0.98 to AB 25 on sources placed at will. The runbook's
 part 12 step 3 holds the numbers.
 
-## Flight data, program 1049
+## Flight data
 
-The first flight images held and read: program 1049, "RAPID CAR-198
+Flight is one dataset, `flight`, for every program; a trial on flight
+data takes a dataset name of its own (`flight-trial-<n>`) under the same
+overlay. The first flight images held and read: program 1049, "RAPID CAR-198
 Implementation" (observed 2026-10-24 10:40 to 11:10 UTC, F062 and F158,
 288 L2 rows at MAST). The sample is four dithered F158 epochs of WFI02,
 observation 2 visit 1, 10:56 to 11:02 UTC, 60 s each, over COSMOS
@@ -215,19 +225,33 @@ bucket under `flight-1049/` with a manifest (the source prefix is the
 run's `intake.source_root`). WFI02 was taken because every WFI01 row of
 the program names a placeholder guide star.
 
+Flight L2 reaches its source root from MAST by
+`scripts/stream_l2_files.py`, outside the pipeline and before any run.
+It lists a program's guided WFI imaging L2 files through MAST's Roman
+mission search, cut by filter, detector, pass, segment, visit or MJD
+when asked, and writes each, `<fileSetName>_cal.asdf`, under the source
+root by one conditional write, so nothing there is ever overwritten: a
+file already present is skipped, and one that appears meanwhile counts
+as present. The inputs bucket accepts only such create-once writes.
+Flight's source root is the inputs bucket's `flight/`, every program
+under the one prefix (2026-11-14); `flight-1049/` keeps the four files
+above and their manifest, which the bucket will not let anyone update.
+
 **In the inputs bucket** (every input of the live run, 2026-10-25): L2 `flight-1049/` (4 files, 833.6 MB), held there already; no truth; Gaia `g0008-selfcontained/host/…/gaia-dr3-flight-1049-box.parquet` (355 kB). The prefix's `_manifest.json` lists every object, its source and its sha256.
 
 | Quirk | Disposition |
 |---|---|
 | romancal 1.0.2's `wfi_image-2.0.0`, with `chisq`, `dumo`, `amp33` and border reference pixels and no `var_rnoise` or `var_flat` | the `soc-l2` reader, unchanged: the same stem grammar, meta tree and pixel flags; the extra arrays become extra HDUs |
-| The data-quality flags are roman_datamodels' pixel flags, as in the simulations | the overlay: HLWAS's mask `0x2110C01`, 0.231% of each frame; 1.36% carry any flag, the largest unmasked GW_AFFECTED_DATA (the guide window) 0.37% |
+| The data-quality flags are roman_datamodels' pixel flags, as in the simulations | the overlay: `dq_mask_bits = 34671619`, commissioning's default with SATURATED, where the base masks nothing: SATURATED is on 0.001% to 0.002% of each frame, real saturated cores, not every star's core as in HLWAS, so it is masked ({ref}`decisions <decision-dq-mask-base>`); the other bits cover 0.231%; 1.36% carry any flag, the largest unmasked GW_AFFECTED_DATA (the guide window) 0.37% |
 | The file names its ePSF, `roman_wfi_epsf_0239` (CRDS `roman_0077`), on all four files: stpsf 2.0.0's pre-flight simulation, pedigree SIMULATION, no jitter | the psf stage reduces it by name, as for the SOC files; the ePSF per file is met |
 | `meta.photometry` is present | the zero point is the file's, ZPTMAG 25.801 |
+| The per-frame zero point moves with the calibration context: commissioning's files under an older CRDS context run up to 0.29 mag off the rest | the overlay: `[reference.awaicgen] use_nominal_zptmag = true` scales each reference input by its filter's on-orbit `[intake.nominal_zptmag]` value, commissioning 687c93b2's table (the median over the 18 SCAs of the files' own zero points, 7,283 of 8,453 commissioning files; F062 26.04, F087 25.73, F106 25.78, F129 25.77, F146 27.01, F158 25.80, F184 25.34, F213 25.29); `ZPTMAG` and `zptmag_rms` stay the file's ({ref}`decisions <decision-nominal-zptmag>`) |
 | At Gaia DR3's epoch 2016.0 the intake's Gaia offset reads (−0.08 to +0.16, −0.56 to −0.35) px, proper motion and not WCS | the overlay: `[intake] gaia_proper_motion = true` carries each star to the frame's mid-exposure; the offset reads dx −0.091 to −0.045, dy −0.060 to −0.038 px; no WCS key |
-| The program number is real | the overlay: `program_id = 1049` |
+| The program number is real, and one flight dataset holds every program | the overlay: `program_id = ""`, so each file's own `PROGRAM` (1049 here), which must be positive, is its `exposures` row's `program_id` ([intake](intake), Settings) |
 | The dithers, 0.04 deg apart, put the four centres in three tessellation fields | the loop builds e4's field reference from e1 to e3, every row before the bound whose `overlapfields` list the field, as `dev` ({ref}`decisions <decision-reference-by-field>`) |
 | The reference covers 78.4% of the differenced frame | recorded; usable fraction 0.781, which the gate holds once judged |
-| **Hot pixels**: 3,116 pixels sit above 10 sigma of their local background at the same detector position in all four frames; 341 carry no flag | the mask removes 2,644; no single extra bit removes more than 72 of the other 472 (WARM), so not fixed; the ramp's JUMP_DET fires on 1,235 of them every exposure |
+| **Hot pixels**: 3,116 pixels sit above 10 sigma of their local background at the same detector position in all four frames; 341 carry no flag | the mask without SATURATED removes 2,644; no single extra bit removes more than 72 of the other 472 (WARM), so not fixed; the ramp's JUMP_DET fires on 1,235 of them every exposure |
+| On commissioning's first flight fields (program 1062, F062, WFI06, job 95) SFFT's kernel fit was dominated by one saturated star and by the zero-filled DQ-masked pixels: kernel sum 1.050 | the overlay: `[difference.sfft]` `sfft_zero_margin` 2, `sfft_bsmask_isoarea` 2000, `sfft_bsmask_isofactor` 2.0, commissioning's values (kernel sum 0.997 on that job); not measured on 1049, and tuned with SATURATED masked, as this overlay's mask masks it ({ref}`decisions <decision-sfft-kernel-masking>`) |
 | **The pointing**: the Gaia stars are 1.19 to 1.20 times the ePSF's width on every frame, nearly isotropic, with a small common elongation over the ePSF (e 0.025 to 0.043, PA +14 to +47°) | recorded; **pointing oscillation unmet, not observable in four 60 s frames**: broadening and a common elongation do not name jitter over charge diffusion or the model's error; the guide window's time series or a run of short exposures would show it |
 
 Run 126 takes the four epochs through the whole chain under the loop
@@ -242,6 +266,18 @@ the loop's earlier field rule; e4 is identical in both):
 The runbook's part 13 steps flight-first, ref-overlap and gaia-pm hold
 the numbers.
 
+**The difference stage's flight values** (2026-11-10): the overlay sets
+five difference keys to the values the commissioning pipeline runs on
+flight data (its commit a7778505), where the base keeps `dev`'s
+simulation values. They are not measured on the rebuild.
+
+| Setting | Flight (base) | Reason |
+|---|---|---|
+| `[difference.psfcat_diffimage] sharphi` | 1.8 (1.0) | DAOStarFinder's sharpness ceiling: 1.8 admits more extended detections into the difference sources, set from the OpenUniverse sharpness distribution, which 1.0 cut a significant fraction of (Azalee, 2026-11-11); IMSS runs 1.8 |
+| `[difference.gainmatch] magrefthresmin`, `magrefthresmax`, `refmagkeep` | 10, 30, 30.0 (19.0, 24.0, 23.5) | gain matching's magnitude window and keep limit, widened until they cut nothing; the magnitudes are AB, the gain-match catalogs' zero point 0 plus the reference's added once |
+| `[difference.sci_image] repair_extreme_artifact_pixels` | false (true) | the repair is meant off for in-flight data (Azalee, 2026-11-10); the commissioning ini's comment still says to enable it for real data, and this decision supersedes it |
+| `[difference.sfft] crossconv_flag` | false (true) | SFFT without cross-convolution, its difference PSF the science PSF; the commissioning value, `dev`'s socsims setting, not a flight measurement ({ref}`ruling <decision-flight-crossconv-off>`) |
+
 **The injected copy, `flight-1049-inj1`** (2026-11-09, for reuse): the
 inputs bucket's `flight-1049-inj1/` holds the same four files under `l2/`.
 e1 to e3 are byte copies, and e4 carries 200 constant sources, AB 21 to 27
@@ -250,7 +286,7 @@ with gain 1.6879 e⁻/DN by `dev`'s injection function.
 `catalog/truth-flight-1049-inj1.parquet` beside it names every source.
 The prefix is create-once. A run reads it with
 `--set intake.source_root=".../flight-1049-inj1/l2/"`, the bound
-61337.4594 and `flight-1049.toml`, and `scripts/completeness.py --run`
+61337.4594 and `flight.toml`, and `scripts/completeness.py --run`
 scores it. `scripts/inject_dataset.py` wrote it (rapid PR 571) once it
 could read the private root with a signed client and take the start MJD
 from each file's own ASDF tree, since flight files have no `_wcs.asdf`

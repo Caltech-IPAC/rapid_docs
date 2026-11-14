@@ -28,13 +28,31 @@ manifest as `not_coadded`. Every frame's `FILTER`, normalised to RAPID's
 spelling (`W146`, not `F146`) by the one map in
 `rapidpipe.products.filters`, must be the scope's filter.
 
+Under `[reference.selection] selection_type = "coverage"` the loop
+chooses the frames by how much of the reference they cover
+([loop](loop), One pass), and `min_frames` is not used: one frame is
+enough when it covers enough. The stage reads the named rows' corners
+(`ra1` to `dec4`), estimates their coverage on a grid every 25 px of the
+mosaic, and coadds the frames whose footprint meets the reference; a
+frame that misses it is skipped and named in the manifest. The geometry
+is commissioning's (d586136b, ebd95254, debbc6e4), in
+`rapidpipe.products.coverage`, so the loop and the stage share it.
+
 ## What it runs
 
 Each step is a module of `rapidpipe.science.reference`:
 
 1. **Preparation.** Each frame's HDU 1 is divided by `EXPTIME` and
-   scaled to the filter's zero point, with an uncertainty image from the
-   gain and read-noise model.
+   scaled to the filter's zero point by `10 ** (0.4 * (zprefimg -
+   ZPTMAG))`, with an uncertainty image from the gain and read-noise
+   model. With `[reference.awaicgen] use_nominal_zptmag` true, the
+   `ZPTMAG` in that factor is the filter's value in the run's
+   `[intake.nominal_zptmag]` table, not the frame's header value, so
+   every frame of a filter gets the same scale factor; a filter missing
+   from the table fails the job. The header value still feeds the grade's
+   `zptmag_rms` (bit 10). This is commissioning's override (687c93b2,
+   8a4a172d), for flight data whose per-frame calibration is still
+   settling ({ref}`decisions <decision-nominal-zptmag>`).
 2. **awaicgen** coadds the prepared frames, tile-centred, at the
    `[mosaic]` geometry, into a mosaic with its coverage and uncertainty
    maps.
@@ -42,8 +60,11 @@ Each step is a module of `rapidpipe.science.reference`:
    uncertainty and the clipped image statistics, as `dev` computes them
    for `refimmeta`.
 4. **SExtractor** runs on the mosaic with the uncertainty map as weight,
-   and gives the catalog's FWHM statistics: the mode over point sources
-   and the `fwhm_percentile` percentile of the same sample.
+   its `MAG_ZEROPOINT` the `MAGZP` the coadd was scaled to, so the
+   catalog's magnitudes are AB where `dev`'s are instrumental
+   ({ref}`ruling <decision-catalog-ab-zeropoints>`), and gives the
+   catalog's FWHM statistics: the mode over point sources and the
+   `fwhm_percentile` percentile of the same sample.
 5. **The grade**: `dev`'s reference InfoBits and status (`dev` cb53d2c7,
    fdc7fa79), the bits defined in `cdf/infobitsref.txt` and their
    thresholds in `[reference.infobits]`. A bit is set when its condition
@@ -57,7 +78,25 @@ Each step is a module of `rapidpipe.science.reference`:
    `JDEND`, `MAGZP`, `TOTEXPTM`, `INFOBITS` (its comment listing the set
    bits), `STATUS`, the `BIT`*nn* definitions in use and one
    `INFIL`*nnn* per frame, then `RPRUN`, `RPJOB`, `RPATTMPT` and
-   `RPSTAGE` naming the run, job, attempt and stage.
+   `RPSTAGE` naming the run, job, attempt and stage. `ZPSOURCE`, after
+   `MAGZP`, says what scaled the inputs: `header` or `nominal`. Under coverage
+   selection the stamp adds commissioning's `COVFRAC` (the measured
+   fraction), `COVDEPTH` (`min_coverage_depth`) and `COVTARG`
+   (`min_coverage_fraction`) after the `BIT`*nn* cards.
+
+Under coverage selection two checks bracket awaicgen, each a timed step
+in `job_metrics`. Before it, `coverage_estimate` judges the named frames'
+estimate against `min_coverage_fraction` with
+`coverage_estimate_tolerance` (0.05) either side: below the band the job
+fails at once. After it, `verify` measures the fraction of the
+coverage map's pixels at `min_coverage_depth` or deeper; below
+`min_coverage_fraction` the job fails. Commissioning makes the same
+check on every coadd, so the stage does too; an estimate above the band
+is expected to pass it. Either failure exits 65 before a manifest, the
+fraction its reason, as a rejected declared input does; nothing is
+published and the job's files stay under its prefix. Commissioning ends
+such a job with exit 33, which the rebuild does not carry
+({ref}`ruling <decision-coverage-held>`).
 
 `MAGZP` is the filter's zero point (26.863 for W146), which the
 [difference](difference) stage's gain matching reads from the file. The
@@ -88,7 +127,10 @@ The stage draws `rfid` from the `refimages` identity sequence while it
 reads its inputs, so the child rows carry it before publication. An
 imported reference keeps the source system's id as an import-only
 value. The manifest also records `dev`'s `refimmeta` measurements, the
-JD range, the total exposure time and the zero point.
+JD range, the total exposure time, the zero point and `zptmag_source`
+(`header` or `nominal`, as `ZPSOURCE`), and under coverage
+selection `coverage`: the selected and skipped `rid`s, the estimate, its
+decision and the measured fraction.
 
 ## Settings
 
@@ -97,11 +139,11 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 
 | Table | Holds |
 |---|---|
-| `[reference.selection]` | `min_frames` 2, `max_frames` 25 |
+| `[reference.selection]` | `min_frames` 2, `max_frames` 25; `selection_type` `"nframes"` (`dev`'s rule) or `"coverage"`, with commissioning's `min_coverage_depth` 1, `min_coverage_fraction` 0.5, `max_coverage_depth` 4, `max_coverage_fraction` 1.0 and `coverage_estimate_tolerance` 0.05, which `"nframes"` ignores. The flight overlay sets `"coverage"` and `max_frames` 50 and keeps commissioning's committed 0.5; IMSS's req26 ran 0.4, which the side-by-side sets by `--set` ({ref}`ruling <decision-reference-coverage>`) |
 | `[reference.instrument]` | `sca_gain` 2.0, `sca_readout_noise` 9.4 |
 | `[reference.mosaic]` | `naxis1`, `naxis2` 9100 (`dev` 1518042b), `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
-| `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback |
-| `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim |
+| `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback; `use_nominal_zptmag` false, commissioning's flag (8a4a172d): true scales each input by its filter's `[intake.nominal_zptmag]` value instead of its own `ZPTMAG` ([datasets](datasets): true in `flight.toml`); a run body stored before the flag has none and scales by `ZPTMAG` |
+| `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim; its `sextractor_mag_zeropoint` 0.0 is replaced in the job's copy by `MAGZP` at run time ({ref}`ruling <decision-catalog-ab-zeropoints>`) |
 | `[reference.paths]` | the repository and tool configuration paths of the pipeline image, the tools on `PATH`, and `work_subdirectory` `ref` |
 | `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |
@@ -141,10 +183,14 @@ all-source median under `fwhmmedpix`, status 1 and infobits 0.
 
 ## Not decided here
 
-- Eligibility and selection: which frames a launcher may choose for a
-  field, and when a reference is rebuilt. The night's reference took the
-  first 25 epochs by `mjdobs` because none of `dev`'s 25 frames was in
-  the night.
+- Eligibility and selection under `"nframes"`: which frames a launcher
+  may choose for a field. The night's reference took the first 25 epochs
+  by `mjdobs` because none of `dev`'s 25 frames was in the night. Under
+  `"coverage"` the frames are chosen by coverage
+  ({ref}`ruling <decision-reference-coverage>`).
+- When a reference is rebuilt. The loop never rebuilds a published one,
+  and a reference job that failed, a coadd short of its coverage among
+  them, holds its field's key until a person reruns it.
 - The Photutils reference catalog, and where its PSF would come from.
   `dev`'s reference pipeline makes one from a per-filter reference PSF
   file; without it the grade's bits 5, 6, 7 and 16 stay unset.

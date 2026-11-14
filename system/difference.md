@@ -115,27 +115,43 @@ work directory with `dev`'s file names and command lines.
 
 The L2 image is moved to the primary HDU and converted to DN/s, with a
 simple-model uncertainty image. SExtractor catalogs it for the FWHM of
-its point sources. Its SIP distortion is rewritten as PV, and SWarp
+its point sources, with `MAG_ZEROPOINT` the image's `ZPTMAG`, its AB
+zero point for DN/s ({ref}`ruling <decision-catalog-ab-zeropoints>`). Its SIP distortion is rewritten as PV, and SWarp
 resamples the reference, its coverage and its uncertainty onto the
 science grid. bkgest subtracts the background of the science image and
 of the resampled reference. Gain matching compares the two images'
 SExtractor catalogs for the reference's scale factor and the median
 offsets, using the science image's own zero point and the reference's
 `MAGZP`; with too few matched sources it falls back to the zero points
-and zero offsets.
+and zero offsets. Its two SExtractor runs keep `MAG_ZEROPOINT` 0, as
+`dev`'s do, because gain matching adds the reference's zero point to
+their magnitudes itself.
 
 NaNs in ZOGY's inputs are replaced, extreme artifact pixels are
-repaired, and the reference is shifted by the median offsets. ZOGY runs
+repaired when `[difference.sci_image] repair_extreme_artifact_pixels`
+is true (the base's value; the flight overlay sets false), and the
+reference is shifted by the median offsets. ZOGY runs
 by subprocess, unless `[difference.zogy] run_zogy` is false, which skips
 everything of ZOGY's in this paragraph
 ({ref}`ruling <decision-run-zogy>`). Its difference and significance images are masked where
 the reference coverage is below threshold, the NaNs are restored, and
 negative copies are made. The stage then makes the difference's
 uncertainty image and the positive and negative SExtractor and
-Photutils PSF-fit catalogs. SFFT follows with its own; the naive
+Photutils PSF-fit catalogs, the SExtractor magnitudes on the science
+image's `ZPTMAG`, since every difference image is on the science image's
+flux scale. SFFT follows with its own; the naive
 subtraction follows with its image, uncertainty and SExtractor catalogs
 and no PSF-fit catalog, so its two catalog-outcome bits (4 and 5) are
 never set.
+
+SFFT, `modules/sfft/sfft_rapid_crowded.py`, fits its kernel on the
+pixels its masks leave: under the shipped block, the segmentation's
+sources less a disc around each gain-match catalog source at or above
+the bsmask threshold, each disc centred on the source's catalog position
+({ref}`ruling <decision-sfft-mask-offset>`). Where a dataset sets
+`sfft_zero_margin` or `sfft_bsmask_isoarea`, the zero-filled pixels and
+their margin, and the sources of large isophotal area, are left out too
+({ref}`ruling <decision-sfft-kernel-masking>`).
 
 Every external tool runs checked, SFFT included: a nonzero exit fails
 the job with exit 70 and `ToolFailed: <tool> exited with code <n>; its
@@ -252,9 +268,10 @@ field ({ref}`ruling <decision-association-by-source-field>`). After the
 catalog, it groups the sources the run's `[associate]` table accepts
 (fit flags zero once the informational bright-footprint bit is cleared,
 S/N at least `min_snr`) by the tessellation field each falls in,
-wherever on the image that is. It reads the run's objects in those
+wherever on the image that is. It reads the dataset's objects in those
 fields and their neighbours in one short query, the objects every
-published difference job of the run has founded there, and records that
+published difference job of the dataset has founded there, of any run
+({ref}`ruling <decision-objects-across-runs>`), and records that
 read exactly: one `objects` input per (field, founding job) it saw, in
 the manifest's `reads`, which the publisher writes to `job_inputs`.
 This is the one input read at execution rather than named at launch.
@@ -271,12 +288,12 @@ were detected. Under the field rule 0.97 of the detected are alerted.
 
 The manifest's `catalog` names `fields`: every field that gained an
 object or a membership, and each one's neighbours. At publish, under
-transaction-scoped locks on the run and each of those fields, taken all
+transaction-scoped locks on the dataset and each of those fields, taken all
 at once or none in one statement that never waits (when one is held the
 publisher rolls back and tries again), the publisher reads the objects
 founded since the job's read in those fields, by jobs not in its
-recorded read. Two jobs founding either side of a boundary share a
-lock, so they serialise, and no lock cycle can form. A founded object within the radius of one of them is
+recorded read, of any run. Two jobs founding either side of a boundary,
+or of two runs at one star, share a lock, so they serialise, and no lock cycle can form. A founded object within the radius of one of them is
 not inserted; its memberships go to that object, each one whose source
 is within the radius of it, rebased to its origin. The manifest records
 the outcome as `reconcile`. Two epochs of one field in flight at once
@@ -297,8 +314,13 @@ brightest that many per sign, 0 none, and anything below -1 is refused), `dev`'s
 subtable per `dev` ini section with `dev`'s values. The tool tables
 (`[difference.sextractor_sciimage]`, `_gainmatch`, `_diffimage`,
 `_diffimage_sfft`, `_diffimage_naive` and `[difference.swarp]`) copy
-`dev`'s sections verbatim. The others, where a value is new with the
-port or departs from `dev`:
+`dev`'s sections verbatim, `sextractor_mag_zeropoint` 0.0 included. At
+run time the job's copies of `_sciimage` and `_diffimage` take the
+science image's `ZPTMAG` instead, which every difference-image catalog,
+SFFT's and the naive subtraction's included, starts from; `_gainmatch`
+stays 0 and the run's stored body is unchanged
+({ref}`ruling <decision-catalog-ab-zeropoints>`). The others, where a
+value is new with the port or departs from `dev`:
 
 | Setting | Value | Meaning |
 |---|---|---|
@@ -309,7 +331,9 @@ port or departs from `dev`:
 | `[difference.awaicgen] zprefimg` | empty | an override of the reference zero point; empty reads the reference's `MAGZP` |
 | `[difference.zogy] astrometric_sigma` | 0.0 | ZOGY's astrometric inputs, 0.0 as `dev` overrides them |
 | `[difference.zogy] run_zogy` | true | ZOGY runs, as `dev`'s `[ZOGY] run_zogy`; false skips its images and catalogs (bits 0 and 1 never set) ({ref}`ruling <decision-run-zogy>`) |
-| `[difference.sfft] run_sfft`, `crossconv_flag` | true, false | SFFT runs, without cross-convolution for these simulations, as in `dev`; `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own block, and HLWAS's is `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100; [datasets](datasets)) |
+| `[difference.sfft] run_sfft`, `crossconv_flag` | true, true | SFFT runs under `dev`'s OpenUniverse block (cross-convolution, segmentation, gain-match catalogs, bsmask 50 / 100), the base's for every dataset ({ref}`ruling <decision-sfft-block-base>`); `run_sfft` must be true, as `dev`'s, and false fails the settings check ({ref}`ruling <decision-sfft-only-registered>`); a dataset's overlay may carry its own values: GBTDS and RimTimSim carry `dev`'s socsims block ({ref}`GBTDS <decision-gbtds-sfft-socsims>`, {ref}`RimTimSim <decision-rimtimsim-sfft-socsims>`) and the flight overlay `crossconv_flag` false ({ref}`ruling <decision-flight-crossconv-off>`, [datasets](datasets)) |
+| `[difference.sfft] sfft_zero_margin` | empty; flight 2 | commissioning's kernel-fit masking, not in `dev`: pixels that are 0 in either image (the stage's NaN fill) and those within this many pixels of one are left out of SFFT's kernel fit; empty leaves the option off the command ({ref}`ruling <decision-sfft-kernel-masking>`) |
+| `[difference.sfft] sfft_bsmask_isoarea`, `sfft_bsmask_isofactor` | empty, empty; flight 2000, 2.0 | commissioning's: catalog sources with `ISOAREA_IMAGE` at or above the area are also masked, radius the larger of the bsmask radius and the factor times `sqrt(ISOAREA_IMAGE / pi)`, for a star whose missing saturated core leaves `FLUX_MAX` low; the factor is passed only with the area ({ref}`ruling <decision-sfft-kernel-masking>`) |
 | `[difference.sumrat]` | `stamp_size` 5, `filter_size` 3, `lower_median` false | `dev`'s `[SUMRAT]`; `false` takes the mean of the two middle values of an even count, so pure noise's sumrat is about 0, where ZTF's median is biased to about −0.32 |
 | `[difference.extra_catalog_cols]` | `nneg_nbad_stamp_size` 5, `pixel_cols_bkg_box` 64, `pixel_cols_bkg_filter_size` 3 | `dev`'s `[EXTRA_CATALOG_COLS]`: the `nneg` and `nbad` stamp and the local background the three columns are measured after |
 | `[difference.sources_database_prefilter]` | `sumrat_prefilter_threshold` 0.4, `rb_prefilter_threshold` 0.0, `snr_prefilter_threshold` `""` | the `sources`' cuts, both signs, in this job and the import, kept apart from the `xsources`' ({ref}`ruling <decision-sources-prefilter>`): sumrat and the 2 px edge (`""` applies neither), a finite rb at or below 0.0, a PSF-fit S/N at or below the threshold when one is set; `""` is no such cut, and the S/N one ships off until a run has measured its cost |
@@ -428,11 +452,13 @@ SFFT's positive PSF-fit catalogs are now 71% of that job.
   sources with known positions.
 - `dev`'s real/bogus score, left out of the thin chain: no score is
   computed. Its database prefilter cut is ported (above).
-- Excluding the zeroed DQ cores from SFFT's fit, the lever not yet
-  measured; the other datasets' blocks are unchecked for the same
-  effect. Under the shipped block `n_sources_snr_gt20` sits at the cap
-  on every epoch, so the gate's count check cannot see such an SFFT
-  epoch off-scale.
+- Excluding the zeroed DQ cores from SFFT's fit on the simulations. The
+  lever is built, `sfft_zero_margin`, and on for flight only, at
+  commissioning's value, which was chosen on a commissioning field and
+  is not measured on any dataset the rebuild runs; the other datasets'
+  blocks are unchecked for the same effect. Under the shipped block
+  `n_sources_snr_gt20` sits at the cap on every epoch, so the gate's
+  count check cannot see such an SFFT epoch off-scale.
 - Whether the naive subtraction keeps running now that its PSF-fit
   catalogs, and so its two catalog-outcome bits, are gone; its image
   and SExtractor catalogs remain, and turning it off is a settings

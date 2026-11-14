@@ -112,8 +112,8 @@ distinct live streams:
 | `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
 | `sources` (source set) | dataset, expid, sca, fid | `sources`, from SFFT's positive and negative Photutils PSF-fit catalogs, each row with its sign as `isdiffpos` ({ref}`ruling <decision-negative-sources>`), with extra columns computed after them (`sumrat`, `nneg`, `nbad`, the real/bogus score); optional: a run may skip loading them ({ref}`ruling <decision-skip-sources>`), and the set is then declared with no rows, so its binding still opens |
 | `xsources` (in the source set, not bound) | dataset, expid, sca, fid | `xsources`, always loaded: `dev`'s SExtractor sources of the SFFT image, from its positive and negative SExtractor catalogs, with extra columns computed after them (`sumrat`, `nneg`, `nbad`, DAOStarFinder's sharpness and roundness, a 5 × 5 PSF fit, the real/bogus score; below); official when their source set is |
-| `objects` (the object catalog, not bound) | dataset, survey, field, object id, founding job | `objects`, with `memberships` declared beside each source set; optional with `sources`: a set loaded with no rows associates nothing |
-| `xobjects` (the xsources' object catalog, not bound) | dataset, survey, field, xobject id, founding job | `xobjects`, with `xmemberships` declared beside each source set; always made, from the `xsources` |
+| `objects` (the object catalog, not bound; no survey, {ref}`ruling <decision-objects-without-survey>`) | dataset, field, object id, founding job | `objects`, with `memberships` declared beside each source set; optional with `sources`: a set loaded with no rows associates nothing |
+| `xobjects` (the xsources' object catalog, not bound; no survey, as `objects`) | dataset, field, xobject id, founding job | `xobjects`, with `xmemberships` declared beside each source set; always made, from the `xsources` |
 | `packets` (packet set) | dataset, expid, sca, fid | `packets`, with children `forced` and `external` |
 | `catalogs` (reference catalog) | dataset, name, version | `catalogs` |
 
@@ -233,8 +233,9 @@ XAstroObjects and XMerges. The difference job cross-matches its `xsources` as it
 `dev`'s crossMatchXSources.py does for crossMatchSources.py's sources:
 the xsources whose SExtractor `flags` equal `[associate] xsource_flags`
 (0, as in `dev`), positive and negative together, are matched within
-`match_radius` against the run's xobjects in their fields and the
-neighbouring fields, as the job read them. An unmatched xsource founds
+`match_radius` against the dataset's xobjects of every run in their
+fields and the neighbouring fields, as the job read them
+({ref}`ruling <decision-objects-across-runs>`). An unmatched xsource founds
 an xobject in its own field, its id the hash of its position and its
 `flux0` its aperture flux, `fluxap`. Each xmembership records the
 xsource's offsets from the xobject's founding position and its `fluxap`,
@@ -463,7 +464,7 @@ close, and the group refuses.
 contain the job id and the attempt, with their checksums. A retry
 writes new files and never overwrites a referenced one.
 
-**The object catalog is append-only per run and field, and association
+**The object catalog is append-only per dataset and field, and association
 runs in the difference job**
 ({ref}`ruling <decision-association-in-difference>`). Observations do
 not arrive in order, and an alert is the best information at the time.
@@ -472,7 +473,8 @@ waiting for its predecessor's set, assumed arrival in order and paid a
 queue wait and a loop pass for three seconds of work; F158's
 fourteen-deep chains took hours while the fan-out stages took minutes.
 Now the difference job holds the epoch's sources in memory, reads each
-touched field's objects as they stand, matches, founds an object for
+touched field's objects as they stand, every run's of its dataset
+({ref}`ruling <decision-objects-across-runs>`), matches, founds an object for
 each unmatched source, and publishes `objects.parquet` (founded here)
 and `memberships.parquet` (each membership with its source's offsets
 from the object's founding position and its flux) beside its sources.
@@ -494,11 +496,11 @@ side of a boundary from splitting into two objects.
 
 **Two epochs in flight at once are reconciled at publish.** Both can
 see no object at a new source and both found one. The publisher,
-serialised by transaction-scoped locks on every (run, field) that
+serialised by transaction-scoped locks on every (dataset, field) that
 gained an object or a membership and on each such field's neighbours,
 taken all at once or none, without waiting (a job that finds one held
 rolls back, releasing its pooler connection, and tries again after a
-jittered wait), so two jobs founding either side of a boundary share a
+jittered wait), so two jobs founding either side of a boundary, of one run or two, share a
 lock and never deadlock, and a lock waiter never holds a pool connection
 (run 177's 800 waiters filled the pipeline's pool, 2026-11-08), matches the job's founded
 objects against those founded since its recorded read in those fields,
@@ -720,7 +722,7 @@ image. Each simplification keeps the shape of the full stage.
 | `import` | stored products for one field: L2 files, difference images with SFFT's PSF-fit and SExtractor catalogs, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs`, `sources` (from both PSF-fit catalogs, the brightest N of each sign by flux over its error, every source at the shipped -1) and `xsources` (from both SExtractor catalogs, as `dev`'s loader reads them; {ref}`ruling <decision-import-both-signs>`), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
 | `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
 | `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the run's objects and xobjects in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through the run's `[difference.sources_database_prefilter]`; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources`; the RuBR-AT score of both signs' PSF-fit catalogs and the xsources ({ref}`ruling <decision-reliability-scored>`) | nothing |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the dataset's objects and xobjects of every run in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through the run's `[difference.sources_database_prefilter]`; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources`; the RuBR-AT score of both signs' PSF-fit catalogs and the xsources ({ref}`ruling <decision-reliability-scored>`) | nothing |
 | `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' xobjects and official xmembers (objects and members under `[packet] alert_catalog = "sources"`), their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -749,7 +751,11 @@ copy under the job's prefix; every file is reached through its row.
 A PSF's `psf` scope declares its kind; the stage reads the file's
 `PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
 before any manifest if it names the other kind. A file with no keyword
-imports under the declared kind, and the manifest says so.
+imports under the declared kind, and the manifest says so. A PSF's SCA
+is its file's `SCA` card, else its `DETECTOR` card (`WFI08` is 8), the
+only one commissioning's `phavg` science PSFs carry; flight's science
+PSF is that library, imported one file at a time, until CRDS delivers
+flight ePSFs (Ben, 2026-11-14 06:58 UTC).
 
 ### intake
 
@@ -997,6 +1003,9 @@ difference job reads. `[reference.selection]
 before_mjd`, the reference bound, is documented in the shipped file and
 absent there: a run sets it in its overlay, and a run without it
 coadds every epoch of a field ([loop](loop), the reference bound).
+`[reference.selection] selection_type` is `"nframes"`, `dev`'s rule; a
+dataset that sets `"coverage"` (flight) chooses a reference's frames
+by their coverage of it ([reference](reference), Settings).
 
 ## The queries
 
@@ -1862,9 +1871,12 @@ cold queue.
   set sent twice reaches the topic twice.
 - The Spot interruption warning's capture, which waits on a logs
   resource policy, and what a reclaim costs, since none has been seen.
-- Cross-band association. Each filter is a dataset of its own, so a
-  source seen in two filters is two objects. Whether an object is per
-  band or across bands is open, and with it forced photometry in the
+- Cross-band association. An object carries no filter, and a
+  difference job matches its dataset's objects in its fields whatever
+  their filter, so within one dataset a source seen in two filters is
+  one object; the breadth runs, which gave each HLWAS filter a dataset
+  of its own, hold it as two. Whether an object should be per band or
+  across bands is open, and with it forced photometry in the
   other bands at a source's position.
 - The cause of the bright-star residual (about 20 per epoch above S/N
   20 on SCA 8, two to three times that on SCAs 4 and 5), now flagged

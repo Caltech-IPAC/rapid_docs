@@ -41,8 +41,11 @@ commented block of the
 Getting started section,
 with `RAPIDPIPE_OUTPUTS_ROOT` an `s3://` prefix the Batch job role
 writes. The example is HLWAS F146, pointing `001_0001`, SCA 8, with
-passes 1 to 3 for the reference and pass 4's epoch differenced. Each
-night uses a dataset name of its own.
+passes 1 to 3 for the reference and pass 4's epoch differenced. It is
+a test, so it takes a dataset name of its own, as every trial and test
+does. Flight is the one dataset `flight`: a night of flight processing
+is its live run admitting new files, and a new run starts only when
+the settings or the image change ([datasets](datasets)).
 
 1. **The environment and the names.**
 
@@ -131,8 +134,8 @@ night uses a dataset name of its own.
    The script prints one line, `Check run N: CLEAN validate 6/6 reader
    1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
    and exits non-zero.
-7. **Close the night.** A dataset is live only while its night is in
-   flight (Ben, 2026-10-30): once the run is checked, close its live
+7. **Close the test.** A test's dataset is live only while it runs
+   (Ben, 2026-10-30): once the run is checked, close its live
    binding, the `live` id `run show` prints, so a loop started on it by
    mistake submits nothing and the live list names what is running.
    ```sh
@@ -142,7 +145,9 @@ night uses a dataset name of its own.
    ```
    `official undo <group>` reopens it. The bindings of the 113 finished
    nights of 2026-10-21 to 10-27 were closed in one group (30820) on
-   2026-10-30, leaving runs 158 and 159 live.
+   2026-10-30, leaving runs 158 and 159 live. `flight`'s live run is not
+   closed at a night's end: it stays live, admitting new files, until a
+   new run of `flight` takes its place (Ben, 2026-11-14 07:17 UTC).
 
 **What the exit codes mean**, as on `rebuild` at `efc03fc6`:
 
@@ -159,7 +164,7 @@ night uses a dataset name of its own.
 
 ```
 rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    [--passes 1,2,3] [--expids LO-HI,...] --job-definition <name:revision> [--job-queue <queue>] \
+    [--passes 1,2,3] [--expids LO-HI,...] [--programs 1049,...] --job-definition <name:revision> [--job-queue <queue>] \
     [--max-intake 100] [--interval 120] [--once]
 ```
 
@@ -185,6 +190,19 @@ pass, observation, visit and exposure in that order, so one range is a
 contiguous stretch of a pass's observations (Russ Laher's 10/20/2026
 subset with its reference frames is `--passes 2,5 --expids
 2000000-2999999,5036101-5036401`).
+`--programs` selects programs within the dataset, comma-separated
+program numbers (`1049,1018`, or `-2`), all by default. A listed stem's
+program is the one intake will write for it: the run's `[intake]
+program_id` when its dataset sets one, else the SOC stem's own five
+digits, and a stem with neither is not admitted. An official L2 row's
+program is its official `exposures` row's `program_id`, and a row whose
+exposure has no official row yet is not selected until it has one. So
+references are built only from the selected programs' frames, and only
+their images are differenced and packeted; an official reference of the
+field, built from frames of any program, is reused, and a difference
+job matches its sources against the dataset's objects of every run,
+whatever program founded them. Per-program work on flight is a
+selection within the one dataset, never a dataset of its own.
 A selection admits only its own reader's stems. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
@@ -239,6 +257,20 @@ Its order:
    `[reference.selection] min_frames` of them, as `dev` selects them
    ({ref}`ruling <decision-reference-by-field>`). The job's scope records
    the first SCA among the rows it serves.
+   With `[reference.selection] selection_type = "coverage"` the frames
+   are chosen by how much of the reference they cover instead
+   ({ref}`ruling <decision-reference-coverage>`). The candidates are the
+   selected official rows of the filter whose `overlapfields` meet any
+   tile under the reference's 9100 px footprint, so a frame that covers
+   only the reference's margin counts too. The pass walks them in
+   `mjdobs` order, then by distance from the reference's centre, then by
+   L2 key, skips a frame whose footprint misses the reference, and stops
+   once `max_coverage_fraction` of the reference's pixels reach
+   `max_coverage_depth` or at `max_frames`. The job names exactly the
+   frames chosen, and `min_frames` is not used. A field whose estimated
+   fraction of pixels at `min_coverage_depth` falls below
+   `min_coverage_fraction` less `coverage_estimate_tolerance` gets no job
+   and is held ([The reference bound](#the-reference-bound)).
    With a reference bound set, the rules change as described under
    [The reference bound](#the-reference-bound).
 4. **difference**: one job per official L2 row whose field has an
@@ -351,6 +383,20 @@ reference. The pass reports it under `held`, with the field and the
 reason, on every pass. A held field does not keep the loop from
 draining, and the verb exits 0: the gap is recorded, with no timeout.
 
+Under coverage selection a field is also held for coverage, with or
+without a bound: when the frames the pass would choose give an
+estimated coverage below the minimum less the tolerance, the pass
+reports the field under `held` with `estimated coverage X < Z` and
+plans no job ({ref}`ruling <decision-coverage-held>`). The estimate is
+made again on every pass, so the field is planned once enough frames
+arrive; with a bound its frames are fixed once the intake drains, so it
+stays held for that run and a new run estimates it again. A reference
+job that coadds its frames and measures its coverage map below
+`min_coverage_fraction` fails with exit 65, the measured fraction its
+reason ([reference](reference), What it runs), as any failed job: the
+pass reports it under `failed`, its field's key counts as taken until a
+person reruns it, and the loop exits 1 for it.
+
 ## No chain (2026-10-24)
 
 Until 2026-10-24 a field's object sets formed one chain, one `associate`
@@ -421,7 +467,9 @@ dataset and one loop each, all six at once:
   as soon as chain work ends or by running `associate` and `packet` in
   one Batch job. At GBTDS depth this is the loop's latency.
 - An unbounded run's field with fewer than `min_frames` rows still
-  waits without a `held` report; only a bounded run reports it.
+  waits without a `held` report under `"nframes"`; only a bounded run
+  reports it. Under `"coverage"` a field short of coverage is reported
+  either way.
 - Where the bound goes in general. On the HLWAS simulation each
   filter's bound is the midpoint of its own third and fourth passes at
   the first pointing, a run setting per filter; a survey without passes
