@@ -149,7 +149,6 @@ holds one subtable per `dev` ini section, with `dev`'s values:
 | `[reference.mosaic]` | `naxis1`, `naxis2` 9100 (`dev` 1518042b), `cdelt1` and `cdelt2` as `dev` writes them, `rotation` 0.0; an empty `ra_center` and `dec_center` take the tile centre from the closed-form tessellation |
 | `[reference.awaicgen]` | every awaicgen option `dev`'s launcher passes, the output names, and `zprefimg_<filter>` per filter with the scalar `zprefimg` 17.0 as fallback; `use_nominal_zptmag` false, commissioning's flag (8a4a172d): true scales each input by its filter's `[intake.nominal_zptmag]` value instead of its own `ZPTMAG` ([datasets](datasets): true for flight-1049); a run body stored before the flag has none and scales by `ZPTMAG` |
 | `[reference.sextractor_refimage]` | `dev`'s `SEXTRACTOR_REFIMAGE` section verbatim; its `sextractor_mag_zeropoint` 0.0 is replaced in the job's copy by `MAGZP` at run time ({ref}`ruling <decision-catalog-ab-zeropoints>`) |
-
 | `[reference.paths]` | the repository and tool configuration paths of the pipeline image, the tools on `PATH`, and `work_subdirectory` `ref` |
 | `[reference.psfcat]` | `enabled` false: `dev`'s Photutils reference catalog needs a reference PSF input and is not produced; true is refused |
 | `[reference.fake_sources]` | `inject_fake_sources_flag` false; fake-source injection is not ported, and true is refused |
