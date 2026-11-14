@@ -33,6 +33,7 @@ repository's history. The rebuild starts from this page.
 | [`photometry.md`](photometry) | current | Forced photometry: the alert-driven measurement inside the `packet` stage, and `dev`'s standalone `forcedPhotometryForField.py`, not ported |
 | [`tool.md`](tool) | current | The command-line tool `rapidpipe`: every command it has on `rebuild` with its flags, what it does not have and what to use instead, its exit codes, and the environment it reads |
 | [`loop.md`](loop) | current | The loop, `rapidpipe loop`: the selection as arguments with the passes, one pass's order from the psf submission and hold through intake to the Kafka recovery sweep with the listing by the selection, no field chains, the submission cap and the Spot queue, the Batch reconcile, pending with one automatic rerun, failed and drained, the reference bound and held fields, the per-field chains' history, its exit codes and what it measured, six filters at once among it; it replaces the run model's processing-date loop |
+| [`exposure-id.md`](exposure-id) | DRAFT | The exposure id as a serial the database hands out, with the producer's name for the exposure beside it, unique within a dataset: how the 18 SCAs agree on one id, where the loop assigns it, the selection without arithmetic on it, what scopes, prefixes, `import`, the packet and the scripts do with it, each reader's name, the refusal it retires; the changes by file, the test contracts and the landing |
 | [`drift.md`](drift) | current | The nightly drift gate: one injected HLWAS epoch run daily at the newest `rapid-rebuild` revision, its six columns judged against the spread recorded from runs 152, 167, 168 and 170, red to the alert topic |
 | [`operations.md`](operations) | DRAFT | Operations proposals the team has not yet ruled on: what they assume about the mission, three shapes of the run model and the recommended named stream of batch runs, replacement scope and the chain switch, batch cadence against the latency requirement, a proposed production check policy, reference eligibility and selection, staged inputs of a production run, capacity lanes |
 | [`throughput.md`](throughput) | current | The throughput report, `scripts/throughput_report.py`: the per-job fields it reads (steps, S3 bytes, CPU against wall, the host), job vCPU-hours by the stage timers and by the steps, host-hours split by time-weighted co-tenancy, queue wait, fixed against per-source cost, the critical path of one exposure and the ranked leads; its output on runs 187, 188 and 216 |
@@ -56,6 +57,7 @@ psf
 photometry
 tool
 loop
+exposure-id
 drift
 operations
 throughput
