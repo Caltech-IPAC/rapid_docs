@@ -148,7 +148,7 @@ night uses a dataset name of its own.
 
 | Code | `loop` | `job local` |
 |---|---|---|
-| 0 | the selection drained with no failed or refused job (or one `--once` pass saw none); a declined job is not a failure | the job published; under a run that is not live, the refusal is on stderr and on its row; or it declined, publishing nothing, its reason on its row |
+| 0 | the selection drained with no failed or refused job (or one `--once` pass saw none) | the job published; under a run that is not live, the refusal is on stderr and on its row |
 | 1 | it drained around failed jobs, or jobs published with their binding refused. Each is named on stderr and in the last pass's `failed`, and the rest of the selection drained around them. Read the row's `refusal` (`rp job show <id>`), fix the cause, rerun with `rp job submit --job <id> --job-definition $JOBDEF`, then start the loop again | the job published but its binding was refused under a live run |
 | 64 | a usage error: the run does not exist, the selection cannot be parsed, its first pass found no file of the selection under the source root, or the dataset lacks an official catalog for each switched-on catalog copy (Gaia, NED, NED-LVS) when a packet job is due | the run or an input does not exist, or the arguments are wrong |
 | 65 | not returned | the stage rejected a declared input (difference, reference or import), `CommandExit: <reason>` on the row |
@@ -304,9 +304,6 @@ on from it. `job submit --job` marks a failed row `launched` as it
 records the new Batch id, so a loop restarted at once counts it
 pending. A failed job holds only the work that depends on it: the loop
 keeps passing until the rest of the selection drains around it. A
-`declined` job, a reference whose coverage map fell short of the
-minimum, is neither pending nor failed: it published nothing, and its
-field is held ([The reference bound](#the-reference-bound)). A
 job whose Batch request itself raises (throttled, a queue that does not
 exist) is marked `failed` with that error in its `refusal`, never left
 `launched` with nothing on Batch, and the error ends the verb (75 when
@@ -377,11 +374,10 @@ made again on every pass, so the field is planned once enough frames
 arrive; with a bound its frames are fixed once the intake drains, so it
 stays held for that run and a new run estimates it again. A reference
 job that coadds its frames and measures its coverage map below
-`min_coverage_fraction` declines ([reference](reference), What it
-runs): nothing is published and the job is `declined`, not failed. The
-pass then reports its field under `held` with the declined job's reason,
-and plans it again only when the frames it would choose differ from the
-declined job's recorded inputs, so the same coadd is never rebuilt.
+`min_coverage_fraction` fails with exit 65, the measured fraction its
+reason ([reference](reference), What it runs), as any failed job: the
+pass reports it under `failed`, its field's key counts as taken until a
+person reruns it, and the loop exits 1 for it.
 
 ## No chain (2026-10-24)
 

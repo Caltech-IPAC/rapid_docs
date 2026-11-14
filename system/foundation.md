@@ -81,17 +81,14 @@ earned each key are on the [datasets](datasets) page.
 ### Jobs
 
 A job is one execution of one stage under a run. The `jobs` row holds
-the stage, its scope, its state (`launched`, `running`, `published`,
-`failed` or `declined`), the image digest it ran under (none for a job run from a
+the stage, its scope, its state (`launched`, `running`, `published` or
+`failed`), the image digest it ran under (none for a job run from a
 checkout) and beside it the instance type, the Batch job id it was
 last submitted as (none for a local job), the settings hash, the
 attempt whose outputs were published, its manifest, the launched,
 started and ended times, the exit code, and the reason an automatic
-binding was refused, if one was, the reason Batch gave for ending a
-container that never recorded its own end, or the reason a job declined.
-A `declined` job's stage ended normally with nothing to publish: a
-reference whose coverage fell short ({ref}`ruling <decision-job-declined>`).
-Local and Batch executions
+binding was refused, if one was, or the reason Batch gave for ending a
+container that never recorded its own end. Local and Batch executions
 both get a job row. A killed execution is a job row
 that never reached `published`.
 
@@ -112,7 +109,7 @@ distinct live streams:
 | `l2files` | dataset, expid, sca, fid | `l2files` |
 | `diffimages` | dataset, expid, sca, fid | `diffimages` |
 | `psfs` | dataset, fid, sca, kind | `psfs` |
-| `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs); `covfrac` and `covdepth` when its frames were chosen by coverage ([reference](reference)) |
+| `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
 | `sources` (source set) | dataset, expid, sca, fid | `sources`, from SFFT's positive and negative Photutils PSF-fit catalogs, each row with its sign as `isdiffpos` ({ref}`ruling <decision-negative-sources>`), with extra columns computed after them (`sumrat`, `nneg`, `nbad`, the real/bogus score); optional: a run may skip loading them ({ref}`ruling <decision-skip-sources>`), and the set is then declared with no rows, so its binding still opens |
 | `xsources` (in the source set, not bound) | dataset, expid, sca, fid | `xsources`, always loaded: `dev`'s SExtractor sources of the SFFT image, from its positive and negative SExtractor catalogs, with extra columns computed after them (`sumrat`, `nneg`, `nbad`, DAOStarFinder's sharpness and roundness, a 5 × 5 PSF fit, the real/bogus score; below); official when their source set is |
 | `objects` (the object catalog, not bound; no survey, {ref}`ruling <decision-objects-without-survey>`) | dataset, field, object id, founding job | `objects`, with `memberships` declared beside each source set; optional with `sources`: a set loaded with no rows associates nothing |
@@ -340,7 +337,7 @@ under an immutable prefix, `<outputs root>/<run>/<stage>/<job>/<attempt>/`,
 and returns. The publisher then, serialised on the job's row:
 
 1. stops at once, before reading any file, if the job is already
-   published or declined;
+   published;
 2. verifies every declared file against its checksum;
 3. loads the attempt's declared rows, and writes the job's state,
    published attempt and manifest;
@@ -359,15 +356,6 @@ and returns. The publisher then, serialised on the job's row:
    794 sessions queued, 376 published differences held to the attempt
    timeout), and the stages' reads of a child plan the same without its
    statistics (publish-analyze).
-
-A stage may decline: its manifest declares no table and carries
-`declined`, the reason. The publisher then loads nothing and binds
-nothing; it records the manifest, the reason in `refusal` and the state
-`declined`, with no published attempt, and commits. A declined job is
-not a failure: `job run` stops on it as on a published job, `job wait`
-ends on it, and the loop counts it neither pending nor failed
-({ref}`ruling <decision-job-declined>`). Its files stay under its
-prefix. The reference stage declines a coadd short of its coverage.
 
 A refused job's rows stay published as an unbound candidate, visibly,
 and a later change group can bind them. A retry finds its job published

@@ -22,8 +22,8 @@ in this repository's history.
 | `job show <id>` | Prints one job, its recorded inputs and its bindings as JSON |
 | `job local --run --stage --scope JSON [--inputs JSON] [--expects JSON]` | Records a job, runs its stage in this process under `RAPIDPIPE_OUTPUTS_ROOT`, publishes it and prints the result |
 | `job submit --job-definition D [--job N \| --run --stage --scope JSON [--inputs JSON] [--expects JSON]] [--job-queue Q]` | Records a job (or, with `--job`, takes an existing one's next attempt) and submits one Batch job running `job run --job <id>`; prints the job and Batch job ids |
-| `job run --job N` | Runs an existing job's next attempt in this process and publishes it; a published or declined job stops before touching a file |
-| `job wait --job N [N ...] [--timeout S] [--interval S]` | Blocks until every named job is published, failed or declined and prints the states |
+| `job run --job N` | Runs an existing job's next attempt in this process and publishes it; a published job stops before touching a file |
+| `job wait --job N [N ...] [--timeout S] [--interval S]` | Blocks until every named job is published or failed and prints the states |
 | `official change --group FILE --who --why` | Applies one change group (a JSON list of items, each with `close` and/or `open`) in one transaction and prints its id |
 | `official undo <group-id> --who --why` | Applies the inverse of a change group and prints the new group's id |
 | `publish --run N [--settings FILE]` | Produces every official packet set of the run not yet stamped to the Kafka topic, stamping each once acknowledged; prints the counts |
@@ -50,7 +50,7 @@ the [stage contract](stage-contract) page lists what `job run` returns.
 
 | Code | Meaning |
 |---|---|
-| 0 | Success; also a job published under a run that is not live, the refusal on its row and on standard error, and a job that declined (a reference short of its coverage: nothing published, the reason on its row) |
+| 0 | Success; also a job published under a run that is not live, the refusal on its row and on standard error |
 | 1 | A refused change group or a job published with its binding refused; `job wait` when a job failed; `loop`, `--once` included, when a job of the run failed or was published with its binding refused |
 | 2 | `job wait`'s `--timeout` passed first |
 | 64 | Usage: every argparse parse failure (help exits 0), a missing run, job or group (the foundation's `NotFound`, no other lookup error), an unreadable file, `RAPIDPIPE_OUTPUTS_ROOT` unset, a database configuration error, and `loop` when its first pass finds no stem of the selection under the source root |
