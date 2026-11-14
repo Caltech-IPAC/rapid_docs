@@ -45,13 +45,7 @@ the calibrated file carries the same gWCS, fit results and metadata.
    gWCS, every coefficient to fifth order present; the other arrays
    scaled by their exposure-time exponent, half-precision arrays
    widened; and the tables as binary tables. The uncompressed file is
-   made in a temporary directory and only the gzipped one is kept. The
-   `FILTER` keyword is the file's Roman filter name (`F146`), where
-   `dev` writes RAPID's spelling (`W146`), so the reference stage's
-   nominal zero point table is keyed by it; the `openuniverse` and
-   `rimtimsim` readers keep RAPID's spelling. Every reader of `FILTER`
-   accepts either, and the `l2files` row's `fid` is the same
-   ({ref}`decisions <decision-roman-filter-names>`).
+   made in a temporary directory and only the gzipped one is kept.
 4. Gzip at `[intake] gzip_level`.
 5. Check that the science PSF was made from this file's own ePSF
    reference: the basename of the file's `meta.ref_file.epsf` card must
