@@ -171,12 +171,16 @@ the settings or the image change ([datasets](datasets)).
 ## The selection
 
 ```
-rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    [--passes 1,2,3] [--expids LO-HI,...] [--programs 1049,...] --job-definition <name:revision> [--job-queue <queue>] \
-    [--max-intake 100] [--interval 120] [--once]
+rapidpipe loop --run <id> [--filters F146,...] [--scas 8,...] [--pointings VVV_EEEE,...] \
+    [--passes 1,2,3] [--expids LO-HI,...] [--programs 1049,...] [--stems STEM,...] \
+    [--mjd LO-HI | --dates YYYY-MM-DD..YYYY-MM-DD] \
+    --job-definition <name:revision> [--job-queue <queue>] [--max-intake 100] [--interval 120] [--once]
+rapidpipe loop --run <id> [selection] --local [--stage NAME]
+rapidpipe loop --run <id> [selection] --dry-run [--stage NAME]
 ```
 
-The selection is three arguments and an optional fourth: filters, SCAs,
+The selection is its terms, every one `all` when left out (2026-11-17;
+until then filters, SCAs and pointings were required): filters, SCAs,
 pointings, either `all` or a list of `VVV_EEEE`, a visit and an
 exposure, and the survey's passes, applied to the listed files and the
 L2 rows alike. A GBTDS pointing is the visit modulo six, so it does not
@@ -211,6 +215,18 @@ field, built from frames of any program, is reused, and a difference
 job matches its sources against the dataset's objects of every run,
 whatever program founded them. Per-program work on flight is a
 selection within the one dataset, never a dataset of its own.
+`--stems` names files by stem (the L2 file name without `_cal.asdf`),
+comma-separated or `@FILE`, one per line: the listing is cut to them,
+and an official L2 row is selected when its expid, SCA and filter are a
+named stem's, so the same term selects a file to ingest and the row it
+became. `--mjd LO-HI` bounds the official L2 rows by `mjdobs`, inclusive,
+and `--dates LO..HI` is the same window given as UTC dates, inclusive of
+both days. Neither bounds the files to ingest: a stem carries no date
+([datasets](datasets)), so under a date selection every new file of the
+other terms is taken in, and the window applies from the reference on.
+A source root is the unit of what arrives, chosen by
+`scripts/stream_l2_files.py`, which queries MAST by date; the window is
+the unit of what is processed.
 A selection admits only its own reader's stems. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
@@ -227,6 +243,39 @@ which every packet job names. The job definition is an
 argument because the run records a code revision, not a job
 definition. The loop changes no stage code, so it may run from a newer
 checkout than the run's revision while the jobs run the run's image.
+
+## Running it here
+
+Three switches run the same pass without Batch (2026-11-17; they
+replace the hand-written `job local` chain the README's quickstart
+carried, one job record typed per stage).
+
+- `--dry-run` plans one pass and prints it: the submissions the pass
+  would make, each with its stage, scope, inputs and expectations as
+  `job submit` would take them, and the pass's counts, including what is
+  held and why. It records nothing, submits nothing and asks Batch
+  nothing; it reads the source root and one snapshot. It implies
+  `--once` and exits 0, or 64 when the pass admits nothing, as a first
+  pass does.
+- `--local` runs each planned submission here, in the pass's stage
+  order, one at a time, through `job local`'s path: the job is recorded,
+  its stage runs in this process under `RAPIDPIPE_OUTPUTS_ROOT`, and it
+  is published. No job definition is given and no Batch client is made;
+  the pass neither reconciles nor reruns. A packet job sends its own set
+  to the run's `[kafka]` endpoint as its last act, as under `job local`;
+  the pass's publish sweep is skipped. Nothing is ever pending between
+  local passes, so the next pass starts at once and `--interval` has no
+  effect: passes repeat until one drains, or until a job fails, which
+  holds its key as on Batch and ends the loop with exit 1 once the rest
+  has drained. `--max-intake` applies.
+- `--stage NAME` keeps only that stage's submissions of the pass, for
+  looking at or running one stage at a time. A pass cut to one stage
+  can never drain, so it implies `--once`.
+
+`--local` and `--dry-run` need no `--job-definition`; with either,
+`--job-queue` is refused. A run on a throwaway database with
+`RAPIDPIPE_OUTPUTS_ROOT` a `file://` root, `--local` over a selection of
+a few stems, is the quickstart.
 
 ## One pass
 
