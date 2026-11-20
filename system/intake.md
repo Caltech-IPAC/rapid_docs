@@ -77,9 +77,10 @@ sky area. The true area varies across a detector, by 2.5% on WFI01 and
 3.3% on WFI16 (measured 2026-11-19), and STScI's pixel area map, the
 CRDS `area` reference, holds each pixel's area over the nominal one.
 CRDS serves one map per detector, the same for every filter. The
-[alerts](alerts) stage multiplies each flux by the map's value at the
-source's position when it converts the flux to nJy, as STScI's aperture
-photometry tutorial does. Not in `dev`.
+[alerts](alerts) stage is to multiply each flux by the map's value at
+the source's position when it converts the flux to nJy, as STScI's
+aperture photometry tutorial does; that conversion is not yet written,
+and until it is the name is recorded and nothing reads it. Not in `dev`.
 
 Intake does not fetch the map, 67 MB per detector. It records the
 map's CRDS name, which CRDS never reuses for new content, so a new
@@ -180,8 +181,8 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 | `rederive_wcs` | false | the file's gWCS; true re-derives it from the file's `wcsinfo` and the distortion reference it names, before the SIP fit |
 | `gaia_proper_motion` | false | the Gaia offset's stars at the catalog's `ref_epoch`, where the SOC simulations place them; true carries each star by its `pmra` and `pmdec` to the frame's mid-exposure (`MJD-OBS` plus half `EXPTIME`) with the packet stage's propagation, as flight data needs; `dev` has no such metric |
 
-The run's `[pixel_area_map]` table, which the [alerts](alerts) stage
-reads too. Not in `dev`:
+The run's `[pixel_area_map]` table, which the [alerts](alerts) stage is
+to read too once it converts fluxes. Not in `dev`:
 
 | Key | Value | Meaning |
 |---|---|---|
