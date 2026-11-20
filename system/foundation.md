@@ -109,7 +109,7 @@ distinct live streams:
 | `l2files` | dataset, expid, sca, fid | `l2files` |
 | `diffimages` | dataset, expid, sca, fid | `diffimages` |
 | `psfs` | dataset, fid, sca, kind | `psfs` |
-| `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members) and `refimcatalogs` (mosaic catalogs) |
+| `refimages` | dataset, field, fid | `refimages`, with children `refimimages` (members), `refimcatalogs` (mosaic catalogs) and `refimmeta` (quality measurements) |
 | `sources` (source set) | dataset, expid, sca, fid | `sources`, from SFFT's positive and negative Photutils PSF-fit catalogs, each row with its sign as `isdiffpos` ({ref}`ruling <decision-negative-sources>`), with extra columns computed after them (`sumrat`, `nneg`, `nbad`, the real/bogus score); optional: a run may skip loading them ({ref}`ruling <decision-skip-sources>`), and the set is then declared with no rows, so its binding still opens |
 | `xsources` (in the source set, not bound) | dataset, expid, sca, fid | `xsources`, always loaded: `dev`'s SExtractor sources of the SFFT image, from its positive and negative SExtractor catalogs, with extra columns computed after them (`sumrat`, `nneg`, `nbad`, DAOStarFinder's sharpness and roundness, a 5 × 5 PSF fit, the real/bogus score; below); official when their source set is |
 | `objects` (the object catalog, not bound; no survey, {ref}`ruling <decision-objects-without-survey>`) | dataset, field, object id, founding job | `objects`, with `memberships` declared beside each source set; optional with `sources`: a set loaded with no rows associates nothing |
@@ -1068,6 +1068,10 @@ copy of the old schema's rows and has no fence on the pooler around it;
 the rollback is the previous schema in git. The standing backups above
 are not part of the step. The check that the pipeline's own path
 works is `rapidpipe run show 1` exiting 64, "run 1 does not exist".
+Since 2026-11-20 a schema change reaches the live `public` by an
+additive dated file instead, with its rows kept ({ref}`ruling
+<decision-additive-dated-files>`); the recreate above is how `public`
+was first built and last rebuilt (2026-11-14).
 
 **The inputs.** The field's files are copied into the inputs bucket
 under `foundation/`. That bucket is write-once: its policy refuses an

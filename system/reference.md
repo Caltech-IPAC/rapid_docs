@@ -58,7 +58,7 @@ Each step is a module of `rapidpipe.science.reference`:
    maps.
 3. **Measurements**: `cov5percent`, the median coverage and pixel
    uncertainty and the clipped image statistics, as `dev` computes them
-   for `refimmeta`.
+   for `refimmeta`, which records them ({ref}`ruling <decision-refimmeta>`).
 4. **SExtractor** runs on the mosaic with the uncertainty map as weight,
    its `MAG_ZEROPOINT` the `MAGZP` the coadd was scaled to, so the
    catalog's magnitudes are AB where `dev`'s are instrumental
@@ -115,18 +115,19 @@ gate.
 
 The files go under `ref/` in the attempt's prefix: the mosaic, its
 coverage and uncertainty maps under awaicgen's names, and the
-SExtractor catalog. The manifest declares three tables:
+SExtractor catalog. The manifest declares four tables:
 
 | Table | Rows |
 |---|---|
 | `refimages` | one, keyed (dataset, field, fid); `nframes`, `cov5percent`, the grade's `status` and `infobits`, and the stamped mosaic's MD5 |
 | `refimimages` | one per coadded L2 row, (`rfid`, `rid`) |
 | `refimcatalogs` | one, the mosaic catalog, `cattype` 1, which `packet` reads for reference-star matches |
+| `refimmeta` | one, keyed by `rfid`: `dev`'s quality measurements under `dev`'s names, `hp6` and `hp9` of the reference's centre, `mjdobsmin` and `mjdobsmax` of the coadded frames, the mosaic's statistics, the catalog's FWHM and source count; `npucatsources` null, since no Photutils catalog of the reference is made ({ref}`ruling <decision-refimmeta>`) |
 
 The stage draws `rfid` from the `refimages` identity sequence while it
 reads its inputs, so the child rows carry it before publication. An
 imported reference keeps the source system's id as an import-only
-value. The manifest also records `dev`'s `refimmeta` measurements, the
+value, and no `refimmeta` row. The manifest also records `dev`'s `refimmeta` measurements, the
 JD range, the total exposure time, the zero point and `zptmag_source`
 (`header` or `nominal`, as `ZPSOURCE`), and under coverage
 selection `coverage`: the selected and skipped `rid`s, the estimate, its

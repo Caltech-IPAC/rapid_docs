@@ -139,8 +139,9 @@ the settings or the image change ([datasets](datasets)).
    scripts/check_run.sh --run $RUN
    ```
 
-   The script prints one line, `Check run N: CLEAN validate 6/6 reader
-   1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
+   The script prints one line, `Check run N: CLEAN validate 6/6 <s> s
+   reader 1/1 <s> s consumer M/M <s> s` (each check followed by its
+   seconds), and exits 0. Any failure prints `FAIL`
    and exits non-zero.
 7. **Close the test.** A test's dataset is live only while it runs
    (Ben, 2026-10-30): once the run is checked, close its live
@@ -171,33 +172,43 @@ the settings or the image change ([datasets](datasets)).
 ## The selection
 
 ```
-rapidpipe loop --run <id> --filters F146 --scas 8 --pointings all \
-    [--passes 1,2,3] [--expids LO-HI,...] [--programs 1049,...] --job-definition <name:revision> [--job-queue <queue>] \
-    [--max-intake 100] [--interval 120] [--once]
+rapidpipe loop --run <id> [--filters F146,...] [--scas 8,...] [--pointings VVV_EEEE,...] \
+    [--passes 1,2,3] [--exposures PREFIX,...] [--programs 1049,...] [--stems STEM,...] \
+    [--mjd LO-HI | --dates YYYY-MM-DD..YYYY-MM-DD] \
+    --job-definition <name:revision> [--job-queue <queue>] [--max-intake 100] [--interval 120] [--once]
+rapidpipe loop --run <id> [selection] --local [--stage NAME]
+rapidpipe loop --run <id> [selection] --dry-run [--stage NAME]
 ```
 
-The selection is three arguments and an optional fourth: filters, SCAs,
+The selection is its terms, every one `all` when left out (2026-11-17;
+until then filters, SCAs and pointings were required): filters, SCAs,
 pointings, either `all` or a list of `VVV_EEEE`, a visit and an
 exposure, and the survey's passes, applied to the listed files and the
-L2 rows alike. A GBTDS pointing is the visit modulo six, so it does not
+L2 rows alike: a row is read by the stem its intake job took the file
+from (`jobs.scope ->> 'file'`), never by its `expid`, which is a serial
+that carries no meaning ([exposure id](exposure-id)); an imported row
+has no stem and is selected only when no pass, pointing, exposure or
+stem term is set. A GBTDS pointing is the visit modulo six, so it does not
 bound that survey's epochs; a sample there is a source root of chosen
 files ([datasets](datasets)). Under an OpenUniverse run
 (`[intake] reader = "openuniverse"`) a pointing is the observing
-sequence's row, which is the intake's `expid`; the loop lists each
+sequence's row; the loop lists each
 selected filter's prefix in the simulation's legacy spelling
 (`--filters F158` lists `H158/`), and `--passes` is refused. Under a
 RimTimSim run (`[intake] reader = "rimtimsim"`) the loop lists the
 source root's flat prefix of `_lite.fits.gz` files, a pointing is the
-file's exposure number, the intake's `expid`, and there are no passes.
+file's exposure number, and there are no passes.
 Under a socsims lite run (`[intake] reader = "socsims-lite"`, `dev`'s
 converted socsims files) the loop lists the SOC observations' flat
 `_cal_lite.fits.gz` files and selects them as SOC stems.
-`--expids` bounds any selection by inclusive ranges of the intake's
-`expid`, comma separated, with the other terms; a SOC `expid` packs
-pass, observation, visit and exposure in that order, so one range is a
-contiguous stretch of a pass's observations (Russ Laher's 10/20/2026
-subset with its reference frames is `--passes 2,5 --expids
-2000000-2999999,5036101-5036401`).
+`--exposures` bounds any selection by the exposure's name, the stem
+with its detector and file-kind suffix removed: comma-separated
+prefixes, a file or row admitted when its name starts with any of
+them, with the other terms. A SOC name runs program, plan, pass,
+segment, observation, visit and exposure in that order, so a prefix is
+a stretch of that hierarchy (Russ Laher's 10/20/2026 subset with its
+reference frames, pass 2 whole and pass 5 observation 3 visits 61 to
+64 of r00340, is `--passes 2,5 --exposures r0034001002,r0034001005001003061,r0034001005001003062,r0034001005001003063,r0034001005001003064`).
 `--programs` selects programs within the dataset, comma-separated
 program numbers (`1049,1018`, or `-2`), all by default. A listed stem's
 program is the one intake will write for it: the run's `[intake]
@@ -211,6 +222,19 @@ field, built from frames of any program, is reused, and a difference
 job matches its sources against the dataset's objects of every run,
 whatever program founded them. Per-program work on flight is a
 selection within the one dataset, never a dataset of its own.
+`--stems` names files by stem (the L2 file name without `_cal.asdf`),
+comma-separated or `@FILE`, one per line: the listing is cut to them,
+and an official L2 row is selected when the stem its intake took in
+gives a named stem's exposure name, SCA and filter, so the same term
+selects a file to ingest and the row it became; an imported row has no
+intake stem and is never selected by `--stems`. `--mjd LO-HI` bounds the official L2 rows by `mjdobs`, inclusive,
+and `--dates LO..HI` is the same window given as UTC dates, inclusive of
+both days. Neither bounds the files to ingest: a stem carries no date
+([datasets](datasets)), so under a date selection every new file of the
+other terms is taken in, and the window applies from the reference on.
+A source root is the unit of what arrives, chosen by
+`scripts/stream_l2_files.py`, which queries MAST by date; the window is
+the unit of what is processed.
 A selection admits only its own reader's stems. A pointing is
 the same (visit, exposure) pair in every pass of a filter; the
 observation number is not part of it, since it can change between
@@ -227,6 +251,45 @@ which every packet job names. The job definition is an
 argument because the run records a code revision, not a job
 definition. The loop changes no stage code, so it may run from a newer
 checkout than the run's revision while the jobs run the run's image.
+
+## Running it here
+
+Three switches run the same pass without Batch (2026-11-17; they
+replace the hand-written `job local` chain the README's quickstart
+carried, one job record typed per stage).
+
+- `--dry-run` plans one pass and prints it: the submissions the pass
+  would make, each with its stage, scope, inputs and expectations as
+  `job submit` would take them, and the pass's counts, including what is
+  held and why. It records nothing, submits nothing and asks Batch
+  nothing; it reads the source root and one snapshot. It assigns no
+  exposure id: an exposure the dataset has none for is planned with
+  `expid` null and named under `unassigned`, and the real pass gives it
+  one ([exposure id](exposure-id)). Intakes are planned once the
+  dataset's PSF is official, so a fresh run's dry run shows one `psf`
+  submission and the count of files not yet taken in as `new`, and
+  names nothing under `unassigned` until the pass after the PSF. It implies
+  `--once` and exits 0, or 64 when the pass admits nothing, as a first
+  pass does.
+- `--local` runs each planned submission here, in the pass's stage
+  order, one at a time, through `job local`'s path: the job is recorded,
+  its stage runs in this process under `RAPIDPIPE_OUTPUTS_ROOT`, and it
+  is published. No job definition is given and no Batch client is made;
+  the pass neither reconciles nor reruns. A packet job sends its own set
+  to the run's `[kafka]` endpoint as its last act, as under `job local`;
+  the pass's publish sweep is skipped. Nothing is ever pending between
+  local passes, so the next pass starts at once and `--interval` has no
+  effect: passes repeat until one drains, or until a job fails, which
+  holds its key as on Batch and ends the loop with exit 1 once the rest
+  has drained. `--max-intake` applies.
+- `--stage NAME` keeps only that stage's submissions of the pass, for
+  looking at or running one stage at a time. A pass cut to one stage
+  can never drain, so it implies `--once`.
+
+`--local` and `--dry-run` need no `--job-definition`; with either,
+`--job-queue` is refused. A run on a throwaway database with
+`RAPIDPIPE_OUTPUTS_ROOT` a `file://` root, `--local` over a selection of
+a few stems, is the quickstart.
 
 ## One pass
 
@@ -253,7 +316,11 @@ Its order:
    imported: its first pass derives what is missing.
 2. **intake**: one job per listed file the selection admits that no
    published intake of the dataset and no intake job of this run has
-   taken, at most `--max-intake` per pass. Each names its filter's and
+   taken, at most `--max-intake` per pass. Before it plans, the pass
+   resolves the exposure id of every such file's name in `exposure_ids`
+   (inserting the names it has not seen, in one committed operation)
+   and puts it in the intake's scope, so the 18 SCAs of an exposure
+   carry one id ([exposure id](exposure-id)). Each names its filter's and
    SCA's science PSF. The first intake of an exposure expects the
    shared `exposures` key; the others leave it out.
 3. **reference**: one job per field and filter that a selected L2 row
