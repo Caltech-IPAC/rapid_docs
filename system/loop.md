@@ -139,8 +139,9 @@ the settings or the image change ([datasets](datasets)).
    scripts/check_run.sh --run $RUN
    ```
 
-   The script prints one line, `Check run N: CLEAN validate 6/6 reader
-   1/1 consumer M/M ...`, and exits 0. Any failure prints `FAIL`
+   The script prints one line, `Check run N: CLEAN validate 6/6 <s> s
+   reader 1/1 <s> s consumer M/M <s> s` (each check followed by its
+   seconds), and exits 0. Any failure prints `FAIL`
    and exits non-zero.
 7. **Close the test.** A test's dataset is live only while it runs
    (Ben, 2026-10-30): once the run is checked, close its live
@@ -264,7 +265,10 @@ carried, one job record typed per stage).
   nothing; it reads the source root and one snapshot. It assigns no
   exposure id: an exposure the dataset has none for is planned with
   `expid` null and named under `unassigned`, and the real pass gives it
-  one ([exposure id](exposure-id)). It implies
+  one ([exposure id](exposure-id)). Intakes are planned once the
+  dataset's PSF is official, so a fresh run's dry run shows one `psf`
+  submission and the count of files not yet taken in as `new`, and
+  names nothing under `unassigned` until the pass after the PSF. It implies
   `--once` and exits 0, or 64 when the pass admits nothing, as a first
   pass does.
 - `--local` runs each planned submission here, in the pass's stage
