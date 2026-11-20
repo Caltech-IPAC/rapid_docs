@@ -17,17 +17,19 @@ in this repository's history.
 
 | Command | Does |
 |---|---|
-| `run create --who --why --revision [--settings FILE] [--overlay FILE] [--set TABLE.key=VALUE ...] --survey --dataset` | Records a run with its body resolved from the three layers and prints its id |
-| `run show <id>` | Prints one run, its live binding and its jobs as JSON |
+| `run create [--who] --why [--revision] [--settings FILE] [--overlay FILE] [--set TABLE.key=VALUE ...] --survey --dataset` | Records a run with its body resolved from the three layers and prints its id; `--who` defaults to the login name (`root` is refused as a default), `--revision` to `RAPID_SOURCE_REVISION`, the commit of the code running here, which the image and `scripts/dev.sh` set, and is required where it is unset |
+| `run show <id> [--toml FILE]` | Prints one run, its live binding and its jobs as JSON; with `--toml` writes the run's stored settings body to FILE as TOML instead, which `run create --settings FILE` stores as the same body with the same `settings_hash` |
+| `run stop --run N [--who] --why` | Records the run as stopped and asks Batch to cancel or terminate every job of it that has not ended; from then on `loop`, `job local`, `job submit` and `job run` refuse the run (exit 1), saying who stopped it and why. A stopped run is not started again; a new run takes the work on. Repeat it to ask Batch again |
+| `run cleanup --run N [--delete]` | For a stopped run whose every job has ended, lists as JSON the attempt directories under `RAPIDPIPE_OUTPUTS_ROOT` that belong to its jobs and hold no published or official product, with file counts; refuses, naming the job, while a job is not shown to have ended. `--delete` removes the listed files, checking each attempt again as it reaches it, and keeps and names any that was published meanwhile (exit 1) |
 | `job show <id>` | Prints one job, its recorded inputs and its bindings as JSON |
 | `job local --run --stage --scope JSON [--inputs JSON] [--expects JSON]` | Records a job, runs its stage in this process under `RAPIDPIPE_OUTPUTS_ROOT`, publishes it and prints the result |
 | `job submit --job-definition D [--job N \| --run --stage --scope JSON [--inputs JSON] [--expects JSON]] [--job-queue Q]` | Records a job (or, with `--job`, takes an existing one's next attempt) and submits one Batch job running `job run --job <id>`; prints the job and Batch job ids |
 | `job run --job N` | Runs an existing job's next attempt in this process and publishes it; a published job stops before touching a file |
 | `job wait --job N [N ...] [--timeout S] [--interval S]` | Blocks until every named job is published or failed and prints the states |
-| `official change --group FILE --who --why` | Applies one change group (a JSON list of items, each with `close` and/or `open`) in one transaction and prints its id |
-| `official undo <group-id> --who --why` | Applies the inverse of a change group and prints the new group's id |
+| `official change --group FILE [--who] --why` | Applies one change group (a JSON list of items, each with `close` and/or `open`) in one transaction and prints its id |
+| `official undo <group-id> [--who] --why` | Applies the inverse of a change group and prints the new group's id: the way to take a run's products out of official. It leaves the files, the rows and the run in place, and does not recall a packet already sent |
 | `publish --run N [--settings FILE]` | Produces every official packet set of the run not yet stamped to the Kafka topic, stamping each once acknowledged; prints the counts |
-| `loop --run [--filters] [--scas] [--pointings] [--passes] [--exposures] [--programs] [--stems] [--mjd LO-HI \| --dates LO..HI] (--job-definition D [--job-queue Q] \| --local \| --dry-run) [--stage NAME] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit; `--local` runs each job here instead, `--dry-run` prints the pass's plan and does nothing, `--stage` keeps one stage's ([loop](loop)) |
+| `loop --run [--filters] [--scas] [--pointings] [--passes] [--exposures] [--programs] [--stems] [--mjd LO-HI \| --dates LO..HI] (--job-definition D [--job-queue Q] \| --local \| --dry-run) [--stage NAME] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit; `--local` runs each job here instead, `--dry-run` prints the pass's plan and does nothing, `--stage` keeps one stage's. Every selection term is `all` when left out, and its help says whether it bounds the files taken in, the official rows, or both; a first pass that admits nothing exits 64 naming the term that admits no file. `--job-definition` stays required for Batch: a definition names its image by digest and one image is registered under several, so the tool cannot choose it from the run ([loop](loop)) |
 | `exposure id --dataset D --name N` | Prints the `expid` the dataset holds for the exposure's name (the stem without its detector and file-kind suffix), assigning one when it has none: what the loop does for every file it takes in, for a hand-run `intake` or an `import` of an epoch ([exposure id](exposure-id)) |
 
 The stages the loop submits (`psf`, `intake`, `reference`, `difference`,
@@ -38,11 +40,11 @@ contract's `stage` and `selftest` commands were retired on 2026-10-25
 
 ## What the tool does not have
 
-There is no command that lists runs or jobs, watches a run or cancels a
-job. To look: `run show`, `job show`, the loop's per-pass line, the
+There is no command that lists runs or jobs, watches a run or cancels
+one job. To look: `run show`, `job show`, the loop's per-pass line, the
 pipeline repository's `scripts/check_run.sh` and `scripts/inspect_run.py`,
-and the named queries in `database/queries.sql`. To cancel a Batch job:
-`aws batch terminate-job`.
+and the named queries in `database/queries.sql`. To end every job of a
+run, `run stop`; to cancel one Batch job: `aws batch terminate-job`.
 
 ## Exit codes
 

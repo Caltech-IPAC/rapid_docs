@@ -126,7 +126,18 @@ Every product table on `rebuild` adds `job` and `dataset`; the rows
 below do not repeat them. `dev`'s side is `rapidOpsTables.sql`,
 `rapidOpsSourcesTable.sql`, its migrations and the tables its scripts
 create per field; `rebuild`'s is `database/schema.sql` and the dated
-files beside it.
+files beside it. Where `dev` applies its migrations by hand as the
+database owner, a dated file on `rebuild` is applied by whoever merges
+the pull request that adds it, from their own workstation, in one
+command in a rapid_systems checkout:
+`cloudformation/apply-dated-sql.sh <path to the dated file>`. It runs
+the file as `postgres` on the database host in one transaction and
+exits 0 only when the file applied; the order of the files and what a
+second application does are in the pipeline repository's
+`database/README.md` ({ref}`ruling <decision-operator-steps-uniform>`,
+{ref}`ruling <decision-additive-dated-files>`). Its authority is the
+policy `rapid-workstation-operator` on the workstation's instance role;
+a workstation whose role is not on that roster needs it added first.
 
 | `dev` | `rebuild` | Columns | Why |
 |---|---|---|---|
