@@ -42,6 +42,9 @@ A ruling that closes one goes under Rulings and its line leaves.
 
 ## Rulings
 
+(decision-difference-keeps-dev-files)=
+**The difference job keeps the files `dev` uploads**, replacing the trim ({ref}`ruling <decision-difference-trimmed>`): beside the published difference, its uncertainty, mask, PSF, catalogs and the packet stage's reads, `diff/` keeps the intermediate products and every differencer's images and catalogs that `dev`'s science pipeline uploads to S3, listed on [difference](difference.md#declared-outputs). Every FITS file is gzipped at level 1 and its original removed. What `dev` does not upload (the input copies, SWarp weights, bkgest scratch, the unmasked differences, SFFT's segmentation maps and the science image's SExtractor catalog) is still removed. The SFFT SExtractor text catalogs are SExtractor's own: `dev` writes its extra columns into them, and here those columns are only in `xsources`. The naive subtraction's Photutils catalogs stay unmade ({ref}`ruling <decision-naive-no-psfcat>`). Each job keeps several times the trim's 247 MB; the size was not measured. (Azalee Bostroem, 2026-11-17)
+
 (decision-gw-ghost)=
 **The flight overlay masks WFI12's guide-window ghost at intake, `[intake] gw_ghost = [{sca = 12, columns = [2645, 2668], rows = [0, 2]}]`, and the base masks none** (not in `dev`): WFI12 shows a known ghost of its guide window, a box of near-zero signal at fixed columns in the window's rows moved up one row, which the L2 DQ does not flag (GW_AFFECTED_DATA covers the window's own columns only). Unmasked, its pixels enter every reference built from a WFI12 frame; it was found while tracing program 1049 alerts to their reference inputs. The box is set NaN as the DQ mask's pixels are, and no DQ bit is written: the SOC is expected to flag the ghost in a later calibration, and the overlay's box is dropped then. The measurement over 96 WFI12 files is on [datasets](datasets.md#flight-data). (Jacob Jencson, 2026-11-16)
 
@@ -203,7 +206,9 @@ longer carries the footprint. (Ben, 2026-10-22 PDT)
 **Difference outputs are trimmed** to the difference, its uncertainty,
 the mask and the catalog, gzipped as the intake's are; a variant is
 made again by a rerun, and there is no setting to keep more. A storage
-lifecycle rule was named and not taken. (Ben, 2026-10-22 PDT)
+lifecycle rule was named and not taken. (Ben, 2026-10-22 PDT) Replaced
+by {ref}`keeping dev's files <decision-difference-keeps-dev-files>`
+(Azalee Bostroem, 2026-11-17).
 
 (decision-gbtds-after-injection)=
 **GBTDS comes after injection**, not beside it; its WCS re-derivation
