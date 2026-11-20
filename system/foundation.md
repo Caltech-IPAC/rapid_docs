@@ -1068,6 +1068,10 @@ copy of the old schema's rows and has no fence on the pooler around it;
 the rollback is the previous schema in git. The standing backups above
 are not part of the step. The check that the pipeline's own path
 works is `rapidpipe run show 1` exiting 64, "run 1 does not exist".
+Since 2026-11-20 a schema change reaches the live `public` by an
+additive dated file instead, with its rows kept ({ref}`ruling
+<decision-additive-dated-files>`); the recreate above is how `public`
+was first built and last rebuilt (2026-11-14).
 
 **The inputs.** The field's files are copied into the inputs bucket
 under `foundation/`. That bucket is write-once: its policy refuses an
