@@ -27,9 +27,9 @@ in this repository's history.
 | `job run --job N` | Runs an existing job's next attempt in this process and publishes it; a published job stops before touching a file |
 | `job wait --job N [N ...] [--timeout S] [--interval S]` | Blocks until every named job is published or failed and prints the states |
 | `official change --group FILE [--who] --why` | Applies one change group (a JSON list of items, each with `close` and/or `open`) in one transaction and prints its id |
-| `official undo <group-id> [--who] --why` | Applies the inverse of a change group and prints the new group's id: the way to take a run's products out of official. It leaves the files, the rows and the run in place, and does not recall a packet already sent |
+| `official undo <group-id> [--who] --why` | Applies the inverse of a change group and prints the new group's id: the way to take a run's products out of official. It leaves the files, the rows and the run in place, and does not recall a packet already sent. The dataset does not take the run's files in again: the loop plans an intake for a file only when no intake job of the dataset is published for it, whatever the bindings, so a new dataset name is the way to process them again |
 | `publish --run N [--settings FILE]` | Produces every official packet set of the run not yet stamped to the Kafka topic, stamping each once acknowledged; prints the counts |
-| `loop --run [--filters] [--scas] [--pointings] [--passes] [--exposures] [--programs] [--stems] [--mjd LO-HI \| --dates LO..HI] (--job-definition D [--job-queue Q] \| --local \| --dry-run) [--stage NAME] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit; `--local` runs each job here instead, `--dry-run` prints the pass's plan and does nothing, `--stage` keeps one stage's. Every selection term is `all` when left out, and its help says whether it bounds the files taken in, the official rows, or both; a first pass that admits nothing exits 64 naming the term that admits no file. `--job-definition` stays required for Batch: a definition names its image by digest and one image is registered under several, so the tool cannot choose it from the run ([loop](loop)) |
+| `loop --run [--filters] [--scas] [--pointings] [--passes] [--exposures] [--programs] [--stems] [--mjd LO-HI \| --dates LO..HI] (--job-definition D [--job-queue Q] \| --local \| --dry-run) [--stage NAME] [--max-intake N] [--interval S] [--once]` | Admits what is new under the run's `[intake] source_root` for the selection and submits every ready job one stage forward on Batch, one summary line per pass, until a pass finds nothing new, pending or to submit; `--local` runs each job here instead, `--dry-run` prints the pass's plan and does nothing, `--stage` keeps one stage's. Every selection term is `all` when left out, and its help says whether it bounds the files taken in, the official rows, or both; a first pass that admits nothing exits 64 naming the term that admits no file. `--job-definition` stays required for Batch: a definition names its image by digest and one image is registered under several, so the tool cannot choose it from the run ([loop](loop)). Name it by a numbered revision, `rapid-rebuild:R`: a bare name is Batch's newest revision when the job is submitted, which a release registered meanwhile changes |
 | `exposure id --dataset D --name N` | Prints the `expid` the dataset holds for the exposure's name (the stem without its detector and file-kind suffix), assigning one when it has none: what the loop does for every file it takes in, for a hand-run `intake` or an `import` of an epoch ([exposure id](exposure-id)) |
 
 The stages the loop submits (`psf`, `intake`, `reference`, `difference`,
@@ -64,6 +64,14 @@ the [stage contract](stage-contract) page lists what `job run` returns.
 
 A failed job's row records the same code its process exits with.
 
+A reference whose frames do not cover enough of its field (under
+`[reference.selection] selection_type = "coverage"`, the flight
+overlay's) is recorded `failed` with 65 and the refusal
+`CommandExit: estimated coverage <f> < <minimum>` or `measured coverage`,
+and the loop then exits 1. That rejection is expected, and is told from a
+fault by the row's reason; any other failed job of the run keeps its own
+code and reason.
+
 ## Where it runs
 
 On a fleet host or a workstation, with the image's environment or a
@@ -72,7 +80,12 @@ checkout on `PYTHONPATH`. It reads:
 - `RAPIDPIPE_OUTPUTS_ROOT`: the `file://` or `s3://` root every job's
   prefix is under (`job local`, `job run`, `job submit`, `loop`);
 - `RAPIDPIPE_BATCH_JOB_QUEUE`: the Batch job queue when `--job-queue` is
-  not given; the job definition is always `--job-definition`;
+  not given; the job definition is always `--job-definition`, by a
+  numbered revision. `aws batch describe-job-definitions --job-definitions
+  rapid-rebuild:R --query 'jobDefinitions[0].containerProperties.image'
+  --output text` prints that revision's image, `…@sha256:<digest>`, and
+  that digest is what the systems repository's
+  `release-hooks/promote` takes, so the build promoted is the build tested;
 - `RAPIDPIPE_BATCH_JOB_NAME_PREFIX`: the Batch job name's prefix
   (default `rapid`);
 - the database: the `PG*` variables when set, else `RAPID_DB_SECRET_ID`
