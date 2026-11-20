@@ -45,37 +45,85 @@ the calibrated file carries the same gWCS, fit results and metadata.
    exposure, SCA and filter, and check them against the file's own
    observation metadata and detector. A contradiction fails the job
    before any manifest.
-3. Convert with `dev`'s `build_fits_file`: a 16-HDU FITS whose primary
-   header holds every scalar of the ASDF metadata as a `HIERARCH` card;
+3. Under `[pixel_area_map] lookup`, find the name of the file's pixel
+   area map ([below](#the-pixel-area-maps-name)).
+4. Convert with `dev`'s `build_fits_file`: a 16-HDU FITS whose primary
+   header holds every scalar of the ASDF metadata as a `HIERARCH` card,
+   and the pixel area map's name as `PAMREF` when one was found;
    the science array in DN with a degree-5 SIP distortion fitted to the
    gWCS, every coefficient to fifth order present; the other arrays
    scaled by their exposure-time exponent, half-precision arrays
    widened; and the tables as binary tables. The uncompressed file is
    made in a temporary directory and only the gzipped one is kept.
-4. Gzip at `[intake] gzip_level`.
-5. Check that the science PSF was made from this file's own ePSF
+5. Gzip at `[intake] gzip_level`.
+6. Check that the science PSF was made from this file's own ePSF
    reference: the basename of the file's `meta.ref_file.epsf` card must
    be the PSF file's `EPSFREF`, which the [psf](psf) stage writes and
    `dev`'s copied F146 files also carry. A mismatch fails the job before
    any manifest, naming both; a PSF or a file that names no reference
    is accepted.
-6. Measure the limiting magnitude with the science PSF, as `import`
+7. Measure the limiting magnitude with the science PSF, as `import`
    does.
-7. Derive the image centre, corners, tessellation field, overlapping
+8. Derive the image centre, corners, tessellation field, overlapping
    fields and HEALPix indexes, as `import` does.
-8. Write the rows and the manifest.
+9. Write the rows and the manifest.
 
 The fitted SIP reproduces the gWCS to well under the fit's own 0.1
 pixel bound: on a real file, to below 1e-5 arcsec at the corners and
 the centre. The difference stage reformats the science image itself,
 so intake does not.
 
+## The pixel area map's name
+
+The file's zero point assumes every pixel covers the detector's nominal
+sky area. The true area varies across a detector, by 2.5% on WFI01 and
+3.3% on WFI16 (measured 2026-11-19), and STScI's pixel area map, the
+CRDS `area` reference, holds each pixel's area over the nominal one.
+CRDS serves one map per detector, the same for every filter. The
+[alerts](alerts) stage multiplies each flux by the map's value at the
+source's position when it converts the flux to nJy, as STScI's aperture
+photometry tutorial does. Not in `dev`.
+
+Intake does not fetch the map, 67 MB per detector. It records the
+map's CRDS name, which CRDS never reuses for new content, so a new
+delivery reaches new files under a new name and an older file keeps the
+map it was calibrated with. The maps themselves are kept once each,
+under their names, in the store `[pixel_area_map] store` names, copied there
+by a script before any run, as the ePSF references are.
+
+Under `[pixel_area_map] lookup = true`, flight's overlay, intake takes the
+name from the first of these that gives one:
+
+1. The file's own `meta.ref_file.area`. Flight L2 files carry
+   `INCOMPLETE` there (every file checked to 2026-11-20), so today this
+   gives none.
+2. CRDS's best reference of type `area` for the file's detector and
+   exposure start time, asked of `[pixel_area_map] crds_server` under
+   `[pixel_area_map] crds_context`, with a short timeout and one retry.
+3. The store's `index.json`, which the copying script writes: each
+   map's detector, useafter date and name. Intake takes its detector's
+   latest map at or before the exposure start, with a warning. The
+   index is as fresh as the script's last run.
+
+When none gives a name, intake records none, with a warning, and the
+job succeeds: an unanswered CRDS query never fails an intake.
+
+The name is the converted file's `PAMREF` keyword and the `l2files`
+row's `pixel_area_map`, null when no name was found. The manifest records
+which of the three gave it. Under `lookup = false`, the base's value,
+intake asks nothing and records none: a simulation's pixels are not the
+flight detectors', and a query by date would hand it an on-orbit map.
+
+If CRDS fills `meta.ref_file.area` in flight L2 files, step 1 gives the
+name with no change here, and steps 2 and 3 can be retired. The code
+marks each place with `TODO(crds-area-keyword)`.
+
 ## Declared outputs
 
 | Output | Key | Notes |
 |---|---|---|
 | the gzipped FITS | | under the attempt's prefix; the `l2files` row's `filename` is its URL |
-| `l2files` | dataset, expid, sca, fid | the file's footprint, field, overlapping fields, HEALPix indexes, WCS columns and limiting magnitude |
+| `l2files` | dataset, expid, sca, fid | the file's footprint, field, overlapping fields, HEALPix indexes, WCS columns, limiting magnitude and `pixel_area_map`, its pixel area map's CRDS name or null ([above](#the-pixel-area-maps-name)) |
 | `exposures` | dataset, expid | one per exposure: `exptime`, `program_id` (the setting below, or the file's own `PROGRAM` where the setting is `""`) and the converted header's Roman observation identifiers, `dev`'s columns (`execution_plan`, `pass`, `segment`, `observation`, `visit`, `exposure`, `visit_id`, `observation_id`), null for a reader whose files carry none |
 
 The manifest records the file's provenance: its observation
@@ -131,6 +179,16 @@ The run's `[intake]` table, with `dev`'s hard-coded values as keys:
 | `crpix_shift` | `[0.0, 0.0]` | the file's WCS unchanged; a dataset's measured translation, in pixels, added to `CRPIX1` and `CRPIX2` |
 | `rederive_wcs` | false | the file's gWCS; true re-derives it from the file's `wcsinfo` and the distortion reference it names, before the SIP fit |
 | `gaia_proper_motion` | false | the Gaia offset's stars at the catalog's `ref_epoch`, where the SOC simulations place them; true carries each star by its `pmra` and `pmdec` to the frame's mid-exposure (`MJD-OBS` plus half `EXPTIME`) with the packet stage's propagation, as flight data needs; `dev` has no such metric |
+
+The run's `[pixel_area_map]` table, which the [alerts](alerts) stage
+reads too. Not in `dev`:
+
+| Key | Value | Meaning |
+|---|---|---|
+| `lookup` | false | intake asks for no pixel area map and records none; true, flight's overlay, finds the map's name ([above](#the-pixel-area-maps-name)) |
+| `store` | the run's overlay only | the URL prefix holding each map under its CRDS name, with `index.json`; filled by `scripts/copy_pixel_area_maps.py` before any run |
+| `crds_server` | `"https://roman-crds.stsci.edu"` | the server asked for the best reference, the psf stage's |
+| `crds_context` | `"roman-operational"` | the CRDS context the best reference is asked under |
 
 Each dataset's values, and the measurement behind each, are on the
 [datasets](datasets) page. When the job names its dataset's Gaia
