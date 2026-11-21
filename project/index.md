@@ -12,6 +12,7 @@ configuration and scripts, and the pipeline software, are under the BSD
 3-Clause License, stated in their repositories.
 
 - [Day one](day-one): from an SMDC login to a merged pull request and a local epoch
+- [Why the rebuild](why-the-rebuild): familiar science on a new operating foundation
 - [Team and contact](team)
 - [How the project is run](how-the-project-is-run)
 - [Contributing](contributing)
@@ -21,6 +22,7 @@ configuration and scripts, and the pipeline software, are under the BSD
 :hidden:
 
 day-one
+why-the-rebuild
 team
 how-the-project-is-run
 contributing

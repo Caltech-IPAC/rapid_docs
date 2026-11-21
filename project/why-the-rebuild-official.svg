@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="310" viewBox="0 0 760 310" role="img" aria-labelledby="title">
+  <title id="title">Official selects retained rows; undo selects the original again</title>
+  <rect width="760" height="310" fill="white"/>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#334155"/></marker>
+  </defs>
+  <g font-family="sans-serif" font-size="16" fill="#172b43" text-anchor="middle">
+    <rect x="300" y="18" width="160" height="48" rx="8" fill="#e7f2eb" stroke="#3b6950"/>
+    <text x="380" y="48">official</text>
+    <rect x="50" y="165" width="280" height="95" rx="8" fill="#e9f2fa" stroke="#466580"/>
+    <text x="190" y="195">Original run's rows</text><text x="190" y="229">Retained</text>
+    <rect x="430" y="165" width="280" height="95" rx="8" fill="#e9f2fa" stroke="#466580"/>
+    <text x="570" y="195">Correction run's rows</text><text x="570" y="229">Retained</text>
+    <text x="190" y="104">undo</text><text x="190" y="128">inverse change group</text>
+    <text x="570" y="104">selected after</text><text x="570" y="128">change group</text>
+    <text x="380" y="291">The selection moves; both runs' rows stay.</text>
+  </g>
+  <g fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M460 42 H735 V145 H570 V158"/>
+    <path d="M300 42 H25 V145 H190 V158" stroke-dasharray="7 5"/>
+  </g>
+</svg>
