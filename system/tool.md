@@ -93,5 +93,20 @@ checkout on `PYTHONPATH`. It reads:
   names (`rapidpipe/db/connection.py`);
 - `RAPIDPIPE_LOG_LEVEL`, which overrides the log level.
 
+A production run is a scratch run with two of these changed and nothing
+added. `RAPIDPIPE_OUTPUTS_ROOT` is `s3://roman-rapid-products/rapidpipe`:
+the production job role writes under that root and nowhere else, so a
+production run left on a scratch root fails at its first job's upload.
+`--job-definition` is `rapid-rebuild-production:P`, by its number, `P`
+the revision `aws batch describe-job-definitions --job-definition-name
+rapid-rebuild-production --status ACTIVE` prints. No model override is
+needed: from the build that reads the real-bogus model's bucket from the
+parameter `/rapid/rebuild/s3/inputs-bucket` on, a production run sets no
+`difference.rubrat.model_prefix`. Production moves only by
+`release-hooks/promote <sha256:digest>` of a build a scratch run has
+checked, which any Operator runs from their `rapid-power` session
+({ref}`ruling <decision-operators-promote>`; the systems repository's
+`cloudformation/release-hooks/README.md`).
+
 The systems repository's `docs/workstation-submission.md` covers
 submitting from a workstation.
