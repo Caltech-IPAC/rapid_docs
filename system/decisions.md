@@ -42,6 +42,9 @@ A ruling that closes one goes under Rulings and its line leaves.
 
 ## Rulings
 
+(decision-operators-promote)=
+**Any Operator promotes**: `release-hooks/promote <digest>`, the one step that moves `rapid-rebuild-production` ({ref}`ruling <decision-release-is-a-build>`), is run by any Operator from their own `rapid-power` session, on a build a scratch run has checked. Why: the `rapid-batch` stack's service role registers the job definition, so an administrator's session is not needed; the power-user role is allowed every call the hook makes by policy simulation, and the first promotion run that way is its proof. (Ben, 2026-11-20; rapid_systems `cloudformation/release-hooks/README.md`)
+
 (decision-additive-dated-files)=
 **SMDC's database is brought forward by additive dated files, with its rows kept**, replacing the 2026-11-14 ruling that nothing migrates and that a schema change lands by a recreate of `public`: each change is a dated file in the pipeline repository's `database/`, applied once in the order its `database/README.md` gives, and `schema.sql` holds the result for a fresh database; no file drops or recreates `public`. Why: the team's runs since the 2026-11-14 recreate are working data, and a recreate for each change would throw them away and block the team until they are rerun. That a change is safe is proven before it is built, on a throwaway database loaded as the live rows are, with the old runs giving the same answers after it; the serial exposure id's file (`2026-11-20-exposure-ids.sql`, [exposure id](exposure-id.md#landing)) is the first proven so. (Ben, 2026-11-20)
 
