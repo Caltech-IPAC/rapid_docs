@@ -189,10 +189,11 @@ difference (`pixel_columns_s`).
 ## Declared outputs
 
 The stage publishes, under `diff/` in the attempt's prefix, the files
-that a person or the packet stage reads, and nothing else
-({ref}`ruling <decision-difference-trimmed>`). `dev` uploads every working file
-for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
-89% of the run's bytes. What is kept, and the reader that earns it:
+`dev` uploads ({ref}`ruling <decision-difference-keeps-dev-files>`, which
+replaced the trim of {ref}`2026-10-22 <decision-difference-trimmed>`).
+Before the trim that was 72 files and 2.5 GB a job on the HLWAS ramp,
+89% of the run's bytes. The files a person or the packet stage reads,
+and the reader that earns each:
 
 | File | Why it is kept |
 |---|---|
@@ -206,16 +207,35 @@ for diagnosis; on the HLWAS ramp that was 72 files and 2.5 GB a job,
 | `awaicgen_output_mosaic_image_resampled_gainmatched.fits.gz` | the template cutout |
 
 The difference, its uncertainty, the mask and the published catalog
-are the ruling's. Three of the others are what `packet` reads, the
+are the trim's. Three of the others are what `packet` reads, the
 reference PSF is the job's own measurement, kept for whoever checks
 the subtraction (15 KB), and the three other catalogs are what a
-comparison of the differencers reads. Every
-FITS file is gzipped at level 1 as the intake's are, the `diffimages`
-row names the `.fits.gz`, and its checksum is the MD5 of the gzipped
-file. Everything else, ZOGY's and the naive
-images, the intermediates and the input copies, is removed before the upload.
-There is no setting to keep more: a variant is made again by rerunning
-the job. `packet` finds a difference image's PSF and uncertainty from
+comparison of the differencers reads.
+
+The rest of `dev`'s uploads are kept beside them for diagnosis; no stage
+reads them:
+
+| Step | Files |
+|---|---|
+| input | the L2 science image |
+| reformat | `<sci>_reformatted.fits.gz`, `<sci>_reformatted_unc.fits.gz`, and its PV-header copy `<sci>_reformatted_pv.fits.gz` |
+| resample | `awaicgen_output_mosaic_image_resampled.fits.gz` and `awaicgen_output_mosaic_uncert_image_resampled.fits.gz`, before gain matching |
+| PSF | the normalized science PSF, `<sci_psf>_normalized.fits.gz` |
+| gain match | `bkg_subbed_science_image_scigainmatchsexcat.txt`, `awaicgen_output_mosaic_image_resampled_refgainmatchsexcat.txt`, `awaicgen_output_mosaic_uncert_image_resampled_gainmatched.fits.gz` |
+| SFFT | `sfftsoln.fits.gz`, `sfftdiffimage_masked_negative.fits.gz`; with `crossconv_flag`, `sfftsoln_cconv.fits.gz`, `sfftdiffimage_dconv_masked_negative.fits.gz` and `sfftdiffimage_cconv_masked[_negative].fits.gz` |
+| ZOGY (when `run_zogy`) | `zogy_diffimage_masked[_negative].fits.gz`, `zogy_diffimage_uncert_masked.fits.gz`, `diffpsf.fits.gz`, `scorrimage_masked[_negative].fits.gz` |
+| naive (when `naive_diffimage_flag`) | `naive_diffimage_masked[_negative].fits.gz`, `naive_diffimage_uncert_masked.fits.gz` |
+| catalogs | each differencer's SExtractor text catalogs, `<detection image>[_negative].txt`; SFFT's and ZOGY's Photutils `*_psfcat[_negative].txt`, `*_psfcat_finder[_negative].txt` and `*_psfcat_residual[_negative].fits.gz` (a sign's three only when its catalog was made) |
+
+The SFFT SExtractor catalogs are as SExtractor wrote them; `dev` writes
+its extra columns into its copies, and here those columns are only in
+`xsources`. Every FITS file is gzipped at level 1 as the intake's are
+and its original removed; the `diffimages` row names the `.fits.gz`,
+and its checksum is the MD5 of the gzipped file. Everything `dev` does
+not upload (the input copies, SWarp's weight maps, bkgest's scratch
+files, the unmasked ZOGY, S_corr and naive differences, SFFT's
+segmentation maps and the science image's SExtractor catalog) is
+removed before the upload. `packet` finds a difference image's PSF and uncertainty from
 the image's own file name, so a run published before the trim, with
 plain FITS, or with ZOGY published, reads as before. Trimming and compressing change no pixel: the
 packets of four epochs published both ways had byte-equal cutouts, 781

@@ -126,7 +126,18 @@ Every product table on `rebuild` adds `job` and `dataset`; the rows
 below do not repeat them. `dev`'s side is `rapidOpsTables.sql`,
 `rapidOpsSourcesTable.sql`, its migrations and the tables its scripts
 create per field; `rebuild`'s is `database/schema.sql` and the dated
-files beside it.
+files beside it. Where `dev` applies its migrations by hand as the
+database owner, a dated file on `rebuild` is applied by whoever merges
+the pull request that adds it, from their own workstation, in one
+command in a rapid_systems checkout:
+`cloudformation/apply-dated-sql.sh <path to the dated file>`. It runs
+the file as `postgres` on the database host in one transaction and
+exits 0 only when the file applied; the order of the files and what a
+second application does are in the pipeline repository's
+`database/README.md` ({ref}`ruling <decision-operator-steps-uniform>`,
+{ref}`ruling <decision-additive-dated-files>`). Its authority is the
+policy `rapid-workstation-operator` on the workstation's instance role;
+a workstation whose role is not on that roster needs it added first.
 
 | `dev` | `rebuild` | Columns | Why |
 |---|---|---|---|
@@ -138,7 +149,7 @@ files beside it.
 | `l2files` | `l2files`, `l2files_official` | dropped: `version`, `vbest`, `ctype1/2`, `cunit1/2`, the SIP orders and coefficients (the SIP stays in the FITS header), `equinox`, `paobsy`, `pafpa`, `skymean`; `l2filemeta`'s centre and corners folded in; `limmag` and `overlapfields` computed before publish; added: `pixel_area_map`, the CRDS name of the file's pixel area map, null when none ([intake](intake.md#the-pixel-area-maps-name)); unique on (dataset, expid, sca, fid, job) | as `exposures`; backfilled columns are computed before publish ([foundation](foundation.md#why-it-is-this-way)) |
 | `l2filemeta` | folded into `l2files` | `ra0` to `dec4`, `hp6`, `hp9`, `fid`, `sca`, `mjdobs` live on `l2files` | no recorded reason |
 | `refimages` | `refimages`, `refimages_official` | dropped: `ppid`, `version`, `vbest`, `hp6`, `hp9`, `svid`, `avid`, `archivestatus`; added from `refimmeta`: `nframes`, `cov5percent`; `status` and `infobits` carry `dev`'s grade | no `vbest`, no `version`, no `ppid` (`database/schema.sql` header); [reference](reference.md#declared-outputs) |
-| `refimmeta` | folded into `refimages` and `jobs.manifest` | kept: `nframes`, `cov5percent`; the rest dropped, some as manifest metrics in `job_metrics` | no recorded reason |
+| `refimmeta` | `refimmeta`, `refimmeta_official` | the same (`dev`'s 24 columns) with `job`; `npucatsources` null; written by each reference job from 2026-11-18, none backfilled; `nframes` and `cov5percent` also on `refimages` | {ref}`ruling <decision-refimmeta>` (until then folded into `refimages` and `jobs.manifest`, no recorded reason) |
 | `refimimages` | `refimimages`, `refimimages_official` | the same (`rfid`, `rid`) | |
 | `refimcatalogs` | `refimcatalogs`, `refimcatalogs_official` | kept: `rfcatid`, `rfid`, `cattype`, `filename`, `checksum`; dropped: `ppid`, `field`, `hp6`, `hp9`, `fid`, `svid`, `status`, `created`, `archivestatus`, `avid` | no recorded reason |
 | `diffimages` | `diffimages`, `diffimages_official` | dropped: `ppid`, `version`, `vbest`, `hp6`, `hp9`, `svid`, `avid`, `archivestatus`, `nalertpackets`; `rid` and `rfid` kept as lineage, not join keys | joins are on scientific keys ([foundation](foundation.md#why-it-is-this-way)) |

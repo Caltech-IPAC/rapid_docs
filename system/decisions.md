@@ -42,6 +42,15 @@ A ruling that closes one goes under Rulings and its line leaves.
 
 ## Rulings
 
+(decision-operators-promote)=
+**Any Operator promotes**: `release-hooks/promote <digest>`, the one step that moves `rapid-rebuild-production` ({ref}`ruling <decision-release-is-a-build>`), is run by any Operator from their own `rapid-power` session, on a build a scratch run has checked. Why: the `rapid-batch` stack's service role registers the job definition, so an administrator's session is not needed; the power-user role is allowed every call the hook makes by policy simulation, and the first promotion run that way is its proof. (Ben, 2026-11-20; rapid_systems `cloudformation/release-hooks/README.md`)
+
+(decision-additive-dated-files)=
+**SMDC's database is brought forward by additive dated files, with its rows kept**, replacing the 2026-11-14 ruling that nothing migrates and that a schema change lands by a recreate of `public`: each change is a dated file in the pipeline repository's `database/`, applied once in the order its `database/README.md` gives, and `schema.sql` holds the result for a fresh database; no file drops or recreates `public`. Why: the team's runs since the 2026-11-14 recreate are working data, and a recreate for each change would throw them away and block the team until they are rerun. That a change is safe is proven before it is built, on a throwaway database loaded as the live rows are, with the old runs giving the same answers after it; the serial exposure id's file (`2026-11-20-exposure-ids.sql`, [exposure id](exposure-id.md#landing)) is the first proven so. (Ben, 2026-11-20)
+
+(decision-difference-keeps-dev-files)=
+**The difference job keeps the files `dev` uploads**, replacing the trim ({ref}`ruling <decision-difference-trimmed>`): beside the published difference, its uncertainty, mask, PSF, catalogs and the packet stage's reads, `diff/` keeps the intermediate products and every differencer's images and catalogs that `dev`'s science pipeline uploads to S3, listed on [difference](difference.md#declared-outputs). Every FITS file is gzipped at level 1 and its original removed. What `dev` does not upload (the input copies, SWarp weights, bkgest scratch, the unmasked differences, SFFT's segmentation maps and the science image's SExtractor catalog) is still removed. The SFFT SExtractor text catalogs are SExtractor's own: `dev` writes its extra columns into them, and here those columns are only in `xsources`. The naive subtraction's Photutils catalogs stay unmade ({ref}`ruling <decision-naive-no-psfcat>`). Each job keeps several times the trim's 247 MB; the size was not measured. (Azalee Bostroem, 2026-11-17)
+
 (decision-gw-ghost)=
 **The flight overlay masks WFI12's guide-window ghost at intake, `[intake] gw_ghost = [{sca = 12, columns = [2645, 2668], rows = [0, 2]}]`, and the base masks none** (not in `dev`): WFI12 shows a known ghost of its guide window, a box of near-zero signal at fixed columns in the window's rows moved up one row, which the L2 DQ does not flag (GW_AFFECTED_DATA covers the window's own columns only). Unmasked, its pixels enter every reference built from a WFI12 frame; it was found while tracing program 1049 alerts to their reference inputs. The box is set NaN as the DQ mask's pixels are, and no DQ bit is written: the SOC is expected to flag the ghost in a later calibration, and the overlay's box is dropped then. The measurement over 96 WFI12 files is on [datasets](datasets.md#flight-data). (Jacob Jencson, 2026-11-16)
 
@@ -206,7 +215,9 @@ longer carries the footprint. (Ben, 2026-10-22 PDT)
 **Difference outputs are trimmed** to the difference, its uncertainty,
 the mask and the catalog, gzipped as the intake's are; a variant is
 made again by a rerun, and there is no setting to keep more. A storage
-lifecycle rule was named and not taken. (Ben, 2026-10-22 PDT)
+lifecycle rule was named and not taken. (Ben, 2026-10-22 PDT) Replaced
+by {ref}`keeping dev's files <decision-difference-keeps-dev-files>`
+(Azalee Bostroem, 2026-11-17).
 
 (decision-gbtds-after-injection)=
 **GBTDS comes after injection**, not beside it; its WCS re-derivation
@@ -1228,3 +1239,6 @@ Each of rb and S/N is `""` for no such cut. A run therefore keeps fewer `sources
 
 (decision-dq-mask-base)=
 **The flight overlay sets the DQ mask with SATURATED, `[intake] dq_mask_bits = 34671619`, and the base stays `dev`'s 0**: DO_NOT_USE, SATURATED, DEAD, HOT, NONLINEAR, NO_LIN_CORR and UNRELIABLE_FLAT, commissioning PR 238's default (`dqMaskSubs.py`, 5300a6fc). Commissioning records no reason for SATURATED; the reason here is flight program 1049, where SATURATED marks 0.001% to 0.002% of each frame, real saturated cores whose fluxes are wrong ([datasets](datasets.md#flight-data)). Keeping them out of SFFT's kernel fit is inferred, not measured, and flight takes this mask together with {ref}`SFFT's kernel-fit masking <decision-sfft-kernel-masking>`, never without it: zero-filled saturated cores in an unmasked kernel fit were commissioning's job 95 failure. The base's 0 masks nothing, so a dataset whose overlay names no mask is unchanged. The simulation overlays keep what they had: HLWAS and GBTDS set `34671617`, without SATURATED, which flags every HLWAS star core above about 100 DN/s ({ref}`measurements <measurement-dq-mask>`); RimTimSim, the socsims lite files and OpenUniverse name no mask. (Azalee, 2026-11-10; the value on the flight overlay rather than the base, the rebuild-migration plan's verdict on rapid 611, Ben's go 2026-11-14 06:55 UTC)
+
+(decision-refimmeta)=
+**`refimmeta` is `dev`'s table again, one row written by each reference job**: `dev`'s 24 columns by name and type (`rapidOpsTables.sql`), keyed by `rfid`, with the reference's `job` beside them as on every product table, a child of the `refimages` set and official with its binding (`refimmeta_official`). The migration had folded it into `refimages` (`nframes`, `cov5percent`) and the manifest, with no recorded reason; the stage already measured every column but one, and the team's queries join `refimages` to `refimmeta` on `rfid` (`dev`'s `openuniv_tests.rst`), which now run unchanged. `hp6` and `hp9` are of the reference's centre, as `dev`'s registration computes them; `mjdobsmin` and `mjdobsmax` are of the coadded frames; `nsxcatsources` is the SExtractor catalog's sources. `npucatsources`, `dev`'s count of the reference's Photutils PSF catalog, is null, since the rebuild makes no such catalog, and it is the one nullable column. `nframes` and `cov5percent` stay on `refimages` as well. References published before this, and imported ones, have no row; nothing is backfilled. (Russ Laher, 2026-11-18)
