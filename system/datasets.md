@@ -5,7 +5,10 @@
 A dataset is the set of inputs whose objects are shared: flight is one
 dataset, each simulation is one, each injected variant is one, and a
 trial or a test takes a dataset name of its own (Ben, 2026-11-14 07:17
-UTC). Dataset is in every scientific key ([foundation](foundation)), so
+UTC). A dataset is registered once, as a row of the `datasets` table
+(`rapidpipe dataset create`), before its first run, and `run create`
+refuses a name the table does not hold ({ref}`ruling <decision-datasets-table>`).
+Dataset is in every scientific key ([foundation](foundation)), so
 a difference job matches the objects of every run of its dataset and
 no other's. A night of flight processing is the live run of `flight`
 admitting new files; a new run starts when the settings or the image

@@ -59,6 +59,13 @@ the one survey and dataset the run is for. There is no settings table
 and no resolution of settings at run time: a stage reads its own table
 from the run's body.
 
+The dataset is a row of `datasets`: its name and a description, registered once by `rapidpipe dataset create` before its
+first run. `runs.dataset` references it, so `run create` refuses a name
+the table does not hold (exit 64, naming the registered datasets) and a
+misspelt `--dataset` cannot found an object catalog of its own. The
+run, not the dataset, records the survey and overlay
+({ref}`ruling <decision-datasets-table>`).
+
 `run create` resolves the body from three layers, low to high. The
 shipped defaults, `rapidpipe/settings/foundation-thin.toml`, hold
 `dev`'s values and `dev`'s behaviour, with the measured value and its
@@ -571,7 +578,8 @@ and `dev`'s per-object forced-photometry store.
 
 | Verb | Does |
 |---|---|
-| `rapidpipe run create --who --why --revision [--settings FILE] [--overlay FILE] [--set TABLE.key=VALUE ...] --survey --dataset` | resolves the three layers, records a run with its body and layers, and prints its id |
+| `rapidpipe run create --who --why --revision [--settings FILE] [--overlay FILE] [--set TABLE.key=VALUE ...] --survey --dataset` | resolves the three layers, records a run with its body and layers, and prints its id; refuses a dataset `datasets` does not hold |
+| `rapidpipe dataset create --name --description`, `rapidpipe dataset list` | registers a dataset, or prints the registered datasets as JSON |
 | `rapidpipe official change --group FILE --who --why` | applies a change group from a JSON list of `close` and `open` items; refuses naming the binding |
 | `rapidpipe official undo <group> --who --why` | applies a group's inverse under the same rule |
 | `rapidpipe run show <id>`, `rapidpipe job show <id>` | print a run with its live binding and jobs, or a job with its inputs and bindings, as JSON |
