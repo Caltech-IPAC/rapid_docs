@@ -42,6 +42,9 @@ A ruling that closes one goes under Rulings and its line leaves.
 
 ## Rulings
 
+(decision-datasets-table)=
+**A dataset is a row of `datasets`, and `run create` refuses a name the table does not hold**: `datasets` holds each dataset's `name` (the dataset every scientific key carries) and a `description`, and `runs.dataset` references `datasets.name`. `rapidpipe dataset create --name --description` registers one and `rapidpipe dataset list` prints them; `run create` under a name the table does not hold exits 64, naming the registered datasets, and records nothing. Why: the dataset is the boundary within which objects are shared ({ref}`ruling <decision-objects-across-runs>`), and until now it came into being as free text at `run create`, so a misspelt `--dataset` silently founded an empty object catalog and a live binding of its own. The dataset holds no survey or overlay: a run records its own (`runs.survey`, and the overlay in `runs.layers`), since flight's runs span programs and surveys and every flight trial takes a name of its own under `flight.toml`. `schema.sql` registers `flight`; `database/2026-11-24-datasets.sql` brings SMDC to it, registering every dataset its runs name before it adds the foreign key. (Russ Laher, 2026-11-24)
+
 (decision-operators-promote)=
 **Any Operator promotes**: `release-hooks/promote <digest>`, the one step that moves `rapid-rebuild-production` ({ref}`ruling <decision-release-is-a-build>`), is run by any Operator from their own `rapid-power` session, on a build a scratch run has checked. Why: the `rapid-batch` stack's service role registers the job definition, so an administrator's session is not needed; the power-user role is allowed every call the hook makes by policy simulation, and the first promotion run that way is its proof. (Ben, 2026-11-20; rapid_systems `cloudformation/release-hooks/README.md`)
 
