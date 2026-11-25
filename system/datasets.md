@@ -302,8 +302,8 @@ all lie in the 22% of e4 that the reference does not cover. Of the
 
 **The injected HLTDS set, `flight-1062-inj1`** (planned 2026-11-25, not yet
 written): program 1062, CAR-915's High Latitude Time Domain Survey
-demonstration over the Euclid Deep Field South, R062 and H158, two epochs
-of 307 s exposures (`IM_307_16`): 2026-09-29, 140 files per filter, the
+demonstration over the Euclid Deep Field South, all six of its filters
+(R062, Z087, Y106, J129, H158, F184), two epochs of 307 s exposures (`IM_307_16`): 2026-09-29, 140 files per filter, the
 reference's, and 2026-10-11, 88, the differenced. The bound 61318.0
 (2026-10-05) falls between them, so each field's reference is built from
 the first epoch alone and never holds the frame it is differenced against.
@@ -325,14 +325,16 @@ area, about 10,600 per filter:
 | blank (no catalogued source within 3 `A_IMAGE` or 5 px; none within 40 px of one brighter than AB 18.5) | 22% | `mag_sci` AB 23 to 28 |
 | star (a variable point source on blank sky, in both epochs) | 33% | base AB 20 to 25 in its fainter epoch, the change AB 23 to 28, brightening or fading at even odds |
 
-No star is brighter than AB 20.0 in either epoch: on these frames the
-peak pixel of a real star leaves the library's peak fraction from about AB
-19.25 (R062) and 18.5 (H158), and a rendered source never saturates, so a
-brighter one would not look like the star it stands for. The 3 `A_IMAGE`
+No star is brighter than AB 20.0 in either epoch, in any filter. On these
+frames a real star's core starts to saturate (its peak pixel leaves the
+library's peak fraction, or the ingest's NaN appears beside it) at about
+AB 19.5 in R062, 19.25 to 19.5 in Z087, 19.25 in Y106 and J129 and H158,
+and 18.5 in F184; a rendered source never saturates, so a brighter one would
+not look like the star it stands for. The 3 `A_IMAGE`
 exclusion is the visible extent of each catalogued source; the drawn
 catalog's earlier 2.5 Kron radii leave a few per cent of this field free
 and pile blank sources where its catalog thins. Every epoch-2 frame holds
-230 to 530 sources (mean about 390), and every epoch-1 frame up to about
+230 to 550 sources (mean about 390) in every filter, and every epoch-1 frame up to about
 350 stars. The sources are drawn from the oversampled library
 ({ref}`decision <decision-injection-library-epsf>`).
 
@@ -340,7 +342,9 @@ The catalog's own columns (`source_type`, `change_mag`, `change_sign`,
 `star_base_mag`, the host's `host_number`, `host_ref_jid`, `host_mag`,
 `host_r50_px`, `host_offset_arcsec`, `host_offset_over_r50`) reach the
 truth and `completeness.py`'s per-row table, so its completeness splits
-by kind. Per filter, from flight's source root:
+by kind. Once per filter, each with its own catalog (`cat1062_v2_<filter>.parquet`,
+independent draws, the `src_id` prefixed by the filter's number, 62 to 184),
+from flight's source root:
 
     python scripts/inject_dataset.py --source-root s3://<inputs>/flight/ --filter H158 \
         --scas 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18 --pointings all --bound-mjd 61318.0 \
