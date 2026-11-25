@@ -300,6 +300,58 @@ all lie in the 22% of e4 that the reference does not cover. Of the
 2,000 packets, 77 are injected sources. The difference's core and ring
 (+0.0097, −0.0125) equal the uninjected run 178's (+0.0097, −0.0122).
 
+**The injected HLTDS set, `flight-1062-inj1`** (planned 2026-11-25, not yet
+written): program 1062, CAR-915's High Latitude Time Domain Survey
+demonstration over the Euclid Deep Field South, R062 and H158, two epochs
+of 307 s exposures (`IM_307_16`): 2026-09-29, 140 files per filter, the
+reference's, and 2026-10-11, 88, the differenced. The bound 61318.0
+(2026-10-05) falls between them, so each field's reference is built from
+the first epoch alone and never holds the frame it is differenced against.
+WFI05 and WFI15 have no second-epoch frame.
+
+The sources come from a catalog per filter
+({ref}`decision <decision-injection-catalog>`), drawn by
+`roman_comm/analysis/prog1062_HLTDS_inj/v2/make_catalog_v2.py` on rapid
+from the commissioning H158 reference catalogs of the 51 fields the
+program's differences touch, over the 0.37 deg² both epochs cover (each
+source at least 100 px inside a second-epoch frame, inside a first-epoch
+frame and where the reference catalogs hold sources), 450 sources per SCA
+area, about 10,600 per filter:
+
+| Kind | Share | Magnitudes |
+|---|---|---|
+| hosted (on a galaxy, AB 19 to 24, half-light radius over 2 px; offset drawn from the host's own exponential profile) | 40% | `mag_sci` AB 23 to 28 |
+| nuclear (on the host's centre) | 4.4% | `mag_sci` AB 23 to 28 |
+| blank (no catalogued source within 3 `A_IMAGE` or 5 px; none within 40 px of one brighter than AB 18.5) | 22% | `mag_sci` AB 23 to 28 |
+| star (a variable point source on blank sky, in both epochs) | 33% | base AB 20 to 25 in its fainter epoch, the change AB 23 to 28, brightening or fading at even odds |
+
+No star is brighter than AB 20.0 in either epoch: on these frames the
+peak pixel of a real star leaves the library's peak fraction from about AB
+19.25 (R062) and 18.5 (H158), and a rendered source never saturates, so a
+brighter one would not look like the star it stands for. The 3 `A_IMAGE`
+exclusion is the visible extent of each catalogued source; the drawn
+catalog's earlier 2.5 Kron radii leave a few per cent of this field free
+and pile blank sources where its catalog thins. Every epoch-2 frame holds
+230 to 530 sources (mean about 390), and every epoch-1 frame up to about
+350 stars. The sources are drawn from the oversampled library
+({ref}`decision <decision-injection-library-epsf>`).
+
+The catalog's own columns (`source_type`, `change_mag`, `change_sign`,
+`star_base_mag`, the host's `host_number`, `host_ref_jid`, `host_mag`,
+`host_r50_px`, `host_offset_arcsec`, `host_offset_over_r50`) reach the
+truth and `completeness.py`'s per-row table, so its completeness splits
+by kind. Per filter, from flight's source root:
+
+    python scripts/inject_dataset.py --source-root s3://<inputs>/flight/ --filter H158 \
+        --scas 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18 --pointings all --bound-mjd 61318.0 \
+        --dest s3://<inputs>/flight-1062-inj1/ --dataset flight-1062-inj1 \
+        --truth DIR/truth-flight-1062-inj1-H158.parquet --catalog cat1062_v2_H158.parquet \
+        --epsf-library s3://<library>/FILTER/epsf_os3_FILTER_scaSCAID.fits
+
+and the run reads `flight-1062-inj1/l2/` under `flight.toml` with the same
+bound. The uninjected program, the same selection and bound, is its
+control.
+
 ## RimTimSim, 2026-06-22
 
 TRExS's Roman time-domain image simulator: one Galactic-bulge field
