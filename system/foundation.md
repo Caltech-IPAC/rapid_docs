@@ -945,7 +945,10 @@ opens one database connection and one producer and takes its sets one
 at a time, each flushed within 120 s; a set with a failed
 acknowledgement stays unstamped and the verb exits 70 naming it, and a
 flush that does not finish in time leaves its set and every later one
-unstamped and stops the call. A crash between the last acknowledgement
+unstamped and stops the call. Each set's Avro packet file, downloaded
+from the outbox, is removed from the call's download cache once read, so a
+long-running loop's disk does not grow with the sets it sweeps; a set
+sent again is downloaded again. A crash between the last acknowledgement
 and the stamp offers the set again, so a consumer may see a packet
 twice; replay is allowed. A job killed between its database publish and
 its send, proven on a live run, is sent by the next pass. A set that
