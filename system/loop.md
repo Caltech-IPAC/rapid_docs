@@ -308,10 +308,10 @@ full. Over the HLWAS simulation that is 23,398 keys instead of 272,160.
 Its order:
 
 1. **psf**: the pass's new files are grouped by filter and SCA, and a
-   pair without both an official science and an official reference PSF
-   gets one [psf](psf) job, named by the pair's first new file, unless a
-   psf job of the run already serves it. That SCA's files are held from
-   intake until both rows are official; they still count as new, so the
+   pair without an official science PSF gets one [psf](psf) job, named
+   by the pair's first new file, unless a psf job of the run already
+   serves it. That SCA's files are held from intake until the row is
+   official; they still count as new, so the
    pass is not drained while they wait. A selection needs no PSF
    imported: its first pass derives what is missing.
 2. **intake**: one job per listed file the selection admits that no
@@ -354,6 +354,12 @@ Its order:
    at or after it.
    The difference job associates its own sources with the field's
    objects as they stand ([difference](difference), Association).
+   Under `[difference] reference_psf = "precomputed"`, and under
+   `"measured"` with a `reference_psf_set` named (its fallback), the job
+   also names the official reference PSF of the run's set for its filter
+   and SCA; with none official the pass stops and names the missing row,
+   as for a missing science PSF
+   ({ref}`ruling <decision-reference-psf-precomputed>`).
 5. **packet**: one job per official source set of the selection with
    no official packet set and no packet job of the run pending or
    failed, in any order. It names the reference, the run's

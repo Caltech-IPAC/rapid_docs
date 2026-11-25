@@ -21,21 +21,25 @@ page states the records it works within, and the
 ## Scope and inputs
 
 The scope is `{"expid", "sca", "fid"}`, the epoch's key without the
-dataset, which is the run's. The job names exactly three `input` rows,
-read in one short transaction and fetched through `prefix.get`:
+dataset, which is the run's. The job names three `input` rows, or four
+when it may read a reference PSF set, read in one short transaction and
+fetched through `prefix.get`:
 
 | Product | Which |
 |---|---|
 | `l2files` | the epoch's own row |
 | `refimages` | one reference of the scope's filter, imported or made by the [reference](reference) stage; its coverage and uncertainty maps sit beside the mosaic, and its mosaic catalog (`refimcatalogs`, `cattype` 1) gives the reference FWHM |
 | `psfs`, kind `science` | the science image's PSF for the scope's filter and SCA |
+| `psfs`, kind `reference` | under `reference_psf = "precomputed"`, or `"measured"` with a `reference_psf_set` named: the official row of the run's set for the scope's filter and SCA, key `{dataset, psf_set, fid, sca, kind}` |
 
-Any other product, a second input of one kind, a `psfs` row of another
-kind, or an input whose key is not the scope's fails the job before a
-manifest is written.
+Any other product, a second input of one kind, a `reference` row the
+settings do not call for or of another set, a missing one they do, or an
+input whose key is not the scope's fails the job before a manifest is
+written.
 
-The reference image's PSF is not an input: it is derived data, measured
-by the job ({ref}`ruling <decision-reference-psf-measured>`). Right after
+`[difference] reference_psf` chooses the reference image's PSF. Under
+`"measured"`, the base, it is derived data, measured by the job
+({ref}`ruling <decision-reference-psf-measured>`). Right after
 the resampled reference's background is subtracted, the job finds its
 stars (DAOStarFinder at 8σ on the pixels finite and covered at the
 coverage threshold; peak at least 400 times the clipped noise and at
@@ -53,9 +57,12 @@ science PSF's because the ePSF is built on 31-pixel stamps and holds
 nothing beyond 15 pixels, where the science PSF still holds 3.3% of its
 flux: given the truncated stamp, ZOGY left a ring 10 to 20 pixels out at
 every bright star (run 42, pass 4: 190 of 449 sources above S/N 20), and a
-sub-pixel resampling kernel leaves the wings unchanged. Fewer than ten stars stops the job with
-exit 65 and `refpsf: N stars, 10 needed` on the job row; there is no
-fallback. The stamp is published as `refimage_psf.fits.gz`, and the
+sub-pixel resampling kernel leaves the wings unchanged. When the run
+names a `reference_psf_set`, any measurement error, fewer than ten stars
+or another, falls back to the set's bound row, read as under
+`"precomputed"` ({ref}`ruling <decision-reference-psf-fallback>`). With no
+set named, fewer than ten stars stops the job with exit 65 and `refpsf: N
+stars, 10 needed` on the job row, and any other error fails it too. The stamp is published as `refimage_psf.fits.gz`, and the
 manifest's `metrics` hold `refpsf_sigma_px`, `refpsf_stars`,
 `sci_psf_sigma_px` and `psf_centroid_offset_x_px` and `_y_px` (the
 reference stamp's centroid minus the science stamp's). On run 17's pass 4
@@ -66,6 +73,18 @@ left 8 and 6 stars of 2,100 and 683 detections and failed every
 difference, so it is stated in units of the noise (fixes task 5, 400σ:
 45 and 19 stars on the resampled references).
 
+Under `"precomputed"` the job reads the bound row of the run's set
+({ref}`ruling <decision-reference-psf-precomputed>`): it fetches the
+row's `filename`, checks its MD5 against `checksum` and that the stamp is
+an odd square the science PSF's size, normalises it, and writes it as
+`refimage_psf.fits` with `PSFKIND`, `PSFSET` and `PSFID` saying so. A
+missing file or one that fails a check stops the job with exit 65, and so
+does a `"measured"` job's fallback that fails them, with the measurement's
+error beside its own. The manifest's `refpsf` records the mode, the set,
+the row (`psfid`, `filename`, `checksum`) and, under `"measured"` with a
+set named, `fallback` and `measure_error`. `"science"` writes the science
+PSF for both images, measuring nothing.
+
 **Quality numbers.** Beside those, the manifest's `metrics` carry the
 measurements that would have shown the null test's detections to be
 artefacts on its first run, each from arrays the job already holds and
@@ -74,8 +93,8 @@ absent, never zero, when it cannot be made: the registration offset
 PSF's stars, before the subpixel shift), the reference stars' width and
 its ratio to the science PSF's, the core (within 2.5 pixels) and ring
 (2.5 to 6) fractions of the difference over star flux at the 30 brightest
-isolated stars (under `reference_psf = "science"`, which measures no
-reference PSF, the residual, ring and registration stars are the reference
+isolated stars (when the job measures no reference PSF, under `"science"`,
+`"precomputed"` or a fallback, the residual, ring and registration stars are the reference
 mosaic's SExtractor catalog mapped onto the science grid, the registration
 stars the residual stars' rule applied to it), the noise correlation, the usable fraction (finite and
 covered pixels), the candidates before the cap and the sources after it,
@@ -202,13 +221,13 @@ and the reader that earns each:
 | `awaicgen_output_mosaic_cov_map_resampled.fits.gz` | the mask: the resampled reference coverage map the difference is masked with |
 | `zogy_diffimage_masked_psfcat[_negative].parquet`, `sfftdiffimage_masked_psfcat[_negative].parquet` | the catalogs, uncapped: SFFT's positive and negative ones are the catalogs `sources` is made from ({ref}`ruling <decision-negative-sources>`); the other two (ZOGY's two only when `run_zogy` is true) are diagnostics read by no stage; SFFT's two carry the pixel columns |
 | `sfftdiffpsf.fits.gz` | the difference's PSF, for forced photometry on the difference |
-| `refimage_psf.fits.gz` | the reference PSF the job measured and gave the differencers |
+| `refimage_psf.fits.gz` | the reference PSF the job measured, or the science PSF or the set's row it copied, and gave the differencers |
 | `bkg_subbed_science_image.fits.gz` | forced photometry on the science image, and the science cutout |
 | `awaicgen_output_mosaic_image_resampled_gainmatched.fits.gz` | the template cutout |
 
 The difference, its uncertainty, the mask and the published catalog
 are the trim's. Three of the others are what `packet` reads, the
-reference PSF is the job's own measurement, kept for whoever checks
+reference PSF is the one the differencers got, kept for whoever checks
 the subtraction (15 KB), and the three other catalogs are what a
 comparison of the differencers reads.
 
@@ -360,7 +379,8 @@ value is new with the port or departs from `dev`:
 | `[difference.xsources_database_prefilter]` | `sumrat_prefilter_threshold` 0.4, `rb_prefilter_threshold` 0.0, `snr_prefilter_threshold` 5.0 | `dev`'s `[DATABASE_PREFILTER]`, the `xsources`' cuts and the selection of the xsources the PSF fits run on; `""` is no such cut |
 | `[difference.naive_diffimage] naive_diffimage_flag` | true | the naive subtraction runs, a diagnostic; false skips its image and catalogs, as `dev`'s |
 | `[difference.fake_sources] inject_fake_sources_flag` | false | fake-source injection is not ported; true is refused |
-| `reference_psf` | `"measured"` | the reference PSF the differencers are given: `"measured"`, from the resampled reference's stars, or `"science"`, the science PSF for both images, for a field whose reference stars cannot be measured (the GBTDS bulge, [datasets](datasets)) |
+| `reference_psf` | `"measured"` | the reference PSF the differencers are given: `"measured"`, from the resampled reference's stars; `"science"`, the science PSF for both images, for a field whose reference stars cannot be measured (the GBTDS bulge, [datasets](datasets)); or `"precomputed"`, the row of the run's `reference_psf_set`, `dev`'s static reference PSF as an option (flight) ({ref}`ruling <decision-reference-psf-precomputed>`) |
+| `reference_psf_set` | `""` | the imported reference PSF set the run reads, by name; `"precomputed"` with none is refused at `run create` ({ref}`ruling <decision-precomputed-needs-set>`), and under `"measured"` a set named is the fallback ({ref}`ruling <decision-reference-psf-fallback>`) |
 | `[difference.statistics] clip_correction_seed` | 0 | seeds the clipped-statistics correction's random draw; negative is `dev`'s unseeded draw |
 
 With the seed pinned, the same inputs give the same pixels and rows,

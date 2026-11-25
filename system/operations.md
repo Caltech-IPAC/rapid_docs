@@ -229,8 +229,9 @@ takes the one current reference in the (field, filter) slot, following
 
 Later batches use a new reference promoted mid-stream. Existing
 difference images retain the earlier reference in their identity key
-until reprocessing replaces them. Where the reference PSF is resolved
-from remains open.
+until reprocessing replaces them. The reference PSF is the difference
+job's own measurement or the official row of the imported set the run
+names ({ref}`ruling <decision-reference-psf-precomputed>`).
 
 ## Staged inputs of a production run
 
@@ -271,4 +272,3 @@ bulk; scratch runs use bulk by default, prompt by request.
 - The team's choice of alert-history order for a late-arriving earlier
   epoch: observation time or arrival.
 - Team approval of `rebuild-production@1` and its `scalefacref` bound.
-- Where the reference PSF is resolved from.
