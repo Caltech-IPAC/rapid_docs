@@ -276,8 +276,11 @@ in any key: a run has one differencer, and a second differencer is
 another run. A PSF's kind is in its key, `science` or `reference`
 ({ref}`ruling <decision-psf-kind>`): the science image's PSF and the
 reference image's PSF of one filter and SCA are different products,
-which the key without the kind merged. `dev`'s `psfs` has no such
-column; this is the identity rule applied.
+which the key without the kind merged. A reference PSF belongs to an
+imported set, and its key carries the set, `{dataset, psf_set, fid, sca,
+kind}`, so several sets are official side by side in one dataset
+({ref}`ruling <decision-reference-psf-precomputed>`); a science PSF's key
+has no set. `dev`'s `psfs` has neither column; this is the identity rule applied.
 
 ### Inputs are chosen at launch and recorded
 
@@ -341,13 +344,20 @@ and returns. The publisher then, serialised on the job's row:
 2. verifies every declared file against its checksum;
 3. loads the attempt's declared rows, and writes the job's state,
    published attempt and manifest;
-4. inside a savepoint, attempts the automatic binding: if the job's run
+4. inside a savepoint, attempts the automatic binding: if the stage did
+   not refuse it, the job's run
    is live for its survey and dataset, and for each output key the open
    binding is the one the job's `expects` row named, and each expected
    product's table loaded at least one row (or the manifest's `empty_ok`
    names it: a difference's `sources`, a packet set with no triggers), it
    closes those and opens the job's; otherwise it rolls back to the
-   savepoint and records the refusal on the job;
+   savepoint and records the refusal on the job. A stage may refuse its
+   own binding with the manifest's `refused`, a reason: a reference graded
+   status 0 does, its fatal bits the reason
+   ({ref}`ruling <decision-reference-status-0>`). A stage may also leave
+   out the expected keys of a table it did not produce this attempt with
+   the manifest's `unbound`, and the rest bind: a reference whose
+   measured PSF fell back to a set writes no `psfs` rows;
 5. commits, all of the above in one short transaction, and runs
    nothing after it. Autovacuum keeps the tables' statistics: an
    `ANALYZE` holds its table's self-conflicting lock to the end of its
@@ -358,7 +368,9 @@ and returns. The publisher then, serialised on the job's row:
    statistics (publish-analyze).
 
 A refused job's rows stay published as an unbound candidate, visibly,
-and a later change group can bind them. A retry finds its job published
+and a later change group can bind them. The job counts as failed: the
+loop lists it under `failed` and does not submit its key again in the
+run. A retry finds its job published
 and stops; a retry after a failed attempt writes a new attempt, so a
 published prefix is never rewritten.
 
@@ -720,9 +732,9 @@ image. Each simplification keeps the shape of the full stage.
 |---|---|---|---|
 | `intake` | one L2 file under the run's source root, by the dataset's reader (SOC L2 or OpenUniverse ASDF, RimTimSim lite FITS); the science PSF of its filter and SCA | the gzipped 16-HDU FITS converted as `dev` converts it; `l2files`, and `exposures` when the job expects that key, with limiting magnitude, overlapping fields and sky indices computed | nothing for want of a PSF: every filter's is derived by `psf` |
 | `import` | stored products for one field: L2 files, difference images with SFFT's PSF-fit and SExtractor catalogs, PSFs, the reference and its mosaic catalog, the Gaia mirror's prefix; the cap on sources per image | copies of the image files (the mirror is named, not copied); `exposures`, `l2files`, `diffimages`, `psfs`, `refimages`, `refimcatalogs`, `catalogs`, `sources` (from both PSF-fit catalogs, the brightest N of each sign by flux over its error, every source at the shipped -1) and `xsources` (from both SExtractor catalogs, as `dev`'s loader reads them; {ref}`ruling <decision-import-both-signs>`), with limiting magnitude, overlapping fields and sky indices computed; the source system's ids kept; provenance marked unknown | other fields and epochs; recovering provenance |
-| `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science and the reference PSF, one stamp twice; two `psfs` rows | a PSF per position on the detector; a reference PSF of the coadd's own |
-| `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs` | the Photutils catalog, so the grade's bits from it and the PSF |
-| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, and the science `psfs` row; the dataset's objects and xobjects of every run in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through the run's `[difference.sources_database_prefilter]`; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources`; the RuBR-AT score of both signs' PSF-fit catalogs and the xsources ({ref}`ruling <decision-reliability-scored>`) | nothing |
+| `psf` | one L2 file's metadata and the CRDS ePSF reference it names (the dataset's overlay names it for RimTimSim; OpenUniverse's is drawn with galsim.roman) | the science PSF; one `psfs` row | a PSF per position on the detector |
+| `reference` | the field's `l2files` rows for one filter and SCA, before the run's reference bound when it has one; with `[reference.psfcat] enabled`, the `psfs` rows `[difference] reference_psf` calls for at its filter and scope SCA | the awaicgen mosaic with its coverage and uncertainty maps and SExtractor catalog; `refimages`, `refimimages` (one row per coadded L2 row) and `refimcatalogs`; with the catalog on, the Photutils PSF-fit catalog (`cattype` 2) and, under `"measured"`, the measured PSF's 18 `psfs` rows of set `refimage-<field>-<filter>`; a status 0 reference refuses its own binding | the Photutils catalog in the base settings, so there the grade's bits from it and the PSF |
+| `difference` | one epoch's `l2files` row, a `refimages` row with its mosaic catalog, the science `psfs` row and, when the run names a reference PSF set, that set's reference `psfs` row; the dataset's objects and xobjects of every run in the fields its sources fall in and their neighbours, read at execution and recorded | SFFT's gzipped positive difference image, the only one registered, its uncertainty, the mask, both differencers' uncapped catalogs (ZOGY's unless `run_zogy` is false; SFFT's with `dev`'s sumrat, nneg and nbad) and the files `packet` reads beside the image, naive run only for its outcome bits; `diffimages` and the `sources` set, mapped exactly as the import maps `dev`'s, through the run's `[difference.sources_database_prefilter]`; `xsources`, `dev`'s from both SExtractor catalogs, uncapped; `objects` founded here and this epoch's `memberships`; `xobjects` founded here and this epoch's `xmemberships`, from its `xsources`; the RuBR-AT score of both signs' PSF-fit catalogs and the xsources ({ref}`ruling <decision-reliability-scored>`) | nothing |
 | `packet` | the epoch's source set, the science PSF, the dataset's Gaia mirror, the reference and its mosaic catalog; read at execution and recorded: the triggers' xobjects and official xmembers (objects and members under `[packet] alert_catalog = "sources"`), their exposures, the window's difference and science images, the official `forced` rows and the mirror's leaves and row groups under the chip's cone | `packets/<expid>-<sca>-<fid>.avro` at schema 00.07, the `packets.parquet` index, `forced.parquet`, `external.parquet`; as its last act, the set on the Kafka topic | NED, NED-LVS and solar-system matches |
 | reader, outside the pipeline | a packet set's Avro and its official index and forced rows | a validation report | nothing |
 
@@ -748,14 +760,23 @@ the run's `[difference.sources_database_prefilter]`, and the `xsources` its
 `[difference.xsources_database_prefilter]`, as the difference job's do
 ({ref}`ruling <decision-sources-prefilter>`). A row's `filename` is the URL of the
 copy under the job's prefix; every file is reached through its row.
-A PSF's `psf` scope declares its kind; the stage reads the file's
-`PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) and fails
-before any manifest if it names the other kind. A file with no keyword
-imports under the declared kind, and the manifest says so. A PSF's SCA
-is its file's `SCA` card, else its `DETECTOR` card (`WFI08` is 8), the
-only one commissioning's `phavg` science PSFs carry; flight's science
-PSF is that library, imported one file at a time, until CRDS delivers
-flight ePSFs (Ben, 2026-11-14 06:58 UTC).
+A PSF's `psf` scope declares its kind, and the kind comes from that call
+only: one file may be imported as more than one kind, so the file's
+`PSFKIND` (`dev` writes `sciimage_psf` and `refimage_psf`) is recorded in
+the manifest as it was and never checked
+({ref}`ruling <decision-reference-psf-fallback>`). A single file's SCA is
+its `SCA` card, else its `DETECTOR` card (`WFI08` is 8), the only one
+commissioning's `phavg` science PSFs carry; flight's science PSF is that
+library, imported one file at a time, until CRDS delivers flight ePSFs
+(Ben, 2026-11-14 06:58 UTC). A reference PSF set
+is imported whole in one job, which `scripts/import_psf_set.py` plans
+from the set's directory: each file's filter, and its SCA when the name
+has one, come from its name (`refimage_psf_fid<N>[_sca<NN>].fits`), a
+per-filter file is copied once and gives 18 rows, one per SCA, and the
+job's expects are its rows one to one, so the set becomes official in one
+change group. A key already bound is skipped unless `--force`, whose
+group replaces the old bindings and which `official undo` reverts
+({ref}`ruling <decision-reference-psf-precomputed>`).
 
 ### intake
 
@@ -770,24 +791,27 @@ so a run that starts from intake owns its data from the first stage.
 
 The [psf](psf) page states `psf`: its scope (one file of the filter and
 SCA it serves), the ePSF reference fetched by the name the file
-carries, the fixed reduction to a 61-pixel stamp, the two `psfs` rows
-it declares, and the `EPSFREF` keyword the intake checks against each
+carries, the fixed reduction to a 61-pixel stamp, the science `psfs`
+row it declares, and the `EPSFREF` keyword the intake checks against each
 file's own reference. An OpenUniverse file names no ePSF reference, so
 for `[intake] reader = "openuniverse"` the stage draws the stamp with
 galsim.roman, the simulation's own model ([datasets](datasets)). A
 RimTimSim file names none either, so for `[intake] reader = "rimtimsim"`
 the stage reduces the CRDS reference the dataset's `[psf.epsf]` names
 for the filter. The loop submits one for each filter and SCA that
-lacks its PSFs, so a dataset needs no PSF imported.
+lacks its science PSF, so a dataset needs no science PSF imported; a
+reference PSF set, which a run may name, is always imported.
 
 ### reference and difference
 
 The [reference](reference) page states `reference`: its scope (field,
-filter and SCA), the `l2files` rows it coadds in `dev`'s order, the
-three tables it declares with the `rfid` it draws, and its settings.
+filter and SCA), the `l2files` rows it coadds in `dev`'s order, the PSF
+its Photutils catalog uses when the run turns the catalog on, the tables
+it declares with the `rfid` it draws, its grade, a status 0 reference
+published but not made official, and its settings.
 The [difference](difference) page states `difference`: its scope (one
-epoch's key), its four inputs (the L2 row, a reference, and one PSF of
-each kind), SFFT's positive difference image and source set with the
+epoch's key), its inputs (the L2 row, a reference, the science PSF and,
+when the run names a reference PSF set, that set's reference PSF), SFFT's positive difference image and source set with the
 `pid` it draws, the files it publishes and why each is kept, and its
 settings. Only SFFT's image is a row ({ref}`ruling <decision-sfft-only-registered>`); ZOGY's PSF-fit catalogs are
 uploaded as diagnostics, and its images and the naive files are not

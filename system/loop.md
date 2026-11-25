@@ -308,10 +308,10 @@ full. Over the HLWAS simulation that is 23,398 keys instead of 272,160.
 Its order:
 
 1. **psf**: the pass's new files are grouped by filter and SCA, and a
-   pair without both an official science and an official reference PSF
-   gets one [psf](psf) job, named by the pair's first new file, unless a
-   psf job of the run already serves it. That SCA's files are held from
-   intake until both rows are official; they still count as new, so the
+   pair without an official science PSF gets one [psf](psf) job, named
+   by the pair's first new file, unless a psf job of the run already
+   serves it. That SCA's files are held from intake until the row is
+   official; they still count as new, so the
    pass is not drained while they wait. A selection needs no PSF
    imported: its first pass derives what is missing.
 2. **intake**: one job per listed file the selection admits that no
@@ -346,6 +346,18 @@ Its order:
    fraction of pixels at `min_coverage_depth` falls below
    `min_coverage_fraction` less `coverage_estimate_tolerance` gets no job
    and is held ([The reference bound](#the-reference-bound)).
+   With `[reference.psfcat] enabled` the job also names the PSF rows its
+   catalog needs at its filter and scope SCA, as `[difference]
+   reference_psf` says: the science row under `"measured"` and
+   `"science"`, the run's set's row under `"precomputed"` and under
+   `"measured"` with a set named. A missing set row stops the pass and
+   names it, as for a difference. A missing science row gets one psf job
+   for the pair, named by one of the reference's files unless a psf job of
+   the run already serves it, and the reference waits under `held` until
+   the row is official. Under `"measured"` the job also expects the 18
+   `psfs` keys of its own set, `refimage-<field>-<filter>`, each naming
+   the binding it replaces, so its measured PSF binds with it
+   ({ref}`ruling <decision-reference-psf-stored>`).
    With a reference bound set, the rules change as described under
    [The reference bound](#the-reference-bound).
 4. **difference**: one job per official L2 row whose field has an
@@ -354,6 +366,12 @@ Its order:
    at or after it.
    The difference job associates its own sources with the field's
    objects as they stand ([difference](difference), Association).
+   Under `[difference] reference_psf = "precomputed"`, and under
+   `"measured"` with a `reference_psf_set` named (its fallback), the job
+   also names the official reference PSF of the run's set for its filter
+   and SCA; with none official the pass stops and names the missing row,
+   as for a missing science PSF
+   ({ref}`ruling <decision-reference-psf-precomputed>`).
 5. **packet**: one job per official source set of the selection with
    no official packet set and no packet job of the run pending or
    failed, in any order. It names the reference, the run's
@@ -396,7 +414,15 @@ the host or `job submit --job <id>` on Batch, and the loop then carries
 on from it. `job submit --job` marks a failed row `launched` as it
 records the new Batch id, so a loop restarted at once counts it
 pending. A failed job holds only the work that depends on it: the loop
-keeps passing until the rest of the selection drains around it. A
+keeps passing until the rest of the selection drains around it. A job
+published with its binding refused counts as failed the same way. A
+reference graded status 0 is one: its rows are published, its binding
+refused with its fatal bits as the reason, so it is listed under
+`failed`, holds its field and filter for the run, gets no difference,
+and makes the verb exit 1 once the rest drains
+({ref}`ruling <decision-reference-status-0>`). A new run plans it again
+from the frames it has then; whether it should is open
+({ref}`decision-open-questions`). A
 job whose Batch request itself raises (throttled, a queue that does not
 exist) is marked `failed` with that error in its `refusal`, never left
 `launched` with nothing on Batch, and the error ends the verb (75 when
