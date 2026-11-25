@@ -173,6 +173,20 @@ about 4 px, and passing the mask alone does not change that. A star
 whose own peak pixel is masked is still missed
 ({ref}`ruling <decision-psfcat-nan-fill>`).
 
+Under `[psf] fit_model = "oversampled"` ([psf](psf)), SFFT's PSF fits,
+its two PSF-fit catalogs and the fit at each xsource, model the source
+with the oversampled stamp kept beside the science PSF
+(`<science PSF stem>_oversampled.fits`, `OVERSAMP` 3 for commissioning's
+library) in place of the science PSF itself, as photutils' `ImagePSF`
+with that oversampling, so each source is fitted at its own sub-pixel
+phase. A missing companion rejects the job (exit 65), and the setting is
+refused with `crossconv_flag` true, where SFFT's difference PSF is no
+longer the science PSF. Every other reader of the science PSF keeps the
+phase-averaged stamp: SFFT itself and the difference PSF it publishes, the
+reference PSF under `reference_psf = "science"`, and ZOGY, whose
+catalogs keep its own difference PSF
+({ref}`ruling <decision-flight-psf-fit-oversampled>`).
+
 **`dev`'s pixel columns.** On every row of both SFFT PSF-fit catalogs,
 before the cap and whichever differencer is published, the job measures
 `dev`'s `sumrat` (`sum(p) / sum(|p|)` over a 5 x 5 stamp after a 3 x 3

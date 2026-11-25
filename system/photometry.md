@@ -12,6 +12,10 @@ with `dev`'s algorithm, and publishes the rows as its packet set's
 `forced.parquet`. The [foundation](foundation) page states the design:
 a packet job names the window's images and its predecessor packet
 sets' forced rows as inputs, and measures only what those do not hold.
+Each image's fit uses its science PSF, or under `[psf] fit_model =
+"oversampled"` the oversampled stamp kept beside it, normalised to sum
+to the square of its oversampling as photutils' `ImagePSF` expects
+({ref}`ruling <decision-flight-psf-fit-oversampled>`).
 
 `dev`'s standalone script, `pipeline/forcedPhotometryForField.py`,
 takes a field and a CSV of `reqid, ra, dec` sky positions. It has no

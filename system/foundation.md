@@ -755,7 +755,15 @@ imports under the declared kind, and the manifest says so. A PSF's SCA
 is its file's `SCA` card, else its `DETECTOR` card (`WFI08` is 8), the
 only one commissioning's `phavg` science PSFs carry; flight's science
 PSF is that library, imported one file at a time, until CRDS delivers
-flight ePSFs (Ben, 2026-11-14 06:58 UTC).
+flight ePSFs (Ben, 2026-11-14 06:58 UTC). A `psf` scope may also name
+the same filter and SCA's oversampled stamp (`"oversampled": "<path>"`,
+commissioning's `epsf_os3_<filter>_scaNN.fits`); the stage checks its
+`FILTER` and SCA against the science PSF's and that its `OVERSAMP` card
+is above 1, and copies it under the same prefix as
+`<science PSF stem>_oversampled.fits`, where the PSF fits find it under
+`[psf] fit_model = "oversampled"`. It has no row of its own; the
+manifest records its URL, checksum and oversampling
+({ref}`ruling <decision-flight-psf-fit-oversampled>`).
 
 ### intake
 
