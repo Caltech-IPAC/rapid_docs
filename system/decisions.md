@@ -206,6 +206,36 @@ which the pipeline takes in like any other. Injection inside a stage is
 kept for later, if injection becomes per run rather than per dataset.
 (Ben, 2026-10-22 PDT)
 
+(decision-injection-library-epsf)=
+**Injection may draw from commissioning's ePSF library**:
+`inject_dataset.py --epsf-library` renders each source from the library's
+oversampled stamp (`epsf_os3_<filter>_scaNN.fits`, oversampling 3) for the
+file's filter and SCA, in place of the ePSF reference the file names. On
+flight that reference is stpsf 2.0.0's pre-flight simulation, 30% to 45% too
+sharp against flight stars; the library is the one flight's science PSF
+comes from (program 1043, 2026-09-28), its oversampled stamps where the
+science PSF is the phase-averaged one. The function is `dev`'s, with
+`dev`'s optional library argument (`dev` PR 608). A missing library file is
+an error, never a fall back to CRDS, and the truth's `psf` column names the
+ePSF each source was drawn with. A run that fits the phase-averaged PSF to
+sources drawn from the oversampled one measures the fit's own PSF error, as
+it would on real stars. (Jacob, 2026-11-25)
+
+(decision-injection-catalog)=
+**An injected dataset may take its sources from a catalog, and inject the
+reference's epochs too**: `inject_dataset.py --catalog` reads a Parquet of
+sources (`src_id`, `ra`, `dec`, `mag_ref`, `mag_sci` and any columns of
+the caller's own) in place of the uniform draw. A file before the bound
+gets each source with a `mag_ref` and a file after it each source with a
+`mag_sci`, a null meaning none in that epoch: a variable star is a row with
+both, a transient a row with `mag_sci` alone and a source gone by the
+science epochs a row with `mag_ref` alone. Every injected file adds truth
+rows, the reference's epochs too, so `completeness.py`'s reference flux is
+the injected one and `mag_diff` is the change; the caller's columns are
+carried to the truth as they are, and one that names a truth column is
+refused. Without `--catalog` the script is unchanged: the drawn sources,
+after the bound only. (Jacob, 2026-11-25)
+
 (decision-producer-last)=
 **The container-side producer stays, last**: producing packets to Kafka
 from the packet stage's own Batch job is the last code milestone, and
