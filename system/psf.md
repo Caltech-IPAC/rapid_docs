@@ -109,7 +109,7 @@ reference, or a file that names none, is accepted.
 |---|---|---|
 | `[psf] crds_server` | `https://roman-crds.stsci.edu` | the CRDS server the reference is fetched from, the public server by default |
 | `[psf] size` | 61 | the stamp's side in detector pixels, the `NAXIS1` of `dev`'s copied F146 science PSF |
-| `[psf] fit_model` | `"native"` | the model the PSF fits use: `"native"`, the science PSF; `"oversampled"`, the oversampled stamp the import keeps beside it, for SFFT's PSF-fit catalogs, the xsources and the packet's forced photometry ([difference](difference), [forced photometry](photometry)); the flight overlay sets `"oversampled"` ({ref}`ruling <decision-flight-psf-fit-oversampled>`) |
+| `[psf] fit_model` | `"native"` | the model the PSF fits use: `"native"`, the science PSF; `"oversampled"`, the oversampled stamp the import keeps beside it, for SFFT's PSF-fit catalogs, the xsources and the packet's forced photometry ([difference](difference), [forced photometry](photometry)); flight's value, which `flight.toml` takes once its science PSFs are imported again with their companions ({ref}`ruling <decision-flight-psf-fit-oversampled>`) |
 | `[batch.memory_mib] psf` | 2,048 | the stage's memory ask on Batch |
 
 The focus, the spectral type, the position and the block are not
